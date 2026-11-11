@@ -83,10 +83,11 @@ export function ShopPreviewSheet({ open, onOpenChange, shop, form, imageUrl, pre
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-4 pt-4 pb-2">
+      <DialogContent className="max-w-md w-[calc(100vw-1rem)] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-4 pt-4 pb-2 pr-10">
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Eye className="w-4 h-4 text-primary" /> {t('myshop.preview.title')}
+            <Eye className="w-4 h-4 text-primary shrink-0" />
+            <span className="truncate">{t('myshop.preview.title')}</span>
           </DialogTitle>
           <p className="text-[11px] text-muted-foreground">
             {t('myshop.preview.subtitle')}
@@ -102,7 +103,7 @@ export function ShopPreviewSheet({ open, onOpenChange, shop, form, imageUrl, pre
           </div>
 
           {/* ─── Card view — uses the real ShopCard ─────────────── */}
-          <TabsContent value="card" className="px-4 pb-4 pt-3 m-0">
+          <TabsContent value="card" className="px-4 pb-4 pt-3 m-0 max-h-[75dvh] overflow-y-auto">
             <div className="bg-muted/50 rounded-2xl p-3">
               <ShopCard shop={previewShop} />
             </div>
@@ -209,22 +210,22 @@ export function ShopPreviewSheet({ open, onOpenChange, shop, form, imageUrl, pre
                 )}
 
                 {/* Action row — Call / WhatsApp / Maps */}
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-wrap gap-2 pt-1">
                   {form.phone && (
-                    <div className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold"
+                    <div className="flex-1 min-w-[90px] h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold px-2"
                          style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}>
-                      <Phone className="w-4 h-4" /> Call
+                      <Phone className="w-4 h-4 shrink-0" /> Call
                     </div>
                   )}
                   {waNumber && (
-                    <div className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-white"
+                    <div className="flex-1 min-w-[100px] h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-white px-2"
                          style={{ background: '#25D366' }}>
-                      <MessageCircle className="w-4 h-4" /> WhatsApp
+                      <MessageCircle className="w-4 h-4 shrink-0" /> WhatsApp
                     </div>
                   )}
-                  <div className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-white"
+                  <div className="flex-1 min-w-[90px] h-11 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-white px-2"
                        style={{ background: 'hsl(211 100% 45%)' }}>
-                    <Navigation className="w-4 h-4" /> Maps
+                    <Navigation className="w-4 h-4 shrink-0" /> Maps
                   </div>
                 </div>
               </div>

@@ -99,12 +99,12 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
   return (
     <div className="bg-card rounded-2xl border border-primary/30 p-4 shadow-xs space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center">
+      <div className="flex flex-wrap items-start sm:items-center justify-between gap-2 border-b border-border/60 pb-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-8 h-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center shrink-0">
             <BedDouble className="w-4 h-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-foreground">
               {locale === 'mr' ? 'पीजी रिक्त जागा व माहिती' : 'PG Vacancy & Room Rates'}
             </h3>
@@ -115,7 +115,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
         </div>
 
         <span
-          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+          className={`shrink-0 whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full ${
             availableBeds > 0
               ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
               : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
@@ -132,8 +132,8 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
       </div>
 
       {/* Vacant Bed Stepper */}
-      <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between gap-3">
-        <div>
+      <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <label className="text-xs font-bold text-foreground block">
             {locale === 'mr' ? 'सध्या रिक्त असलेले बेड' : 'Currently Available Beds'}
           </label>
@@ -142,7 +142,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => setAvailableBeds((b) => Math.max(0, b - 1))}
@@ -162,7 +162,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
       </div>
 
       {/* Gender & Total Beds */}
-      <div className="grid grid-cols-2 gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
         <div>
           <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
             {locale === 'mr' ? 'हॉस्टेल प्रकार (Gender)' : 'PG Category'}
@@ -196,7 +196,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
         <label className="text-xs font-bold text-foreground block">
           {locale === 'mr' ? 'मासिक खोली भाडे (दर / महिना)' : 'Monthly Rent Per Bed'}
         </label>
-        <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div>
             <span className="text-[10px] text-muted-foreground block mb-0.5">1-Sharing (Single)</span>
             <input
@@ -231,7 +231,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
       </div>
 
       {/* Gate time & Deposit */}
-      <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
         <div>
           <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
             🕒 {locale === 'mr' ? 'गेट बंद होण्याची वेळ' : 'Gate Closing Time'}
@@ -260,8 +260,8 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
       </div>
 
       {/* Food Included Toggle */}
-      <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border">
-        <div className="text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 p-2.5 rounded-xl bg-muted/30 border border-border">
+        <div className="text-xs min-w-0 flex-1">
           <p className="font-semibold text-foreground">
             🍲 {locale === 'mr' ? 'जेवण/मेस समाविष्ट आहे का?' : 'Food / Mess Included in Rent?'}
           </p>
@@ -272,7 +272,7 @@ export function PGVacancyManager({ shopId, shopName }: PGVacancyManagerProps) {
         <button
           type="button"
           onClick={() => setFoodIncluded(!foodIncluded)}
-          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+          className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-colors ${
             foodIncluded
               ? 'bg-emerald-600 text-white'
               : 'bg-muted text-muted-foreground border border-border'

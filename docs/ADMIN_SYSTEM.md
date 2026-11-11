@@ -6,120 +6,68 @@
 
 | Role | Source | Grants |
 |---|---|---|
-| `admin` | `claim_first_admin` RPC (bootstrap) or `user_roles` INSERT (migration seed for the seeded admin account) | Full `/admin` access across all towns; bypass shop/mess/pg owner column guard; execute all admin RPCs (`assign_shop_owner`, `revoke_shop_owner`, `approve_shop_claim`, `reject_shop_claim`, `refresh_engagement_stats`, `reorder_banners`) |
-| `shopkeeper` | granted automatically by `approve_shop_claim`; also implicitly by `assign_shop_owner` | `/my-shop` access; edit owned listings (restricted fields) |
-| `user` | implicit default | bookmark, claim, submit listing requests, submit reviews and ratings |
+| `admin` | `claim_first_admin` RPC (bootstrap) or `user_roles` seed | Full `/admin` console across all towns; bypass owner column guards on `shops` & `schools`; execute all admin RPCs (`assign_shop_owner`, `revoke_shop_owner`, `approve_shop_claim`, `reject_shop_claim`, `assign_school_owner`, `revoke_school_owner`, `approve_school_claim`, `reject_school_claim`, `get_system_health_snapshot`, `refresh_category_shop_counts`, `refresh_engagement_stats`, `reorder_banners`) |
+| `shopkeeper` | Granted via `approve_shop_claim`, `assign_shop_owner`, `approve_school_claim`, or `assign_school_owner` | `/my-shop` & `/my-institute` Owner Hubs (`Shop`, `MessOwnerHub`, `PGOwnerHub`, `SchoolOwnerHub`) with restricted field sets |
+| `user` | Default on signup | Bookmark listings, claim shops or schools, write reviews (`shop_reviews` / `school_reviews`), track own requests |
 
-Role hierarchy is enforced in code (`useAuth.tsx`: admin=3, shopkeeper=2, user=1) and in DB via `has_role` SECURITY DEFINER. `ProtectedRoute` in `App.tsx` blocks unauthorized route access.
+Role hierarchy (`admin=3`, `shopkeeper=2`, `user=1`) is enforced in `useAuth.tsx` and server-side via `has_role` / `is_admin` `SECURITY DEFINER`. `ProtectedRoute` in `src/App.tsx` gates `/admin/*`, `/my-shop`, and `/my-institute`.
 
 ## Admin Architecture & Navigation Tree
 
-The administrative console is built around a unified **Hub & Leaf** layout hierarchy managed by `AdminLayout`, `AdminSidebar`, `BranchTabs`, and defined in `src/components/admin/layout/adminNav.ts`.
-
-All admin routes are code-split via `lazyWithReload` under `/admin/*`:
+Built around a **Hub & Leaf** shell (`AdminLayout`, `AdminSidebar`, `BranchTabs`, single source of truth `src/components/admin/layout/adminNav.ts`). Every page is code-split via `lazyWithReload`:
 
 ```
 /admin
-├── overview                # AdminOverview dashboard with quick metrics & activity
-├── directory               # Directory Hub
-│   ├── shops               # DirectoryShops (ShopsTab, shop status toggles, categories)
-│   ├── mess                # DirectoryMess (Mess & Dining management, daily menu, veg/non-veg)
-│   ├── pg                  # DirectoryPG (PG & Hostels management, occupancy, amenities)
-│   ├── categories          # DirectoryCategories (category tree, icons, translations)
-│   └── inbox               # DirectoryInbox (moderation: listing requests & ownership claims)
-├── sections                # SectionsHub & SectionDetail
-│   ├── bus                 # Bus Timetable management (live)
-│   ├── schools             # Education & Institutes / Schools directory (live)
-│   ├── services            # Essential Services & Local Authorities (live)
-│   └── hospitals / banks / lostfound / news (planned / soon)
-├── marketing               # Marketing Hub
-│   └── ads                 # MarketingAds (banner CRUD across 8 placements, town geo-targeting, active toggles)
-├── insights                # Insights Hub
-│   └── analytics           # InsightsAnalytics (page views, search telemetry, popular queries)
-└── system                  # System Operations Hub
-    ├── data                # SystemData (Master ZIP export/import, CSV import/export)
-    ├── quality             # DirectoryQuality (Data health checks, storage audit, image renamer)
-    ├── marathi             # SystemMarathi (Marathi translation backfill pipeline with 50k quota & schools backfill)
-    └── mcp                 # SystemMcp (AI & tool integrations)
+├── overview                  # AdminOverview (city vs all-town KPI stats & quick actions)
+├── directory                 # Directory Hub
+│   ├── shops                 # DirectoryShops (ShopsTab, infinite query, broken-img scan, CSV export+import)
+│   ├── mess                  # DirectoryMess (MessProfile + DailyMenu editors, 21-col CSV export + MessCsvImportModal)
+│   ├── pg                    # DirectoryPG (PG vacancy editor, sharing rates, 22-col CSV export + PGCsvImportModal)
+│   ├── categories            # DirectoryCategories (CategoriesTab, merge modal, CSV export+import)
+│   └── inbox                 # DirectoryInbox (Requests / Shop & School Claims / Owners CSV export / Direct Assign)
+├── sections                  # SectionsHub & SectionDetail
+│   ├── bus                   # BusTimetableTab (routes, Parandwadi seeds, stand info, CSV export + BusBulkImportModal) — LIVE
+│   ├── schools               # SchoolsTab (45-col Education Portal CSV export + SchoolBulkImportModal + town seeds) — LIVE
+│   ├── gov                   # GovernmentServicesTab (civic depts, org contacts, outage broadcasts + AuthorityCsvImportModal) — LIVE
+│   ├── news                  # LocalNewsTab (RSS/web sources, Scrape Now, feed manager + NewsCsvImportModal) — LIVE
+│   └── hospitals / banks / lostfound (Status: 'soon' — reserved in SectionDetail)
+├── marketing                 # Marketing Hub
+│   └── ads                   # MarketingAds (8-placement banner CRUD, multi-town targeting, 14-col CTR CSV export)
+├── insights                  # Insights Hub
+│   └── analytics             # InsightsAnalytics (Shop + School engagement analytics, town filter, CSV export + AnalyticsCsvImportModal)
+└── system                    # System Operations Hub
+    ├── data                  # SystemData (20-dataset Master ZIP/CSV Backup & Restore)
+    ├── quality               # DirectoryQuality (4-tab Storage & System Health Suite; /admin/directory/quality redirects here)
+    ├── marathi               # SystemMarathi (50k/day MyMemory batch translator across Categories, Shops & Schools)
+    └── mcp                   # SystemMcp (MCP endpoint registry & secret-ref validator)
 ```
-
-## Admin Workflows
-
-See `WORKFLOWS.md` for full step-by-step:
-- **Admin Login + Dashboard** (`/admin/login` $\to$ `/admin/overview`)
-- **Admin Moderation (Requests + Claims)** (`/admin/directory/inbox`)
-- **Mess & PG Directory Management** (`/admin/directory/mess` & `/admin/directory/pg`)
-- **Education & Institutes Management** (`/admin/sections/schools`)
-- **Banner Management** (`/admin/marketing/ads`)
-- **Analytics & Insights** (`/admin/insights/analytics`)
-- **CSV Import (Shops & Categories)** (`/admin/system/data`)
-- **Category Merge & Hierarchy** (`/admin/directory/categories`)
-- **Marathi Translation Pipeline** (`/admin/system/marathi`)
-- **Data Quality & Storage Audit** (`/admin/system/quality`)
 
 ## Admin-Only Features
 
 | Feature | Where | Description |
 |---|---|---|
-| Toggle `is_active` / `is_verified` on a shop | `DirectoryShops` (`ShopsTab`) | Two-tap `ConfirmTapButton` prevents accidental status changes |
-| Edit any shop field (incl. slug, categories, coords, photos) | `ShopModal` | Full multi-field editing, location mapping, and multi-photo ordering |
-| Manage Mess & Dining profiles | `DirectoryMess` | Edit monthly rates, meal types, veg/non-veg flags, daily menus |
-| Manage PG & Hostels | `DirectoryPG` | Edit rent ranges, room types (single/double/triple), gender rules, amenities |
-| Education / School listings | `SectionDetail` (`schools`) | Manage schools, colleges, coaching centres with multi-photo support |
-| Resolve duplicate phones / missing coords / inconsistent areas | `DirectoryQuality` (`DataQualityTab`) | Automated heuristic scan detecting data defects |
-| Bulk image rename to slug-based filenames | `DirectoryQuality > Rename Shop Images` | Safe plan $\to$ apply pipeline with collision detection |
-| Bulk delete orphaned storage files | `DirectoryQuality > Storage Audit` | Scans all 4 storage buckets for unreferenced assets |
-| ZIP export/import all data | `SystemData` (`MasterExportModal` / `MasterImportModal`) | Engagement + ownership excluded from imports to prevent privilege escalation |
-| Category merge | `DirectoryCategories` (`CategoryMergeModal`) | Reassigns shops and cascades updates before removing redundant categories |
-| Banner CRUD across 8 placements | `MarketingAds` (`AdvertisementsTab` + `BannerModal`) | Multi-placement banner scheduling, click target URLs, multi-town targeting ("All Towns" or specific city), town badges, active toggles |
-| Bulk pause/resume ads | `MarketingAds` | Instant freeze or activation of marketing campaigns |
-| "Hide ads for me" preview toggle | `MarketingAds` | Per-admin preview toggle stored in `localStorage` |
-| Manual ownership assignment | `DirectoryInbox > Assign` | Uses `assign_shop_owner` RPC with role promotion |
-| Revoke ownership | `DirectoryInbox > Owners` | Uses `revoke_shop_owner` RPC and revokes `shopkeeper` privilege |
-| Approve/reject claims with admin notes | `DirectoryInbox > Claims` | Uses `approve_shop_claim` / `reject_shop_claim` RPCs |
-| Approve/reject listing requests (multi-entity) | `DirectoryInbox > Requests` | Supports `shop`, `mess`, `pg`, `school` entity types with photo arrays and metadata |
-| Refresh engagement materialized view | `refresh_engagement_stats` RPC | Admin-callable SQL RPC to recalculate engagement metrics |
-| Backfill Marathi translations | `SystemMarathi` (`MarathiBackfillModal`) | AI / dictionary backfill with 50k char/day quota, 2-stream worker throttle, warning rejection, and schools backfill |
+| Toggle `is_active` / `is_verified` | `DirectoryShops` (`ShopsTab`) | Two-tap `ConfirmTapButton` + infinite paging + village filter + CSV export/import |
+| Manage Mess & Hotels | `DirectoryMess` | Edit thali rates, mess types, daily menus; 21-col CSV export & `MessCsvImportModal` |
+| Manage PG & Hostels | `DirectoryPG` | Edit bed vacancies, gender rules, sharing rates; 22-col CSV export & `PGCsvImportModal` |
+| Education & Institutes | `SectionDetail` (`schools`) | Full 45-column `SCHOOL_CSV_EXPORT_HEADERS` export, `SchoolBulkImportModal`, official town seeds (Muktainagar / Maval), UDISE/AISHE, admissions, fees & scholarships |
+| Essential Services & Authorities | `SectionDetail` (`gov`) | Manage civic departments, helplines, emergency numbers, scheduled outages + `AuthorityCsvImportModal` |
+| Local News & RSS Scraper | `SectionDetail` (`news`) | Manage RSS/web sources (`news_sources`), trigger server/proxy scraping, pin/toggle news articles, CSV export & `NewsCsvImportModal` |
+| Bus Timetable & Stand Info | `SectionDetail` (`bus`) | Outgoing/incoming routes, depot info, Parandwadi PMPML/MSRTC seeds, CSV export & `BusBulkImportModal` |
+| **Storage & System Health Suite** | `/admin/system/quality` (`DataQualityTab`) | Four modular panels: (1) `SystemDiagnosticsPanel` (DB, `get_system_health_snapshot()` RPC, Edge Functions, MV drift, PWA cache), (2) `StorageAuditPanel` (recursive bucket audit, 8-table reference check, expired claim proof purge, unified broken-media probe, collision-safe slug image renamer), (3) `ListingHygienePanel` (Shop & School missing fields, placeholder/non-verified stats + Audit CSV export), (4) `AreaDuplicatesPanel` (city-scoped Devanagari-safe area normalization & phone/WA/name-city duplicate detection) |
+| **Master Backup & Restore** | `/admin/system/data` (`MasterExportModal` / `MasterImportModal`) | Exports & restores **20 datasets across 20 tables** in FK-safe order (`MASTER_DATASETS` + `coerceDatasetRow()`) plus organized `/images/{shops,schools,menus,banners}` ZIP archive |
+| Banner CRUD & Ads Metrics CSV | `MarketingAds` (`AdvertisementsTab` + `BannerModal`) | 8 placements, All-Towns/District/City targeting, bulk pause/resume, 14-column Banner CTR CSV export, runtime hide toggle |
+| Unified Moderation Inbox | `DirectoryInbox` (`InboxTab`) | Multi-entity Requests approval (`shop`/`mess`/`pg`/`school`), dual **Shop & School Claims** review (signed proof URLs, `approve_shop_claim` / `approve_school_claim`), Owners CSV export, Direct Assign (`assign_shop_owner` / `assign_school_owner`) |
+| Shop + School Engagement Analytics | `InsightsAnalytics` (`AnalyticsTab`) | Paginated past 1,000 rows (`fetchAllPaged`), town scope filter, Shop + School lead counters (`call`, `whatsapp`, `website`, `maps`, `prospectus`), CSV export & `AnalyticsCsvImportModal` |
+| Marathi Translation Backfill | `SystemMarathi` (`MarathiBackfillModal`) | Zero-overwrite batch backfill across Categories, Shops, and Schools (50k char/day quota, 2 concurrent workers) |
 
-## Admin Components
+## Moderation & Guardrails
 
-See `COMPONENT_CATALOG.md` § `src/components/admin/` for the complete component catalog. Headline primitives:
+### Multi-Entity Approval & Dual Ownership
+- **Requests (`RequestsTab`):** Supports `entity_type`: `'shop' | 'mess' | 'pg' | 'school'`. Approving normalizes phones, checks duplicates, migrates `photos[]` from `request-images` to `shop-images`/`school-images`, and populates target tables + metadata.
+- **Shop & School Claims (`InboxTab > PendingClaims` + `ClaimReviewModal`):** Supports both `shop_claims` and `school_claims` (UDISE+/Govt recognition/trust proof types, signed proof URLs, audit notes). Granting or revoking ownership cross-checks both `shop_owners` and `school_owners` so dual owners keep their `shopkeeper` access until all owned entities are revoked.
 
-- **Navigation & Layout:** `AdminLayout`, `AdminSidebar`, `BranchTabs`, `adminNav.ts`.
-- **Pages (14):** `Overview`, `DirectoryShops`, `DirectoryMess`, `DirectoryPG`, `DirectoryCategories`, `DirectoryInbox`, `DirectoryQuality`, `SectionsHub`, `SectionDetail`, `MarketingAds`, `InsightsAnalytics`, `SystemData`, `SystemMarathi`, `SystemMcp`.
-- **Modals (11):** `ShopModal`, `CategoryModal`, `CategoryMergeModal`, `BannerModal`, `SpeedShopModal`, `CsvImportModal`, `CategoryCsvImportModal`, `AnalyticsCsvImportModal`, `MasterExportModal`, `MasterImportModal`, `MarathiBackfillModal`.
-- **Shared admin primitives:** `ConfirmTapButton` (two-tap safety), `AdminFab` (mobile FAB), `EmptyState`, `QuickFilters`.
-
-## Moderation & Content Control
-
-### Multi-Entity Approval Gates
-- **Listing requests** must be admin-approved before becoming live rows in `shops`, `mess_profiles`, `pg_profiles`, or `schools`.
-- Supports `entity_type`: `'shop' | 'mess' | 'pg' | 'school'`.
-- Entity-specific metadata is previewed in `RequestsTab`:
-  - Mess: `meal_types`, `monthly_rate`, `pure_veg`
-  - PG: `occupancy_types`, `gender_preference`, `rent_monthly`
-  - School: `school_type`, `standards_offered`, `medium_of_instruction`
-- Multi-photo arrays (`photos: text[]`) uploaded to `request-images` bucket are migrated to `shop-images` / `school-images` upon approval.
-- Phone normalization + duplicate detection executes at approval time.
-- **Claims** must be admin-approved before user gains `shopkeeper` role. DB rate-limit trigger prevents spam.
-
-### Hard guardrails (cannot be bypassed via UI)
-- **`shops_owner_column_guard` trigger**: blocks any non-admin from changing `is_verified`, `is_active`, `slug`, `category_id` at the DB level.
-- **`trg_shop_claims_rate_limit` trigger**: admins exempt; non-admins capped at 1 pending claim per shop, 3 claims per shop per 24 h, 3 claims per user per 1 h.
-- **Anon EXECUTE revoked** on `assign_shop_owner`, `revoke_shop_owner`, `approve_shop_claim`, `reject_shop_claim`, `refresh_engagement_stats`.
-- **`profiles` SELECT** restricted to self / admin / shop-owner-context; anon reads go through `profiles_public` view (id + full_name only).
-
-### Soft guards (UI conventions)
-- **`ConfirmTapButton`**: two-tap pattern for any destructive or visibility-changing action (toggle active, delete, revoke ownership). First tap shows confirm state; second tap commits.
-- **Pre-flight checks**: deleting a category fetches linked shop names and shows them in the confirm dialog.
-- **Plan-then-apply for storage operations**: image rename builds a full plan with collision detection (`<slug>-1.webp`, `-2`, …) before any storage call.
-- **"Sponsored" labels** mandatory in banner components — removing them requires a code change.
-
-### Data import safeties
-- **Master Import** skips duplicates by default (opt-in upsert).
-- **Engagement + ownership tables NOT importable** via Master Import.
-- **CSV import preview** classifies each row as ready / warning / error / duplicate before any DB write.
-- **Marathi Backfill never overwrites** existing admin-entered translations.
-
-### Concurrency
-- All shop UPDATEs from `/my-shop` go through `updateShopWithConcurrency`: zero rows returned ⇒ conflict ⇒ optimistic state rolled back ⇒ server values shown to user.
+### Hard & Soft Guardrails
+- **DB Column Guards:** `shops_owner_column_guard` (`shops`) & `protect_school_admin_columns` (`schools`) enforce server-side immutability for moderation/geo/slug/verified-UDISE fields.
+- **Rate-Limit Triggers:** `trg_shop_claims_rate_limit`, `trg_school_claims_rate_limit`, `trg_school_reviews_rate_limit`, `shop_requests_rate_limit_check`, `shop_engagement_rate_limit_check`, `trg_school_engagement_rate_limit`.
+- **RPC Privilege Tightening:** Anon `EXECUTE` revoked on all claim/ownership/health/refresh RPCs.
+- **CSV & Storage Safety:** RFC 4180 multi-line CSV parsing (`src/lib/csvUtils.ts`), formula-injection escaping (`=`, `+`, `-`, `@`, `\t`, `\r` — never mangling negative coordinates), `>1,000`-row pagination (`fetchAllPaged`), 8-table reference verification before orphan deletion, and two-tap `ConfirmTapButton` actions.

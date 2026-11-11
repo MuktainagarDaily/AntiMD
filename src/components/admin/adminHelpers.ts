@@ -7,7 +7,8 @@ import { SHOP_IMAGE_BUCKET } from '@/lib/storageNaming';
 
 /** Extract the storage file path from a Supabase public URL.
  *  Returns null if the URL is not a recognized shop-images bucket URL. */
-export function extractStoragePath(publicUrl: string): string | null {
+export function extractStoragePath(publicUrl?: string | null): string | null {
+  if (!publicUrl) return null;
   try {
     const marker = `/object/public/${SHOP_IMAGE_BUCKET}/`;
     const idx = publicUrl.indexOf(marker);
@@ -19,16 +20,19 @@ export function extractStoragePath(publicUrl: string): string | null {
 }
 
 /** Normalize a WhatsApp number for a wa.me link (digits-only, with 91 prefix) */
-export function normalizeWhatsApp(wa: string): string {
-  let n = wa.replace(/\D/g, '');
+export function normalizeWhatsApp(wa?: string | null): string {
+  if (!wa) return '';
+  let n = String(wa).replace(/\D/g, '');
+  if (!n) return '';
   if (n.length === 10) n = '91' + n;
   if (n.startsWith('91') && n.length === 12) return n;
   return n;
 }
 
 /** Check if a phone number has at least 10 digits */
-export function isValidPhone(phone: string): boolean {
-  return phone.replace(/\D/g, '').length >= 10;
+export function isValidPhone(phone?: string | null): boolean {
+  if (!phone) return false;
+  return String(phone).replace(/\D/g, '').length >= 10;
 }
 
 // `inputCls` is exported from '@/lib/utils' so all admin + public request

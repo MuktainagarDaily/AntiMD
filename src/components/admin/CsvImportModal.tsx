@@ -1,18 +1,29 @@
-import { useState, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, X, Upload, Download, CheckCircle2, AlertTriangle, AlertCircle, SkipForward, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizePhone } from '@/lib/shopUtils';
 import { normalizeWhatsApp, isValidPhone } from './adminHelpers';
-import { parseCsv } from '@/lib/csvUtils';
+import { buildCsvString, downloadCsvText, fetchAllPaged, parseCsv } from '@/lib/csvUtils';
 import { PRESET_AMENITIES } from '@/components/shared/AmenitiesPicker';
 import { useCity } from '@/hooks/useCity';
-import { fetchVillagesForCity } from '@/lib/geo/geoService';
+import { DEFAULT_STATE, fetchAllActiveVillages } from '@/lib/geo/geoService';
 
 const MAX_AMENITY_LEN = 40;
 const MAX_AMENITIES_PER_ROW = 12;
 const PRESET_LOWER = new Set(PRESET_AMENITIES.map((a) => a.toLowerCase()));
+
+function makeUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 /** Parse + validate the amenities cell. Returns clean list and per-cell messages. */
 function validateAmenitiesCell(raw: string): { values: string[]; messages: string[]; hadError: boolean } {
@@ -32,7 +43,6 @@ function validateAmenitiesCell(raw: string): { values: string[]; messages: strin
   let droppedDupes = 0;
 
   for (const part of parts) {
-    // Strip control characters; reject if it leaves nothing usable
     const clean = part.replace(/[\x00-\x1F\x7F]/g, '').trim();
     if (!clean) { droppedInvalid++; continue; }
     if (clean.length > MAX_AMENITY_LEN) { droppedTooLong++; continue; }
@@ -60,13 +70,65 @@ function validateAmenitiesCell(raw: string): { values: string[]; messages: strin
   return { values: out, messages, hadError };
 }
 
+function parsePhotosUrls(rawPhotos: string, fallbackImageUrl: string): { photos: string[]; cover: string | null; invalidCount: number } {
+  const candidates = [
+    ...rawPhotos.split('|').map((s) => s.trim()).filter(Boolean),
+  ];
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  let invalidCount = 0;
+
+  const cleanCover = fallbackImageUrl.trim();
+  if (cleanCover) {
+    if (/^https?:\/\//i.test(cleanCover)) {
+      seen.add(cleanCover);
+      valid.push(cleanCover);
+    } else {
+      invalidCount++;
+    }
+  }
+
+  for (const u of candidates) {
+    if (!/^https?:\/\//i.test(u)) {
+      invalidCount++;
+      continue;
+    }
+    if (!seen.has(u)) {
+      seen.add(u);
+      valid.push(u);
+    }
+    if (valid.length >= 5) break;
+  }
+
+  return {
+    photos: valid,
+    cover: valid[0] || null,
+    invalidCount,
+  };
+}
+
 type ImportRowStatus = 'ready' | 'warning' | 'error' | 'duplicate';
 interface ImportRow {
-  name: string; phone: string; whatsapp: string; address: string; area: string;
-  sub_area: string; description: string; keywords: string;
-  category: string; opening_time: string; closing_time: string; latitude: string;
-  longitude: string; is_active: string; is_verified: string; is_open: string;
-  image_url: string; slug: string;
+  name: string;
+  name_mr: string;
+  phone: string;
+  whatsapp: string;
+  address: string;
+  area: string;
+  sub_area: string;
+  description: string;
+  keywords: string;
+  category: string;
+  opening_time: string;
+  closing_time: string;
+  latitude: string;
+  longitude: string;
+  is_active: string;
+  is_verified: string;
+  is_open: string;
+  image_url: string;
+  photos: string[];
+  slug: string;
   amenities: string[];
   city?: string;
   village?: string;
@@ -74,17 +136,30 @@ interface ImportRow {
   resolvedCityName: string;
   resolvedVillageId: string | null;
   resolvedVillageName: string | null;
-  status: ImportRowStatus; messages: string[]; resolvedCategoryId: string | null;
+  status: ImportRowStatus;
+  messages: string[];
+  resolvedCategoryIds: string[];
+  resolvedCategoryId: string | null;
 }
 interface ImportResult { imported: number; importedWithWarnings: number; skippedDupes: number; skippedErrors: number; failedInserts: number; }
 type ImportStep = 'upload' | 'preview' | 'result';
-const CSV_TEMPLATE_HEADERS = ['name','phone','whatsapp','address','area','sub_area','description','keywords','category','city','village','opening_time','closing_time','latitude','longitude','is_active','is_verified','is_open','amenities','image_url','slug'];
-const CSV_TEMPLATE_EXAMPLE = ['Sharma General Store','9876543210','9876543210','Near Main Chowk Station Road','Main Road','Main Bazaar','General merchandise and daily needs','grocery store daily needs','Grocery','maval','parandwadi','09:00','21:00','18.7247','73.6872','true','false','true','Parking|UPI Accepted|Home Delivery','https://example.com/shop.jpg',''];
+
+const CSV_TEMPLATE_HEADERS = [
+  'name', 'name_mr', 'phone', 'whatsapp', 'city', 'village', 'address', 'area', 'sub_area',
+  'description', 'keywords', 'category', 'opening_time', 'closing_time', 'latitude', 'longitude',
+  'is_active', 'is_verified', 'is_open', 'amenities', 'image_url', 'photos', 'slug',
+];
+const CSV_TEMPLATE_EXAMPLE = [
+  'Sharma General Store', 'शर्मा जनरल स्टोअर', '9876543210', '9876543210', 'maval', 'parandwadi',
+  'Near Main Chowk Station Road', 'Main Road', 'Main Bazaar', 'General merchandise and daily needs',
+  'grocery store daily needs', 'Grocery', '09:00', '21:00', '18.7247', '73.6872',
+  'true', 'false', 'true', 'Parking|UPI Accepted|Home Delivery',
+  'https://example.com/shop.jpg', 'https://example.com/shop.jpg', '',
+];
+
 function downloadTemplate() {
-  const rows = [CSV_TEMPLATE_HEADERS.join(','), CSV_TEMPLATE_EXAMPLE.join(',')].join('\n');
-  const blob = new Blob([rows], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'shops_import_template.csv'; a.click(); URL.revokeObjectURL(url);
+  const csv = buildCsvString(CSV_TEMPLATE_HEADERS, [CSV_TEMPLATE_EXAMPLE], true);
+  downloadCsvText('shops_import_template.csv', csv, false);
 }
 
 interface CsvImportModalProps { onClose: () => void; onDone: () => void; }
@@ -94,11 +169,15 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
   const [selectedCityId, setSelectedCityId] = useState<string>(currentCity.id);
   const [selectedVillageId, setSelectedVillageId] = useState<string>('');
 
-  const { data: cityVillages = [] } = useQuery({
-    queryKey: ['admin-csv-import-villages', selectedCityId],
-    queryFn: () => fetchVillagesForCity(selectedCityId),
-    enabled: !!selectedCityId,
+  const { data: allVillages = [] } = useQuery({
+    queryKey: ['admin-csv-import-all-villages'],
+    queryFn: () => fetchAllActiveVillages(),
   });
+
+  const cityVillages = useMemo(
+    () => allVillages.filter((v) => v.city_id === selectedCityId),
+    [allVillages, selectedCityId],
+  );
 
   const [step, setStep] = useState<ImportStep>('upload');
   const [rows, setRows] = useState<ImportRow[]>([]);
@@ -110,14 +189,28 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['admin-categories'],
-    queryFn: async () => { const { data, error } = await supabase.from('categories').select('*').order('name'); if (error) throw error; return data; },
+    queryFn: async () => {
+      const { data, error } = await supabase.from('categories').select('*').order('name');
+      if (error) throw error;
+      return data;
+    },
   });
 
   const processText = async (csvText: string) => {
     const rawRows = parseCsv(csvText);
-    if (rawRows.length === 0) { toast.error('CSV has no data rows or is malformed'); setParsing(false); return; }
-    const { data: existingShops } = await supabase.from('shops').select('phone');
-    const existingPhones = new Set((existingShops || []).map((s: any) => s.phone ? normalizePhone(s.phone) : '').filter(Boolean));
+    if (rawRows.length === 0) {
+      toast.error('CSV has no data rows or is malformed');
+      setParsing(false);
+      return;
+    }
+
+    const existingShops = await fetchAllPaged<{ phone: string | null }>((from, to) =>
+      supabase.from('shops').select('phone').range(from, to)
+    );
+    const existingPhones = new Set(
+      (existingShops || []).map((s) => (s.phone ? normalizePhone(s.phone) : '')).filter(Boolean)
+    );
+
     const catMap = new Map<string, string>();
     categories.forEach((c: any) => catMap.set(c.name.toLowerCase().trim(), c.id));
     const seenPhones = new Set<string>();
@@ -126,20 +219,32 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
     const targetVillage = cityVillages.find((v) => v.id === selectedVillageId) || null;
 
     const processed: ImportRow[] = rawRows.map((raw) => {
-      const name = (raw['name'] || '').trim(); const phone = (raw['phone'] || '').trim();
-      const whatsapp = (raw['whatsapp'] || '').trim(); const address = (raw['address'] || '').trim();
-      const area = (raw['area'] || '').trim(); const sub_area = (raw['sub_area'] || '').trim();
-      const description = (raw['description'] || '').trim(); const keywords = (raw['keywords'] || '').trim();
+      const name = (raw['name'] || '').trim();
+      const name_mr = (raw['name_mr'] || '').trim();
+      const phone = (raw['phone'] || '').trim();
+      const whatsapp = (raw['whatsapp'] || '').trim();
+      const address = (raw['address'] || '').trim();
+      const area = (raw['area'] || '').trim();
+      const sub_area = (raw['sub_area'] || '').trim();
+      const description = (raw['description'] || '').trim();
+      const keywords = (raw['keywords'] || '').trim();
       const category = (raw['category'] || '').trim();
-      const opening_time = (raw['opening_time'] || '').trim(); const closing_time = (raw['closing_time'] || '').trim();
-      const latitude = (raw['latitude'] || '').trim(); const longitude = (raw['longitude'] || '').trim();
-      const is_active = (raw['is_active'] || '').trim(); const is_verified = (raw['is_verified'] || '').trim();
+      const opening_time = (raw['opening_time'] || '').trim();
+      const closing_time = (raw['closing_time'] || '').trim();
+      const latitude = (raw['latitude'] || '').trim();
+      const longitude = (raw['longitude'] || '').trim();
+      const is_active = (raw['is_active'] || '').trim();
+      const is_verified = (raw['is_verified'] || '').trim();
       const is_open = (raw['is_open'] || '').trim();
-      const image_url = (raw['image_url'] || '').trim();
+      const image_url_raw = (raw['image_url'] || '').trim();
+      const photos_raw = (raw['photos'] || '').trim();
       const slug = (raw['slug'] || '').trim();
+
       const amenitiesRaw = (raw['amenities'] || '').trim();
       const amenitiesResult = validateAmenitiesCell(amenitiesRaw);
       const amenities = amenitiesResult.values;
+
+      const parsedPhotos = parsePhotosUrls(photos_raw, image_url_raw);
 
       const rawCity = (raw['city'] || '').trim().toLowerCase();
       const rawVillage = (raw['village'] || '').trim().toLowerCase();
@@ -152,66 +257,155 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
       const resolvedCityId = finalCity.id;
       const resolvedCityName = finalCity.name;
 
-      // Resolve Village: CSV override > Modal selected village
-      let resolvedVillageId = targetVillage?.id || null;
-      let resolvedVillageName = targetVillage?.name || null;
+      // Resolve Village scoped to `finalCity.id` (works across towns too)
+      const villagesForFinalCity = allVillages.filter((v) => v.city_id === resolvedCityId);
+      let resolvedVillageId = finalCity.id === selectedCityId ? targetVillage?.id || null : null;
+      let resolvedVillageName = finalCity.id === selectedCityId ? targetVillage?.name || null : null;
       if (rawVillage) {
-        const matchedVillage = cityVillages.find(
+        const matchedVillage = villagesForFinalCity.find(
           (v) => v.slug.toLowerCase() === rawVillage || v.name.toLowerCase() === rawVillage
         );
         if (matchedVillage) {
           resolvedVillageId = matchedVillage.id;
           resolvedVillageName = matchedVillage.name;
         } else {
+          resolvedVillageId = null;
           resolvedVillageName = rawVillage;
         }
       }
 
-      const messages: string[] = []; let status: ImportRowStatus = 'ready';
+      const messages: string[] = [];
+      let status: ImportRowStatus = 'ready';
+
       if (!name) { messages.push('Shop name is required'); status = 'error'; }
       if (!phone) { messages.push('Phone number is required'); status = 'error'; }
       else if (!isValidPhone(phone)) { messages.push('Phone must be at least 10 digits'); status = 'error'; }
-      if (latitude && (isNaN(parseFloat(latitude)) || parseFloat(latitude) < -90 || parseFloat(latitude) > 90)) { messages.push('Latitude must be between -90 and 90'); status = 'error'; }
-      if (longitude && (isNaN(parseFloat(longitude)) || parseFloat(longitude) < -180 || parseFloat(longitude) > 180)) { messages.push('Longitude must be between -180 and 180'); status = 'error'; }
-      if (image_url && !/^https?:\/\//i.test(image_url)) { messages.push('image_url must start with http:// or https://'); if (status === 'ready') status = 'warning'; }
+
+      if (latitude && (isNaN(parseFloat(latitude)) || parseFloat(latitude) < -90 || parseFloat(latitude) > 90)) {
+        messages.push('Latitude must be between -90 and 90');
+        status = 'error';
+      }
+      if (longitude && (isNaN(parseFloat(longitude)) || parseFloat(longitude) < -180 || parseFloat(longitude) > 180)) {
+        messages.push('Longitude must be between -180 and 180');
+        status = 'error';
+      }
+      if (parsedPhotos.invalidCount > 0) {
+        messages.push('Image URLs must start with http:// or https:// (invalid URL skipped)');
+        if (status === 'ready') status = 'warning';
+      }
       if (!area && !address) { messages.push('Area or address is required'); status = 'error'; }
+
       if (status !== 'error' && phone) {
         const norm = normalizePhone(phone);
-        if (existingPhones.has(norm)) { messages.push('Phone already exists in database'); status = 'duplicate'; }
-        else if (seenPhones.has(norm)) { messages.push('Duplicate phone number within this CSV'); status = 'duplicate'; }
-        else { seenPhones.add(norm); }
+        if (existingPhones.has(norm)) {
+          messages.push('Phone already exists in database');
+          status = 'duplicate';
+        } else if (seenPhones.has(norm)) {
+          messages.push('Duplicate phone number within this CSV');
+          status = 'duplicate';
+        } else {
+          seenPhones.add(norm);
+        }
       }
-      if (status !== 'error' && status !== 'duplicate' && whatsapp && !isValidPhone(whatsapp)) { messages.push('WhatsApp number appears invalid — will be skipped'); status = 'warning'; }
-      let resolvedCategoryId: string | null = null;
+
+      if (status !== 'error' && status !== 'duplicate' && whatsapp && !isValidPhone(whatsapp)) {
+        messages.push('WhatsApp number appears invalid — will be skipped');
+        status = 'warning';
+      }
+
+      if (rawVillage && !resolvedVillageId && status !== 'error' && status !== 'duplicate') {
+        messages.push(`Village "${raw['village']}" not matched in ${resolvedCityName}`);
+        status = 'warning';
+      }
+
+      // Support one or multiple categories via "|" (or legacy spaced " | ")
+      const resolvedCategoryIds: string[] = [];
+      const unmatchedCats: string[] = [];
       if (category) {
-        resolvedCategoryId = catMap.get(category.toLowerCase().trim()) ?? null;
-        if (!resolvedCategoryId && status !== 'error' && status !== 'duplicate') { messages.push(`Category "${category}" not found — will import without category`); status = 'warning'; }
+        const parts = category.split('|').map((s) => s.trim()).filter(Boolean);
+        for (const cName of parts) {
+          const id = catMap.get(cName.toLowerCase());
+          if (id) {
+            if (!resolvedCategoryIds.includes(id)) resolvedCategoryIds.push(id);
+          } else {
+            unmatchedCats.push(cName);
+          }
+        }
+        if (unmatchedCats.length > 0 && status !== 'error' && status !== 'duplicate') {
+          messages.push(`Category not found: ${unmatchedCats.join(', ')}`);
+          status = 'warning';
+        }
       }
+
       if (amenitiesResult.messages.length > 0) {
         messages.push(...amenitiesResult.messages);
-        if (status !== 'error' && status !== 'duplicate' && (amenitiesResult.hadError || amenitiesResult.values.length < (amenitiesRaw.split('|').filter((s) => s.trim()).length))) {
+        if (
+          status !== 'error' &&
+          status !== 'duplicate' &&
+          (amenitiesResult.hadError || amenitiesResult.values.length < amenitiesRaw.split('|').filter((s) => s.trim()).length)
+        ) {
           status = status === 'ready' ? 'warning' : status;
         }
       }
+
       if (status === 'ready' && messages.length === 0) messages.push('Ready to import');
+
       return {
-        name, phone, whatsapp, address, area, sub_area, description, keywords, category,
-        opening_time, closing_time, latitude, longitude, is_active, is_verified, is_open,
-        image_url, slug, amenities, city: rawCity || undefined, village: rawVillage || undefined,
-        resolvedCityId, resolvedCityName, resolvedVillageId, resolvedVillageName,
-        status, messages, resolvedCategoryId,
+        name,
+        name_mr,
+        phone,
+        whatsapp,
+        address,
+        area,
+        sub_area,
+        description,
+        keywords,
+        category,
+        opening_time,
+        closing_time,
+        latitude,
+        longitude,
+        is_active,
+        is_verified,
+        is_open,
+        image_url: parsedPhotos.cover ?? '',
+        photos: parsedPhotos.photos,
+        slug,
+        amenities,
+        city: rawCity || undefined,
+        village: rawVillage || undefined,
+        resolvedCityId,
+        resolvedCityName,
+        resolvedVillageId,
+        resolvedVillageName,
+        status,
+        messages,
+        resolvedCategoryIds,
+        resolvedCategoryId: resolvedCategoryIds[0] ?? null,
       };
     });
-    setRows(processed); setParsing(false); setStep('preview');
+
+    setRows(processed);
+    setParsing(false);
+    setStep('preview');
     if (fileRef.current) fileRef.current.value = '';
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') { toast.error('Please upload a .csv file'); return; }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
+      toast.error('Please upload a .csv file');
+      return;
+    }
     setParsing(true);
-    const csvText = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = (ev) => resolve(ev.target?.result as string); reader.onerror = reject; reader.readAsText(file, 'utf-8'); });
-    await processText(csvText);
+    try {
+      const csvText = await file.text();
+      await processText(csvText);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to read CSV file');
+      setParsing(false);
+    }
   };
 
   const importableRows = rows.filter((r) => r.status === 'ready' || r.status === 'warning');
@@ -220,28 +414,39 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
   const normalizeArea = (s: string) => s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
   const handleImport = async () => {
-    // P4 fix: batch shop inserts in chunks of 100 instead of one round-trip per row.
-    // For 200-row CSVs this drops from ~200 sequential calls to 2.
     setImporting(true);
-    let imported = 0; let importedWithWarnings = 0; let failedInserts = 0;
+    let imported = 0;
+    let importedWithWarnings = 0;
+    let failedInserts = 0;
     const failedIdx = new Set<number>();
     const idxOf = new Map<ImportRow, number>();
     rows.forEach((r, i) => idxOf.set(r, i));
     const CHUNK = 100;
 
-    type Pending = { row: ImportRow; payload: any };
+    type Pending = { row: ImportRow; shopId: string; payload: any };
     const pending: Pending[] = importableRows.map((row) => {
-      const resolvedCityId = (row.resolvedCityId && !row.resolvedCityId.startsWith('00000000-')) ? row.resolvedCityId : '644b68eb-472c-40d3-9f83-c7d26e121498';
+      const shopId = makeUuid();
+      const resolvedCityId =
+        row.resolvedCityId && !row.resolvedCityId.startsWith('00000000-')
+          ? row.resolvedCityId
+          : '644b68eb-472c-40d3-9f83-c7d26e121498';
       const rowCity = allCities.find((c) => c.id === resolvedCityId) || currentCity;
-      const resolvedVillageId = (row.resolvedVillageId && !row.resolvedVillageId.startsWith('00000000-')) ? row.resolvedVillageId : null;
-      const resolvedDistrictId = (rowCity?.district_id && !rowCity.district_id.startsWith('00000000-')) ? rowCity.district_id : null;
-      const resolvedStateId = (rowCity?.state_id && !rowCity.state_id.startsWith('00000000-')) ? rowCity.state_id : null;
+      const resolvedVillageId =
+        row.resolvedVillageId && !row.resolvedVillageId.startsWith('00000000-') ? row.resolvedVillageId : null;
+      const resolvedDistrictId =
+        rowCity?.district_id && !rowCity.district_id.startsWith('00000000-') ? rowCity.district_id : null;
+      const rawStateId = rowCity?.district?.state_id ?? (rowCity as any)?.state_id ?? DEFAULT_STATE.id;
+      const resolvedStateId = rawStateId && !String(rawStateId).startsWith('00000000-') ? rawStateId : null;
+      const normPhone = row.phone ? normalizePhone(row.phone) : null;
+
       return {
         row,
+        shopId,
         payload: {
+          id: shopId,
           name: row.name,
-          phone: row.phone || null,
-          whatsapp: row.whatsapp ? normalizeWhatsApp(row.whatsapp) : null,
+          phone: normPhone,
+          whatsapp: row.whatsapp && isValidPhone(row.whatsapp) ? normalizeWhatsApp(row.whatsapp) : null,
           address: row.address || null,
           area: row.area ? normalizeArea(row.area) : null,
           sub_area: row.sub_area || null,
@@ -254,7 +459,8 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
           is_active: row.is_active !== '' ? row.is_active.toLowerCase() === 'true' : true,
           is_verified: row.is_verified !== '' ? row.is_verified.toLowerCase() === 'true' : false,
           is_open: row.is_open !== '' ? row.is_open.toLowerCase() === 'true' : true,
-          image_url: row.image_url && /^https?:\/\//i.test(row.image_url) ? row.image_url : null,
+          image_url: row.image_url || null,
+          photos: row.photos,
           ...(row.slug ? { slug: row.slug } : {}),
           amenities: row.amenities.length > 0 ? row.amenities : [],
           city_id: resolvedCityId,
@@ -267,63 +473,73 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
 
     for (let i = 0; i < pending.length; i += CHUNK) {
       const slice = pending.slice(i, i + CHUNK);
-      const { data: insertedRows, error: chunkErr } = await supabase
-        .from('shops')
-        .insert(slice.map((p) => p.payload))
-        .select('id, name');
+      const { error: chunkErr } = await supabase.from('shops').insert(slice.map((p) => p.payload));
 
-      if (chunkErr || !insertedRows) {
-        // Whole-batch failure → fall back to per-row inserts so partial success still works.
-        for (const { row, payload } of slice) {
-          const { data: ins, error: e } = await supabase.from('shops').insert(payload).select('id').single();
-          if (e || !ins) {
+      if (chunkErr) {
+        for (const { row, shopId, payload } of slice) {
+          const { error: e } = await supabase.from('shops').insert(payload);
+          if (e) {
             failedInserts++;
-            const i = idxOf.get(row); if (i !== undefined) failedIdx.add(i);
+            const rowIndex = idxOf.get(row);
+            if (rowIndex !== undefined) failedIdx.add(rowIndex);
             continue;
           }
-          if (row.resolvedCategoryId) {
-            await supabase.from('shop_categories').insert({ shop_id: ins.id, category_id: row.resolvedCategoryId });
+          if (row.resolvedCategoryIds.length > 0) {
+            await supabase
+              .from('shop_categories')
+              .insert(row.resolvedCategoryIds.map((category_id) => ({ shop_id: shopId, category_id })));
           }
-          if (row.status === 'warning') importedWithWarnings++; else imported++;
+          if (row.name_mr) {
+            await (supabase as any)
+              .from('shop_translations')
+              .upsert({ shop_id: shopId, locale: 'mr', name: row.name_mr }, { onConflict: 'shop_id,locale' });
+          }
+          if (row.status === 'warning') importedWithWarnings++;
+          else imported++;
         }
         continue;
       }
 
-      // Map inserted IDs back to source rows by name (case-insensitive) —
-      // PG returns rows in insert order today, but relying on that is fragile.
-      // Names within a chunk are unique because pre-flight dedupe already ran.
-      const byName = new Map<string, string>();
-      for (const ins of insertedRows) {
-        if (ins?.name && ins.id) byName.set(ins.name.trim().toLowerCase(), ins.id);
-      }
       const catLinks: { shop_id: string; category_id: string }[] = [];
-      slice.forEach(({ row, payload }) => {
-        const nameKey = String((payload as any).name ?? '').trim().toLowerCase();
-        const insId = byName.get(nameKey);
-        if (!insId) {
-          failedInserts++;
-          const i = idxOf.get(row); if (i !== undefined) failedIdx.add(i);
-          return;
+      const mrTx: { shop_id: string; locale: string; name: string }[] = [];
+
+      for (const { row, shopId } of slice) {
+        for (const category_id of row.resolvedCategoryIds) {
+          catLinks.push({ shop_id: shopId, category_id });
         }
-        if (row.resolvedCategoryId) catLinks.push({ shop_id: insId, category_id: row.resolvedCategoryId });
-        if (row.status === 'warning') importedWithWarnings++; else imported++;
-      });
+        if (row.name_mr) {
+          mrTx.push({ shop_id: shopId, locale: 'mr', name: row.name_mr });
+        }
+        if (row.status === 'warning') importedWithWarnings++;
+        else imported++;
+      }
 
       if (catLinks.length > 0) {
         await supabase.from('shop_categories').insert(catLinks);
       }
+      if (mrTx.length > 0) {
+        await (supabase as any)
+          .from('shop_translations')
+          .upsert(mrTx, { onConflict: 'shop_id,locale' });
+      }
     }
 
-    setResult({ imported, importedWithWarnings, skippedDupes: dupeRows.length, skippedErrors: errorRows.length, failedInserts });
+    setResult({
+      imported,
+      importedWithWarnings,
+      skippedDupes: dupeRows.length,
+      skippedErrors: errorRows.length,
+      failedInserts,
+    });
     setFailedRowKeys(failedIdx);
-    setImporting(false); setStep('result');
+    setImporting(false);
+    setStep('result');
   };
 
   /** CSV of every row that did not import successfully, with the reason. */
   const downloadFailureReport = () => {
     const headers = ['row_number', 'status', 'name', 'phone', 'area', 'category', 'reasons'];
-    const csvEscape = (s: string) => `"${(s ?? '').replace(/"/g, '""')}"`;
-    const lines: string[] = [headers.join(',')];
+    const failureRows: string[][] = [];
     rows.forEach((r, idx) => {
       const isFailedInsert = failedRowKeys.has(idx);
       if (r.status !== 'error' && r.status !== 'duplicate' && !isFailedInsert) return;
@@ -331,17 +547,10 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
       const reasonText = (isFailedInsert ? ['Database insert failed', ...r.messages] : r.messages)
         .filter((m) => m && m !== 'Ready to import')
         .join(' | ');
-      lines.push([
-        String(idx + 1), statusLabel, r.name, r.phone, r.area || r.address, r.category, reasonText,
-      ].map(csvEscape).join(','));
+      failureRows.push([String(idx + 1), statusLabel, r.name, r.phone, r.area || r.address, r.category, reasonText]);
     });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `csv_import_failures_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const csv = buildCsvString(headers, failureRows, true);
+    downloadCsvText(`csv_import_failures_${new Date().toISOString().slice(0, 10)}.csv`, csv, false);
   };
 
   const failureCount =
@@ -355,23 +564,31 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-2"><Upload className="w-5 h-5 text-primary" /><h2 className="font-bold text-lg text-foreground">Import Shops from CSV</h2></div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-3 sm:px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl border border-border w-full max-w-3xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Upload className="w-5 h-5 text-primary shrink-0" />
+            <h2 className="font-bold text-base sm:text-lg text-foreground truncate">Import Shops from CSV</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg shrink-0"><X className="w-5 h-5" /></button>
         </div>
 
         {step === 'upload' && (
-          <div className="p-6 space-y-5">
-            {/* Target Location Card */}
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary shrink-0" />
                 <h3 className="text-sm font-semibold text-foreground">Target Location for Imported Shops</h3>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Shops in this CSV will be assigned to this City/Taluka and Village (unless the row explicitly specifies a &apos;city&apos; or &apos;village&apos; column).
+                Shops in this CSV will be assigned to this City/Taluka and Village unless the row explicitly sets a <code className="px-1 rounded bg-muted">city</code> or <code className="px-1 rounded bg-muted">village</code> column.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
@@ -412,11 +629,13 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
             <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
               <p className="text-sm font-semibold text-foreground">How to use</p>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                <li>Download the CSV template below</li><li>Fill in your shop data — one shop per row</li>
-                <li>Upload the file and review the preview</li><li>Import only valid rows</li>
+                <li>Download the CSV template below (supports Marathi <code>name_mr</code> &amp; multi-photo URLs)</li>
+                <li>Fill in your shop data — one shop per row</li>
+                <li>Upload the file and review the preview</li>
+                <li>Import only valid rows</li>
               </ol>
               <p className="text-xs text-muted-foreground pt-1">
-                <strong>Amenities:</strong> separate multiple values with a pipe <code className="px-1 py-0.5 rounded bg-muted">|</code> &nbsp;e.g. <code className="px-1 py-0.5 rounded bg-muted">Parking|AC|Wi-Fi</code>
+                <strong>Pipes:</strong> separate multiple <code className="px-1 py-0.5 rounded bg-muted">category</code>, <code className="px-1 py-0.5 rounded bg-muted">amenities</code>, or <code className="px-1 py-0.5 rounded bg-muted">photos</code> with <code className="px-1 py-0.5 rounded bg-muted">|</code>
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 items-start">
@@ -432,7 +651,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
         )}
 
         {step === 'preview' && (
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/30"><CheckCircle2 className="w-3.5 h-3.5" /> {importableRows.filter(r => r.status === 'ready').length} Ready</span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-secondary/10 text-secondary border border-secondary/30"><AlertTriangle className="w-3.5 h-3.5" /> {importableRows.filter(r => r.status === 'warning').length} Warning</span>
@@ -461,6 +680,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
                           <td className="px-3 py-2.5 text-muted-foreground">{idx + 1}</td>
                           <td className="px-3 py-2.5">
                             <div className="font-semibold text-foreground">{row.name || <span className="text-destructive italic">missing</span>}</div>
+                            {row.name_mr && <div className="text-[11px] text-muted-foreground">{row.name_mr}</div>}
                             <div className="text-xs text-muted-foreground mt-0.5">{row.messages.filter(m => m !== 'Ready to import').map((m, i) => <span key={i} className="block">{m}</span>)}</div>
                           </td>
                           <td className="px-3 py-2.5 hidden sm:table-cell">
@@ -472,7 +692,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
                           <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{row.phone || '—'}</td>
                           <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{row.area || row.address || '—'}</td>
                           <td className="px-3 py-2.5 hidden lg:table-cell">
-                            {row.resolvedCategoryId ? <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>{row.category}</span>
+                            {row.resolvedCategoryIds.length > 0 ? <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}>{row.category}</span>
                               : row.category ? <span className="text-xs text-muted-foreground italic">{row.category} (unmatched)</span>
                               : <span className="text-muted-foreground">—</span>}
                           </td>
@@ -494,7 +714,7 @@ export function CsvImportModal({ onClose, onDone }: CsvImportModalProps) {
         )}
 
         {step === 'result' && result && (
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="flex items-center gap-3"><CheckCircle2 className="w-7 h-7 text-success shrink-0" /><div><p className="font-bold text-foreground text-lg">Import complete</p><p className="text-sm text-muted-foreground">Here's a summary of what happened.</p></div></div>
             <div className="rounded-xl border border-border bg-muted/20 divide-y divide-border">
               {[

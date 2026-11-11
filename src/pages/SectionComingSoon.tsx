@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Navigate } from 'react-router-dom';
 import { PageSeo } from '@/components/seo/PageSeo';
 import { useT } from '@/i18n';
 import { useCity } from '@/hooks/useCity';
@@ -19,6 +19,11 @@ export default function SectionComingSoon() {
   const navigate = useNavigate();
   const { t } = useT();
   const { currentCity, townBrand, townName, getPageTitle } = useCity();
+
+  if (key === 'news') {
+    return <Navigate to={`/${currentCity.slug}/news`} replace />;
+  }
+
   const sectionKey: SectionKey = KNOWN[key] || 'shops';
   const labelKey = `home.sections.${sectionKey}`;
   const sectionLabel = t(labelKey);
@@ -30,13 +35,16 @@ export default function SectionComingSoon() {
         description={t('sections.comingSoon.metaDesc', { section: sectionLabel, town: townName, brand: townBrand })}
         path={`/${currentCity.slug}/sections/${key}`}
       />
-      <header className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <button
-          onClick={() => navigate(`/${currentCity.slug}`)}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
-        >
-          <ChevronLeft className="w-4 h-4" /> {t('common.back')}
-        </button>
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-3 flex items-center gap-2.5">
+          <button
+            onClick={() => navigate(`/${currentCity.slug}`)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 text-sm font-semibold transition-all shrink-0"
+          >
+            <ChevronLeft className="w-4 h-4 shrink-0" /> {t('common.back')}
+          </button>
+          <span className="text-sm sm:text-base font-bold truncate">{sectionLabel}</span>
+        </div>
       </header>
       <main className="flex-1 flex items-center justify-center px-6 py-12">
         <div className="text-center max-w-sm">

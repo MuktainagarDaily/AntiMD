@@ -20,6 +20,12 @@ import { Slider } from '@/components/ui/slider';
 import { useT } from '@/i18n';
 import { MAX_UPLOAD_BYTES } from '@/lib/images/imageService';
 
+export interface CropAspectOption {
+  key: string;
+  label: string;
+  value: number;
+}
+
 interface Props {
   onCropComplete: (blob: Blob, previewUrl: string) => void;
   onClear: () => void;
@@ -28,10 +34,11 @@ interface Props {
   maxMB?: number;
   /** Default aspect preset. Defaults to 16/9 (shop card). Pass null to start in Free mode. */
   defaultAspect?: number | null;
+  /** Optional custom aspect presets (e.g. for banner placements). */
+  aspectPresets?: CropAspectOption[];
 }
 
-type AspectKey = 'card';
-const ASPECTS: { key: AspectKey; label: string; value: number }[] = [
+const DEFAULT_ASPECTS: CropAspectOption[] = [
   { key: 'card', label: 'Shop Card (16:9)', value: 16 / 9 },
 ];
 
@@ -94,7 +101,7 @@ export function ImageCropPicker({
   // additionally clamp to the service-level cap so users see the same 15 MB
   // limit surfaced inline instead of receiving an async toast from the
   // uploader.
-  onCropComplete, onClear, previewUrl, uploading, maxMB, defaultAspect = 16 / 9,
+  onCropComplete, onClear, previewUrl, uploading, maxMB, defaultAspect = 16 / 9, aspectPresets,
 }: Props) {
   const { t } = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,11 +112,24 @@ export function ImageCropPicker({
   const HARD_CAP_MB = Math.floor(MAX_UPLOAD_BYTES / (1024 * 1024));
   const effectiveMaxMB = Math.min(maxMB ?? HARD_CAP_MB, HARD_CAP_MB);
 
-  // Aspect is locked to 16:9 to match shop card + shop detail across all devices.
-  const [aspectKey, setAspectKey] = useState<AspectKey>('card');
+  const presets = aspectPresets && aspectPresets.length > 0 ? aspectPresets : DEFAULT_ASPECTS;
+  const resolveKeyForValue = (val: number | null | undefined): string => {
+    if (!val) return presets[0].key;
+    const match = presets.find((p) => Math.abs(p.value - val) < 0.02);
+    return match ? match.key : presets[0].key;
+  };
+
+  const [aspectKey, setAspectKey] = useState<string>(() => resolveKeyForValue(defaultAspect));
+  useEffect(() => {
+    if (defaultAspect) {
+      setAspectKey(resolveKeyForValue(defaultAspect));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultAspect, presets.length]);
+
   const aspect = useMemo(
-    () => ASPECTS.find((a) => a.key === aspectKey)?.value ?? 16 / 9,
-    [aspectKey],
+    () => presets.find((a) => a.key === aspectKey)?.value ?? defaultAspect ?? 16 / 9,
+    [presets, aspectKey, defaultAspect],
   );
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -251,7 +271,12 @@ export function ImageCropPicker({
     };
     return (
       <div className="space-y-2">
-        <img src={previewUrl} alt="Shop preview" className="w-full object-cover rounded-xl border border-border" style={{ aspectRatio: '16 / 9' }} />
+        <img
+          src={previewUrl}
+          alt="Preview"
+          className="w-full max-h-64 object-cover rounded-xl border border-border"
+          style={{ aspectRatio: String(aspect) }}
+        />
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -280,10 +305,28 @@ export function ImageCropPicker({
   if (srcUrl) {
     return (
       <div className="space-y-3">
-        {/* Aspect is locked to 16:9 to match how the image renders on the shop card and shop detail page. */}
-        <p className="text-[11px] text-muted-foreground">
-          {t('imageCrop.lockedAspect')}
-        </p>
+        {presets.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {presets.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setAspectKey(p.key)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors ${
+                  aspectKey === p.key
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            {presets[0]?.key === 'card' ? t('imageCrop.lockedAspect') : `Aspect locked to ${presets[0]?.label}`}
+          </p>
+        )}
 
 
         <div className="grid gap-3 md:grid-cols-[1fr_240px]">
@@ -309,33 +352,37 @@ export function ImageCropPicker({
             </div>
 
             {/* Zoom + rotate + reset controls */}
-            <div className="flex items-center gap-2">
-              <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
-              <Slider
-                value={[zoom]}
-                min={1}
-                max={4}
-                step={0.01}
-                onValueChange={(v) => setZoom(v[0])}
-                className="flex-1"
-              />
-              <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
-              <button
-                type="button"
-                onClick={() => setRotation((r) => (r + 90) % 360)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-border hover:bg-muted transition-colors"
-                title="Rotate 90° (R)"
-              >
-                <RotateCw className="w-3.5 h-3.5" /> {t('imageCrop.rotate')}
-              </button>
-              <button
-                type="button"
-                onClick={resetTransforms}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-border hover:bg-muted transition-colors"
-                title="Reset (0)"
-              >
-                <RefreshCw className="w-3.5 h-3.5" /> {t('imageCrop.reset')}
-              </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                <ZoomOut className="w-4 h-4 text-muted-foreground shrink-0" />
+                <Slider
+                  value={[zoom]}
+                  min={1}
+                  max={4}
+                  step={0.01}
+                  onValueChange={(v) => setZoom(v[0])}
+                  className="flex-1"
+                />
+                <ZoomIn className="w-4 h-4 text-muted-foreground shrink-0" />
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-border hover:bg-muted transition-colors"
+                  title="Rotate 90° (R)"
+                >
+                  <RotateCw className="w-3.5 h-3.5" /> {t('imageCrop.rotate')}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetTransforms}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold border border-border hover:bg-muted transition-colors"
+                  title="Reset (0)"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> {t('imageCrop.reset')}
+                </button>
+              </div>
             </div>
 
             <p className="text-[11px] text-muted-foreground">

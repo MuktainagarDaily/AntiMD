@@ -812,5 +812,18 @@
   "myShop.toast.locationInvalid": "Map location is invalid.",
   "myShop.toast.categorySaveFailed": "Could not save categories",
   "trust.noMiddlemen": "Direct Call & WhatsApp — No Middlemen",
-  "trust.adminReviewed": "Admin-reviewed listings"
+  "trust.adminReviewed": "Admin-reviewed listings",
+  "news.pageTitle": "Local News",
+  "news.metaDesc": "Daily dated local news and town updates for {town}, curated from trusted news feeds.",
+  "reviews.empty.schoolBody": "Be the first student, parent, or alumni to review this institute.",
+  "reviews.schoolPlaceholder": "Share about teaching quality, campus facilities, fees, transport, or hostel…",
+  "reviews.anonymousInstitute": "{town} student / parent",
+  "myInstitute.title": "My Institute",
+  "myInstitute.portalTitle": "Partner Portal",
+  "school.claimCta": "Are you the Principal or Authorized Staff? Claim this institute",
+  "school.owned": "You manage this institute — Open Hub",
+  "school.notices.title": "Live Notice Board & Circulars",
+  "school.notices.empty": "No active notices or circulars posted yet.",
+  "school.enquiry.title": "Direct Admission Enquiry on WhatsApp",
+  "school.nearbyLiving.title": "Nearby Student Hostels, PGs & Mess"
 }

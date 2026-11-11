@@ -122,12 +122,12 @@ export function EntityTab<T>({
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl font-bold text-foreground">{headerTitle}</h2>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div className="min-w-0 flex-1 basis-[180px]">
+          <h2 className="text-lg sm:text-xl font-bold text-foreground break-words">{headerTitle}</h2>
           {subtitle && <div className="text-xs text-muted-foreground mt-0.5">{subtitle}</div>}
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap sm:justify-end">
           {toolbarExtras}
           {onAdd && (
             <button

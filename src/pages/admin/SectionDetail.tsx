@@ -3,6 +3,7 @@ import { ADMIN_NAV } from '@/components/admin/layout/adminNav';
 import { BusTimetableTab } from '@/components/admin/BusTimetableTab';
 import { SchoolsTab } from '@/components/admin/SchoolsTab';
 import { GovernmentServicesTab } from '@/components/admin/GovernmentServicesTab';
+import { LocalNewsTab } from '@/components/admin/LocalNewsTab';
 import { Construction, ArrowLeft } from 'lucide-react';
 
 /** Pluggable: register a section here to wire its admin UI. */
@@ -10,6 +11,7 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   bus: BusTimetableTab,
   schools: SchoolsTab,
   gov: GovernmentServicesTab,
+  news: LocalNewsTab,
 };
 
 export default function SectionDetail() {

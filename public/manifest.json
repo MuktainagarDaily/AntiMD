@@ -1,7 +1,7 @@
 {
-  "name": "ApnaLocal",
-  "short_name": "ApnaLocal",
-  "description": "ApnaLocal — Your town. Everything local.",
+  "name": "ApnaTown",
+  "short_name": "ApnaTown",
+  "description": "ApnaTown — Your town. Everything local.",
   "lang": "mr",
   "start_url": "/",
   "display": "standalone",

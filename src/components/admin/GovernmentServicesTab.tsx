@@ -21,10 +21,15 @@ import {
   ExternalLink,
   UserCheck,
   UserPlus,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useCity } from '@/hooks/useCity';
+import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { ConfirmTapButton } from '@/components/admin/_shared/ConfirmTapButton';
+import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
+import { AuthorityCsvImportModal } from './AuthorityCsvImportModal';
 import {
   AuthorityAnnouncement,
   AuthorityDepartment,
@@ -55,8 +60,10 @@ import { toast } from 'sonner';
 
 export function GovernmentServicesTab() {
   const { currentCity, allVillages } = useCity();
+  const { isAdmin } = useAuth();
   const { locale } = useT();
   const isMr = locale === 'mr';
+  const isDev = import.meta.env.DEV;
 
   const [activeRole, setActiveRole] = useState<DevAuthorityRole>(getDevAuthorityRole());
   const [departments, setDepartments] = useState<AuthorityDepartment[]>([]);
@@ -73,6 +80,7 @@ export function GovernmentServicesTab() {
 
   // Announcement Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showAnnImport, setShowAnnImport] = useState(false);
   const [editingAnn, setEditingAnn] = useState<Partial<AuthorityAnnouncement> | null>(null);
 
   // Announcement Form Fields
@@ -135,18 +143,22 @@ export function GovernmentServicesTab() {
     loadData();
   }, [currentCity.id]);
 
-  // Scoped department permissions based on active dev role
-  const allowedDepartments = useMemo(() => {
-    return departments.filter((d) => canManageDepartment(activeRole, d.slug));
-  }, [departments, activeRole]);
+  const canManageDept = (deptSlug?: string | null) =>
+    isDev ? canManageDepartment(activeRole, deptSlug) : isAdmin;
 
-  const canCreate = activeRole !== 'citizen';
+  // Scoped department permissions (dev simulator in DEV, real Supabase admin role in prod)
+  const allowedDepartments = useMemo(() => {
+    return departments.filter((d) => canManageDept(d.slug));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departments, activeRole, isAdmin, isDev]);
+
+  const canCreate = isDev ? activeRole !== 'citizen' : isAdmin;
 
   // Filtered announcements
   const filteredAnnouncements = useMemo(() => {
     return announcements.filter((a) => {
-      // 1. RBAC check: if not super admin and not citizen, only show own department
-      if (activeRole !== 'super_admin' && activeRole !== 'citizen') {
+      // 1. RBAC check (dev persona simulation in DEV mode only; prod admins manage all)
+      if (isDev && activeRole !== 'super_admin' && activeRole !== 'citizen') {
         const userDeptSlug = DEV_AUTHORITY_ROLES.find((r) => r.id === activeRole)?.departmentSlug;
         if (a.department?.slug !== userDeptSlug) return false;
       }
@@ -164,13 +176,13 @@ export function GovernmentServicesTab() {
 
       return true;
     });
-  }, [announcements, activeRole, selectedDeptSlug, selectedStatusTab]);
+  }, [announcements, activeRole, isDev, selectedDeptSlug, selectedStatusTab]);
 
   const handleOpenCreateModal = () => {
     // If a specific department tab is selected, prioritize it if user has access
     const tabDept = selectedDeptSlug !== 'all' ? departments.find((d) => d.slug === selectedDeptSlug) : null;
     const defaultDept =
-      (tabDept && canManageDepartment(activeRole, tabDept.slug) ? tabDept : null) ||
+      (tabDept && canManageDept(tabDept.slug) ? tabDept : null) ||
       allowedDepartments[0] ||
       departments[0];
     const now = new Date();
@@ -240,7 +252,7 @@ export function GovernmentServicesTab() {
         status: formData.status,
         start_time: toSafeIso(formData.start_time),
         end_time: toSafeIso(formData.end_time),
-        is_demo: true,
+        is_demo: false,
         locations: [
           {
             city_id: currentCity.id,
@@ -278,6 +290,79 @@ export function GovernmentServicesTab() {
     } catch {
       toast.error('Failed to update status');
     }
+  };
+
+  const handleExportAnnouncementsCsv = () => {
+    if (filteredAnnouncements.length === 0) {
+      toast.info('No announcements in this view to export');
+      return;
+    }
+    const headers = [
+      'Department',
+      'Title',
+      'Title (Marathi)',
+      'Description',
+      'Description (Marathi)',
+      'Category',
+      'Priority',
+      'Status',
+      'Start Time',
+      'End Time',
+      'Affected Areas',
+      'Published At',
+    ];
+    const csvRows = filteredAnnouncements.map((ann) => [
+      ann.department?.slug || ann.department?.name || ann.department_id,
+      ann.title,
+      ann.title_mr || '',
+      ann.description || '',
+      ann.description_mr || '',
+      ann.category,
+      ann.priority,
+      ann.status,
+      ann.start_time || '',
+      ann.end_time || '',
+      (ann.locations || []).map((l) => l.area_text).filter(Boolean).join(' | '),
+      ann.published_at || '',
+    ]);
+    downloadCsv(townCsvFilename(currentCity.slug, 'civic-announcements'), headers, csvRows);
+    toast.success(`Exported ${csvRows.length} announcement${csvRows.length === 1 ? '' : 's'} to CSV`);
+  };
+
+  const handleExportRosterCsv = () => {
+    if (organizations.length === 0) {
+      toast.info('No department contacts to export');
+      return;
+    }
+    const headers = [
+      'Organization',
+      'Organization (Marathi)',
+      'Address',
+      'Visiting Hours',
+      'Primary Helpline',
+      'Emergency Line',
+      'WhatsApp Desk',
+      'Email',
+      'Maps URL',
+      'Key Officers',
+    ];
+    const csvRows = organizations.map((org) => [
+      org.name,
+      org.name_mr || '',
+      org.office_address || '',
+      org.visiting_hours || '',
+      org.helpline_phone || '',
+      org.emergency_phone || '',
+      org.whatsapp_number || '',
+      org.email || '',
+      org.maps_url || '',
+      (org.key_contacts || [])
+        .map((c) => `${c.role ? c.role + ': ' : ''}${c.name}${c.phone ? ` (${c.phone})` : ''}`.trim())
+        .filter(Boolean)
+        .join(' | '),
+    ]);
+    downloadCsv(townCsvFilename(currentCity.slug, 'department-contacts'), headers, csvRows);
+    toast.success(`Exported ${csvRows.length} department contact${csvRows.length === 1 ? '' : 's'} to CSV`);
   };
 
   // Organization Contact Handlers
@@ -361,68 +446,70 @@ export function GovernmentServicesTab() {
 
   return (
     <div className="space-y-5">
-      {/* 1. Dev Role Switcher Banner */}
-      <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-secondary/10 p-4 shadow-2xs">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
-              <Users className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dev RBAC Switcher</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                  Local 1-Tap Simulation
-                </span>
+      {/* 1. Dev Role Switcher Banner (DEV mode only — never shipped to prod) */}
+      {isDev && (
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-secondary/10 p-4 shadow-2xs">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Testing multi-tenant authority permissions. Click a persona to simulate its exact grant scope:
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dev RBAC Switcher</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                    Local 1-Tap Simulation
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Testing multi-tenant authority permissions. Click a persona to simulate its exact grant scope:
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Persona Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-            {DEV_AUTHORITY_ROLES.map((role) => {
-              const isSelected = activeRole === role.id;
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => {
-                    setActiveRole(role.id);
-                    setDevAuthorityRole(role.id);
-                    toast.info(`Switched role to: ${role.label}`);
-                  }}
-                  className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-all active:scale-95 flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                      : 'bg-card text-foreground hover:bg-muted border-border'
-                  }`}
-                  title={role.description}
-                >
-                  {role.id === 'water_admin' && <Droplets className="w-3 h-3 text-blue-400" />}
-                  {role.id === 'electricity_admin' && <Zap className="w-3 h-3 text-amber-400" />}
-                  {role.id === 'municipal_admin' && <Building2 className="w-3 h-3 text-emerald-400" />}
-                  <span>{role.label}</span>
-                  {isSelected && <Check className="w-3 h-3" />}
-                </button>
-              );
-            })}
+            {/* Persona Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+              {DEV_AUTHORITY_ROLES.map((role) => {
+                const isSelected = activeRole === role.id;
+                return (
+                  <button
+                    key={role.id}
+                    onClick={() => {
+                      setActiveRole(role.id);
+                      setDevAuthorityRole(role.id);
+                      toast.info(`Switched role to: ${role.label}`);
+                    }}
+                    className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-all active:scale-95 flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                        : 'bg-card text-foreground hover:bg-muted border-border'
+                    }`}
+                    title={role.description}
+                  >
+                    {role.id === 'water_admin' && <Droplets className="w-3 h-3 text-blue-400" />}
+                    {role.id === 'electricity_admin' && <Zap className="w-3 h-3 text-amber-400" />}
+                    {role.id === 'municipal_admin' && <Building2 className="w-3 h-3 text-emerald-400" />}
+                    <span>{role.label}</span>
+                    {isSelected && <Check className="w-3 h-3" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 2. Sub-Tab Switcher: Announcements vs Contacts */}
-      <div className="flex items-center gap-2 border-b border-border pb-1">
+      <div className="flex items-center gap-2 border-b border-border pb-1 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setAdminSubTab('announcements')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-all ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-all ${
             adminSubTab === 'announcements'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <AlertTriangle className="w-4 h-4" />
+          <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>Announcements & Outages</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted font-semibold">
             {announcements.length}
@@ -431,13 +518,13 @@ export function GovernmentServicesTab() {
 
         <button
           onClick={() => setAdminSubTab('contacts')}
-          className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-all ${
+          className={`shrink-0 whitespace-nowrap flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold border-b-2 transition-all ${
             adminSubTab === 'contacts'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          <Phone className="w-4 h-4" />
+          <Phone className="w-4 h-4 shrink-0" />
           <span>Department Contacts & Helplines</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted font-semibold">
             {organizations.length}
@@ -453,7 +540,7 @@ export function GovernmentServicesTab() {
           {/* Header & Action Row */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
             <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <h2 className="text-lg font-bold text-foreground flex flex-wrap items-center gap-2">
                 <span>Civic Outages & Broadcasts</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   {currentCity.name}
@@ -464,19 +551,40 @@ export function GovernmentServicesTab() {
               </p>
             </div>
 
-            {canCreate ? (
+            <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={handleOpenCreateModal}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 transition-all active:scale-95 shrink-0"
+                type="button"
+                onClick={handleExportAnnouncementsCsv}
+                disabled={filteredAnnouncements.length === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors disabled:opacity-50"
               >
-                <Plus className="w-4 h-4" />
-                <span>Post New Announcement</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
               </button>
-            ) : (
-              <div className="text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border">
-                Citizen Mode: Read Only
-              </div>
-            )}
+              {canCreate ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowAnnImport(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors"
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Import CSV</span>
+                  </button>
+                  <button
+                    onClick={handleOpenCreateModal}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 transition-all active:scale-95 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Post New Announcement</span>
+                  </button>
+                </>
+              ) : (
+                <div className="text-xs px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border">
+                  Citizen Mode: Read Only
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Department Tabs & Status Sub-Filter */}
@@ -494,7 +602,7 @@ export function GovernmentServicesTab() {
                 All Departments
               </button>
               {departments.map((dept) => {
-                const hasAccess = canManageDepartment(activeRole, dept.slug);
+                const hasAccess = canManageDept(dept.slug);
                 const isSelected = selectedDeptSlug === dept.slug;
                 return (
                   <button
@@ -504,24 +612,24 @@ export function GovernmentServicesTab() {
                       isSelected
                         ? 'bg-foreground text-background font-bold'
                         : 'bg-muted/70 hover:bg-muted text-muted-foreground'
-                    } ${!hasAccess && activeRole !== 'citizen' ? 'opacity-50' : ''}`}
-                    title={!hasAccess && activeRole !== 'citizen' ? 'No admin grant for this department' : undefined}
+                    } ${!hasAccess && canCreate ? 'opacity-50' : ''}`}
+                    title={!hasAccess && canCreate ? 'No admin grant for this department' : undefined}
                   >
                     {getDeptIcon(dept.slug)}
                     <span>{isMr ? dept.name_mr : dept.name}</span>
-                    {!hasAccess && activeRole !== 'citizen' && <span className="text-[10px]">🔒</span>}
+                    {!hasAccess && canCreate && <span className="text-[10px]">🔒</span>}
                   </button>
                 );
               })}
             </div>
 
             {/* Status Tabs */}
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-1 bg-muted/60 p-1 rounded-xl self-start sm:self-auto max-w-full">
               {(['active', 'scheduled', 'completed', 'draft'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setSelectedStatusTab(tab)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all ${
+                  className={`px-2.5 sm:px-3 py-1 rounded-lg text-xs font-semibold capitalize whitespace-nowrap transition-all ${
                     selectedStatusTab === tab
                       ? 'bg-card text-foreground shadow-2xs font-bold'
                       : 'text-muted-foreground hover:text-foreground'
@@ -550,7 +658,7 @@ export function GovernmentServicesTab() {
           ) : (
             <div className="space-y-3">
               {filteredAnnouncements.map((ann) => {
-                const hasEditGrant = canManageDepartment(activeRole, ann.department?.slug);
+                const hasEditGrant = canManageDept(ann.department?.slug);
                 const isActive = ann.status === 'active';
 
                 return (
@@ -681,7 +789,7 @@ export function GovernmentServicesTab() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
             <div>
-              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+              <h2 className="text-lg font-bold text-foreground flex flex-wrap items-center gap-2">
                 <span>Department Helplines, Addresses & Key Roster</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   {currentCity.name}
@@ -691,11 +799,20 @@ export function GovernmentServicesTab() {
                 Manage 24x7 control room numbers, WhatsApp desks, office visiting hours, and on-duty engineers.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleExportRosterCsv}
+              disabled={organizations.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors disabled:opacity-50 shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Roster CSV</span>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 gap-4">
             {organizations.map((org) => {
-              const hasOrgAccess = canManageOrganization(activeRole, org, departments);
+              const hasOrgAccess = isDev ? canManageOrganization(activeRole, org, departments) : isAdmin;
               const orgDeptSlug = departments.find((d) => org.department_ids?.includes(d.id))?.slug;
 
               return (
@@ -721,9 +838,9 @@ export function GovernmentServicesTab() {
                         </div>
 
                         {org.office_address && (
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground mt-1">
                             <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                            <span>{org.office_address}</span>
+                            <span className="break-words">{org.office_address}</span>
                             {org.maps_url && (
                               <a
                                 href={org.maps_url}
@@ -810,9 +927,9 @@ export function GovernmentServicesTab() {
                         {org.key_contacts.map((officer, idx) => (
                           <div
                             key={officer.id || idx}
-                            className="flex items-center justify-between p-2.5 rounded-xl border bg-muted/30 text-xs"
+                            className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl border bg-muted/30 text-xs"
                           >
-                            <div>
+                            <div className="min-w-0">
                               <p className="font-bold text-foreground">{officer.name}</p>
                               <p className="text-[11px] text-muted-foreground">{officer.role}</p>
                             </div>
@@ -845,21 +962,28 @@ export function GovernmentServicesTab() {
           ANNOUNCEMENT MODAL
           ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
-          <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40">
-              <h3 className="font-bold text-base text-foreground">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div
+            className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 border-b border-border bg-muted/40">
+              <h3 className="font-bold text-base text-foreground min-w-0 truncate">
                 {editingAnn ? 'Edit Authority Announcement' : 'Post Authority Announcement'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAnnouncement} className="p-5 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSaveAnnouncement} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-200">
                 <strong>[DEMO SIMULATION]:</strong> All notices created here will carry the prominent demonstration badge to ensure zero confusion with real civic bodies.
               </div>
@@ -930,7 +1054,7 @@ export function GovernmentServicesTab() {
               </div>
 
               {/* Priority, Category & Status */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">Priority</label>
                   <select
@@ -974,7 +1098,7 @@ export function GovernmentServicesTab() {
               </div>
 
               {/* Window */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">Start Time</label>
                   <input
@@ -998,7 +1122,7 @@ export function GovernmentServicesTab() {
               {/* Affected Location Target */}
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-foreground">Target Geographic Area</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <select
                     value={formData.selectedVillageId}
                     onChange={(e) => setFormData({ ...formData, selectedVillageId: e.target.value })}
@@ -1046,24 +1170,31 @@ export function GovernmentServicesTab() {
           ORGANIZATION CONTACTS & ROSTER MODAL
           ========================================================================= */}
       {isContactModalOpen && editingOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs">
-          <div className="bg-card w-full max-w-xl rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40">
-              <div>
-                <h3 className="font-bold text-base text-foreground">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs"
+          onClick={() => setIsContactModalOpen(false)}
+        >
+          <div
+            className="bg-card w-full max-w-xl rounded-2xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-3.5 border-b border-border bg-muted/40">
+              <div className="min-w-0">
+                <h3 className="font-bold text-base text-foreground truncate">
                   Edit Department Contacts & Officer Roster
                 </h3>
-                <p className="text-xs text-muted-foreground">{editingOrg.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{editingOrg.name}</p>
               </div>
               <button
                 onClick={() => setIsContactModalOpen(false)}
-                className="p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                aria-label="Close"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveContact} className="p-5 space-y-4 overflow-y-auto">
+            <form onSubmit={handleSaveContact} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
               {/* Helplines */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1165,8 +1296,8 @@ export function GovernmentServicesTab() {
 
               {/* Dynamic Key Officer Roster */}
               <div className="space-y-2 pt-2 border-t">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <label className="block text-xs font-bold text-foreground">
                       On-Duty Officers & Engineers Roster
                     </label>
@@ -1177,7 +1308,7 @@ export function GovernmentServicesTab() {
                   <button
                     type="button"
                     onClick={handleAddOfficer}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border"
+                    className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 text-foreground border"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Add Officer</span>
@@ -1193,33 +1324,33 @@ export function GovernmentServicesTab() {
                     {contactFormData.key_contacts.map((officer, idx) => (
                       <div
                         key={officer.id || idx}
-                        className="flex items-center gap-2 p-2.5 rounded-xl border bg-muted/40"
+                        className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] items-center gap-2 p-2.5 rounded-xl border bg-muted/40"
                       >
                         <input
                           type="text"
                           value={officer.role}
                           onChange={(e) => handleOfficerChange(idx, 'role', e.target.value)}
                           placeholder="Designation e.g. Section Engineer"
-                          className="w-1/3 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
+                          className="w-full min-w-0 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
                         />
                         <input
                           type="text"
                           value={officer.name}
                           onChange={(e) => handleOfficerChange(idx, 'name', e.target.value)}
                           placeholder="Officer Name"
-                          className="w-1/3 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
+                          className="w-full min-w-0 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
                         />
                         <input
                           type="text"
                           value={officer.phone}
                           onChange={(e) => handleOfficerChange(idx, 'phone', e.target.value)}
                           placeholder="Mobile Number"
-                          className="w-1/3 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
+                          className="w-full min-w-0 text-xs rounded-lg border border-border bg-background px-2.5 py-1.5"
                         />
                         <button
                           type="button"
                           onClick={() => handleRemoveOfficer(idx)}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                          className="justify-self-end sm:justify-self-auto p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                           title="Remove officer"
                         >
                           <X className="w-4 h-4" />
@@ -1249,6 +1380,19 @@ export function GovernmentServicesTab() {
             </form>
           </div>
         </div>
+      )}
+
+      {showAnnImport && (
+        <AuthorityCsvImportModal
+          cityId={currentCity.id}
+          cityName={currentCity.name}
+          departments={departments}
+          onClose={() => setShowAnnImport(false)}
+          onDone={() => {
+            setShowAnnImport(false);
+            void loadData();
+          }}
+        />
       )}
     </div>
   );

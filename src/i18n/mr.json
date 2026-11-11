@@ -812,5 +812,18 @@
   "myShop.toast.locationInvalid": "नकाशावरील स्थान अवैध आहे.",
   "myShop.toast.categorySaveFailed": "श्रेणी जतन करता आल्या नाहीत",
   "trust.noMiddlemen": "थेट कॉल व व्हॉट्सॲप — कोणतेही मध्यस्थ नाहीत",
-  "trust.adminReviewed": "पडताळणी झालेले व्यवसाय"
+  "trust.adminReviewed": "पडताळणी झालेले व्यवसाय",
+  "news.pageTitle": "स्थानिक बातम्या",
+  "news.metaDesc": "{town} मधील आजच्या ताज्या स्थानिक बातम्या, अचूक तारीख व विश्वसनीय स्रोतांसह.",
+  "reviews.empty.schoolBody": "या शिक्षण संस्थेबद्दल पहिले पुनरावलोकन लिहिणारे विद्यार्थी किंवा पालक बना.",
+  "reviews.schoolPlaceholder": "शिक्षणाचा दर्जा, सुविधा, शुल्क, बस वाहतूक किंवा वसतिगृहाबद्दल तुमचा अनुभव लिहा…",
+  "reviews.anonymousInstitute": "{town} विद्यार्थी / पालक",
+  "myInstitute.title": "माझी शिक्षण संस्था",
+  "myInstitute.portalTitle": "पार्टनर पोर्टल",
+  "school.claimCta": "तुम्ही प्राचार्य किंवा अधिकृत कर्मचारी आहात का? संस्थेवर दावा करा",
+  "school.owned": "तुम्ही ही संस्था व्यवस्थापित करता — हब उघडा",
+  "school.notices.title": "ताज्या सूचना व परिपत्रके",
+  "school.notices.empty": "सध्या कोणतीही सूचना प्रसिद्ध केलेली नाही.",
+  "school.enquiry.title": "व्हॉट्सॲपवर थेट प्रवेश चौकशी",
+  "school.nearbyLiving.title": "जवळपासचे विद्यार्थी वसतिगृह, पीजी व मेस"
 }

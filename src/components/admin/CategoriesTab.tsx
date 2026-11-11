@@ -107,20 +107,28 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
         toolbarExtras={
           <>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const headers = ['Name', 'Icon', 'Active'];
-                const rows = (qc.getQueryData(['admin-categories']) as CategoryRow[] | undefined ?? [])
-                  .map((c) => [c.name, c.icon, c.is_active ? 'Yes' : 'No']);
-                downloadCsv('muktainagar-categories', headers, rows);
+                let list = qc.getQueryData(['admin-categories']) as CategoryRow[] | undefined;
+                if (!list || list.length === 0) {
+                  const { data, error } = await supabase.from('categories').select('*').order('name');
+                  if (error) {
+                    toast.error('Failed to fetch categories for export');
+                    return;
+                  }
+                  list = (data ?? []) as CategoryRow[];
+                }
+                const rows = list.map((c) => [c.name, c.icon, c.is_active ? 'Yes' : 'No']);
+                downloadCsv('apnatown-categories', headers, rows);
               }}
-              className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+              className="flex items-center gap-2 bg-card border border-border text-foreground px-2.5 sm:px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
             >
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Export CSV</span>
             </button>
             <button
               onClick={() => setShowCatImport(true)}
-              className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
+              className="flex items-center gap-2 bg-card border border-border text-foreground px-2.5 sm:px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
             >
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">Import CSV</span>
@@ -164,7 +172,7 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
-              Delete "{deleteCatTarget?.icon} {deleteCatTarget?.name}"?
+              <span className="min-w-0 break-words">Delete "{deleteCatTarget?.icon} {deleteCatTarget?.name}"?</span>
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-sm text-muted-foreground">
@@ -211,6 +219,7 @@ export function CategoriesTab({ onEdit }: CategoriesTabProps) {
           onDone={() => {
             setShowCatImport(false);
             qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-categories-names'] });
             qc.invalidateQueries({ queryKey: ['admin-stats'] });
           }}
         />

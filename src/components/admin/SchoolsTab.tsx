@@ -5,9 +5,8 @@
  */
 import { useState, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Trash2, Loader2, AlertTriangle, MapPin, Upload, Sparkles, GraduationCap } from 'lucide-react';
+import { Pencil, Trash2, Loader2, AlertTriangle, MapPin, Upload, Download, Sparkles, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -17,14 +16,16 @@ import { SchoolEntity } from '@/lib/entities/schoolEntity';
 import { schoolsRepo, type SchoolRow } from '@/lib/repos/schoolsRepo';
 import {
   filterSchools,
+  getSchoolResolvedMeta,
   toDbSchoolType,
   resolveSchoolType,
+  SCHOOL_CSV_EXPORT_HEADERS,
   MUKTAINAGAR_EDUCATION_SEEDS,
   MAVAL_EDUCATION_SEEDS,
   type SchoolType,
 } from '@/lib/schools/schoolHelpers';
-import { removeShopImageQuiet } from '@/lib/storageNaming';
-import { extractStoragePath } from '@/components/admin/adminHelpers';
+import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
+import { extractEntityStoragePaths, removeShopImages } from '@/lib/storageNaming';
 import { SchoolModal } from './SchoolModal';
 import { SchoolBulkImportModal } from './SchoolBulkImportModal';
 import { useCity } from '@/hooks/useCity';
@@ -36,6 +37,7 @@ export function SchoolsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | SchoolType | 'schools' | 'colleges' | 'higher-ed'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+  const [admissionOnly, setAdmissionOnly] = useState(false);
   const [editing, setEditing] = useState<Partial<SchoolRow> | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SchoolRow | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -44,6 +46,10 @@ export function SchoolsTab() {
 
   const activeCityObj = allCities.find((c) => c.id === selectedCityId) || currentCity;
   const activeTownName = activeCityObj?.name || townName;
+  const activeStateId =
+    activeCityObj?.district?.state_id ??
+    (activeCityObj as { state_id?: string | null } | undefined)?.state_id ??
+    null;
 
   const { data: schoolsData = [], isLoading: schoolsLoading } = useQuery({
     queryKey: ['admin-schools', selectedCityId],
@@ -71,22 +77,39 @@ export function SchoolsTab() {
         return {
           city_id: selectedCityId,
           district_id: activeCityObj?.district_id || null,
-          state_id: activeCityObj?.state_id || null,
+          state_id: activeStateId,
           name: item.name,
           name_mr: item.name_mr,
           school_type: dbType,
           medium: item.medium,
+          mediums: item.mediums || (item.medium ? [item.medium] : []),
           area: item.area,
           address: item.address || null,
           phone: item.phone || null,
+          whatsapp: item.whatsapp || null,
           website: item.website || null,
+          board: item.board || null,
+          management_type: item.management_type || null,
+          gender_type: item.gender_type || 'coed',
+          admission_status: item.admission_status || 'unknown',
+          fee_tier: item.fee_tier || 'unspecified',
+          classes_offered: item.classes_offered || null,
+          established_year: item.established_year ?? null,
+          accreditation: item.accreditation || null,
+          office_timing: item.office_timing || null,
+          streams: item.streams || [],
+          facilities: item.facilities || [],
+          scholarships: item.scholarships || [],
+          required_documents: item.required_documents || [],
+          transport_villages: item.transport_villages || [],
+          coaching_focus: item.coaching_focus || [],
           description: finalDesc || null,
           is_active: true,
         };
       });
 
-      const { error } = await (supabase as any).from('schools').insert(payload);
-      if (error) throw error;
+      const res = await schoolsRepo.insertMany(payload);
+      if (res.ok === false) throw new Error(res.error);
 
       toast.success(`Successfully seeded ${seedData.length} official institutes for ${activeTownName}!`);
       invalidate();
@@ -99,8 +122,10 @@ export function SchoolsTab() {
   };
 
   const filteredRows = useMemo(() => {
-    return filterSchools(schoolsData, searchQuery, typeFilter, statusFilter);
-  }, [schoolsData, searchQuery, typeFilter, statusFilter]);
+    return filterSchools(schoolsData, searchQuery, typeFilter, statusFilter, {
+      admissionFilter: admissionOnly ? 'open_only' : 'all',
+    });
+  }, [schoolsData, searchQuery, typeFilter, statusFilter, admissionOnly]);
 
   const counts = useMemo(() => {
     return {
@@ -114,6 +139,10 @@ export function SchoolsTab() {
       techIti: schoolsData.filter((s) => resolveSchoolType(s) === 'engineering-polytechnic').length,
       univ: schoolsData.filter((s) => resolveSchoolType(s) === 'university').length,
       coaching: schoolsData.filter((s) => resolveSchoolType(s) === 'coaching').length,
+      admissionsOpen: schoolsData.filter((s) => {
+        const adm = getSchoolResolvedMeta(s).admission_status;
+        return adm === 'open' || adm === 'ongoing';
+      }).length,
       active: schoolsData.filter((s) => s.is_active).length,
       disabled: schoolsData.filter((s) => !s.is_active).length,
     };
@@ -160,18 +189,87 @@ export function SchoolsTab() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    const oldPath = deleteTarget.image_url ? extractStoragePath(deleteTarget.image_url) : null;
+    const paths = extractEntityStoragePaths(deleteTarget as any);
     const r = await schoolsRepo.delete(deleteTarget.id);
     if (r.ok === false) {
       toast.error(`Failed to delete: ${r.error}`);
       setDeleting(false);
       return;
     }
-    if (oldPath) await removeShopImageQuiet(oldPath);
-    toast.success('School deleted');
+    if (paths.length > 0) await removeShopImages(paths);
+    toast.success('School & attached images deleted');
     invalidate();
     setDeleteTarget(null);
     setDeleting(false);
+  };
+
+  const handleExportCsv = () => {
+    if (filteredRows.length === 0) {
+      toast.info('No institutes to export with current filters');
+      return;
+    }
+    const rows = filteredRows.map((s) => {
+      const meta = getSchoolResolvedMeta(s);
+      const photosArr = Array.isArray(s.photos) && s.photos.length > 0
+        ? s.photos
+        : s.image_url
+          ? [s.image_url]
+          : [];
+      const mediumsArr = Array.isArray(s.mediums) && s.mediums.length > 0
+        ? s.mediums
+        : s.medium
+          ? [s.medium]
+          : [];
+      return [
+        s.slug ?? '',
+        s.name ?? '',
+        s.name_mr ?? '',
+        resolveSchoolType(s),
+        s.medium ?? '',
+        mediumsArr.join('|'),
+        meta.board ?? '',
+        meta.management_type ?? '',
+        meta.gender_type ?? 'coed',
+        s.udise_aishe_code ?? '',
+        s.established_year ?? '',
+        s.accreditation ?? '',
+        s.classes_offered ?? '',
+        (meta.streams ?? []).join('|'),
+        (meta.facilities ?? []).join('|'),
+        meta.principal_name ?? '',
+        meta.office_timing ?? '',
+        meta.admission_status ?? 'unknown',
+        s.admission_deadline ?? '',
+        s.admission_url ?? '',
+        s.prospectus_url ?? '',
+        meta.fee_tier ?? 'unspecified',
+        s.annual_fee_min ?? '',
+        s.annual_fee_max ?? '',
+        (meta.scholarships ?? []).join('|'),
+        (meta.required_documents ?? []).join('|'),
+        (meta.transport_villages ?? []).join('|'),
+        (meta.coaching_focus ?? []).join('|'),
+        s.total_seats ?? '',
+        s.available_seats ?? '',
+        s.phone ?? '',
+        s.whatsapp ?? '',
+        s.email ?? '',
+        s.website ?? '',
+        s.area ?? '',
+        s.sub_area ?? '',
+        s.address ?? '',
+        s.address_mr ?? '',
+        s.latitude ?? '',
+        s.longitude ?? '',
+        s.image_url ?? '',
+        photosArr.join('|'),
+        s.is_verified ? 'true' : 'false',
+        s.is_active ? 'true' : 'false',
+        meta.raw_description || '',
+      ];
+    });
+    downloadCsv(townCsvFilename(activeCityObj?.slug, 'schools'), [...SCHOOL_CSV_EXPORT_HEADERS], rows);
+    toast.success(`Exported ${filteredRows.length} institute(s)`);
   };
 
   return (
@@ -180,7 +278,7 @@ export function SchoolsTab() {
         entity={SchoolEntity}
         columns={columns}
         title={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span>Education & Institutes</span>
             <span className="text-muted-foreground font-medium text-sm">
               ({schoolsData.length})
@@ -214,6 +312,14 @@ export function SchoolsTab() {
               <Upload className="w-3.5 h-3.5 text-primary" />
               <span>Bulk Import</span>
             </button>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-input bg-card hover:bg-muted text-xs font-semibold text-foreground shadow-2xs transition-colors"
+            >
+              <Download className="w-3.5 h-3.5 text-primary" />
+              <span>Export CSV</span>
+            </button>
             {seedData && (
               <button
                 type="button"
@@ -238,7 +344,7 @@ export function SchoolsTab() {
         }
         banner={
           schoolsData.length === 0 && seedData && !schoolsLoading ? (
-            <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 flex items-center justify-between gap-3">
+            <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <GraduationCap className="w-4 h-4" />
@@ -339,9 +445,20 @@ export function SchoolsTab() {
               >
                 University ({counts.univ})
               </button>
+              <button
+                type="button"
+                onClick={() => setTypeFilter('coaching')}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  typeFilter === 'coaching'
+                    ? 'bg-primary text-primary-foreground border-primary shadow-2xs'
+                    : 'bg-card text-foreground border-border hover:bg-muted'
+                }`}
+              >
+                Coaching / Abhyasika ({counts.coaching})
+              </button>
             </div>
 
-            {/* Status Filter Chips */}
+            {/* Status & Admissions Filter Chips */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-border/50">
               <span className="text-[11px] text-muted-foreground font-medium mr-1">Status:</span>
               <button
@@ -377,6 +494,17 @@ export function SchoolsTab() {
               >
                 Disabled ({counts.disabled})
               </button>
+              <button
+                type="button"
+                onClick={() => setAdmissionOnly((v) => !v)}
+                className={`sm:ml-auto px-2.5 py-0.5 rounded-md text-[11px] font-semibold border transition-all ${
+                  admissionOnly
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40'
+                    : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                🎓 Admissions Open Only ({counts.admissionsOpen})
+              </button>
             </div>
           </div>
         }
@@ -386,11 +514,17 @@ export function SchoolsTab() {
           isEmpty: filteredRows.length === 0,
         }}
         emptyMessage={
-          searchQuery || typeFilter !== 'all' || statusFilter !== 'all'
+          searchQuery || typeFilter !== 'all' || statusFilter !== 'all' || admissionOnly
             ? 'No institutes match your current search or filter criteria.'
             : undefined
         }
-        onAdd={() => setEditing({ city_id: selectedCityId })}
+        onAdd={() =>
+          setEditing({
+            city_id: selectedCityId,
+            district_id: activeCityObj?.district_id ?? null,
+            state_id: activeStateId,
+          })
+        }
         addLabel="Add Institute"
         rowActions={(row) => (
           <>
@@ -428,7 +562,7 @@ export function SchoolsTab() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
-              Delete "{deleteTarget?.name}"?
+              <span className="min-w-0 break-words">Delete "{deleteTarget?.name}"?</span>
             </AlertDialogTitle>
             <AlertDialogDescription>
               This permanently removes the school and its photo. This action cannot be undone.
@@ -452,7 +586,8 @@ export function SchoolsTab() {
         cityId={selectedCityId}
         cityName={activeTownName}
         districtId={activeCityObj?.district_id}
-        stateId={activeCityObj?.state_id}
+        stateId={activeStateId}
+        existingSchools={schoolsData}
         onClose={() => setBulkImportOpen(false)}
         onImported={() => invalidate()}
       />

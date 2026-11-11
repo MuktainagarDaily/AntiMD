@@ -61,7 +61,7 @@ export function DesktopNav({ variant = 'default', className = '' }: DesktopNavPr
   const isPrimary = variant === 'primary';
 
   return (
-    <nav className={`hidden md:flex items-center gap-1 lg:gap-1.5 ${className}`} aria-label="Desktop Navigation">
+    <nav className={`hidden lg:flex items-center gap-0.5 xl:gap-1.5 min-w-0 ${className}`} aria-label="Desktop Navigation">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = item.isActive;
@@ -82,9 +82,9 @@ export function DesktopNav({ variant = 'default', className = '' }: DesktopNavPr
             key={item.to}
             type="button"
             onClick={() => navigate(item.to)}
-            className={`inline-flex items-center gap-1.5 px-2.5 lg:px-3 py-1.5 rounded-xl text-xs lg:text-sm transition-all duration-150 cursor-pointer active:scale-95 ${styleClasses}`}
+            className={`inline-flex items-center gap-1.5 px-2 xl:px-3 py-1.5 rounded-xl text-xs xl:text-sm transition-all duration-150 cursor-pointer active:scale-95 shrink-0 ${styleClasses}`}
           >
-            <Icon className="w-3.5 h-3.5 lg:w-4 lg:h-4 shrink-0" />
+            <Icon className="w-3.5 h-3.5 xl:w-4 xl:h-4 shrink-0" />
             <span className="whitespace-nowrap">{item.label}</span>
           </button>
         );

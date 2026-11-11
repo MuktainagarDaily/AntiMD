@@ -56,11 +56,13 @@ const SavedShops        = lazyWithReload(() => import("./pages/SavedShops"));
 const ErrorRoute        = lazyWithReload(() => import("./pages/ErrorRoute"));
 const BusTimetable      = lazyWithReload(() => import("./pages/BusTimetable"));
 const Schools           = lazyWithReload(() => import("./pages/Schools"));
+const SchoolDetail      = lazyWithReload(() => import("./pages/SchoolDetail"));
 const Mess              = lazyWithReload(() => import("./pages/Mess"));
 const MessDetail        = lazyWithReload(() => import("./pages/MessDetail"));
 const PG                = lazyWithReload(() => import("./pages/PG"));
 const PGDetail          = lazyWithReload(() => import("./pages/PGDetail"));
 const EssentialServices = lazyWithReload(() => import("./pages/EssentialServices"));
+const LocalNews         = lazyWithReload(() => import("./pages/LocalNews"));
 const SectionComingSoon = lazyWithReload(() => import("./pages/SectionComingSoon"));
 const OAuthConsent      = lazyWithReload(() => import("./pages/OAuthConsent"));
 
@@ -240,6 +242,13 @@ function LegacyLivingDetailRedirect({ module }: { module: 'mess' | 'pg' }) {
   return <Navigate to={`/${currentCity.slug}/${module}/${id}${location.search}${location.hash}`} replace />;
 }
 
+function LegacySchoolDetailRedirect() {
+  const { currentCity } = useCity();
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  return <Navigate to={`/${currentCity.slug}/schools/${id}${location.search}${location.hash}`} replace />;
+}
+
 function LegacyCategoryRedirect() {
   const { currentCity } = useCity();
   const { id } = useParams<{ id: string }>();
@@ -307,6 +316,7 @@ const App = () => (
                   <Route path="system/mcp" element={<SystemMcp />} />
                 </Route>
                 <Route path="/my-shop" element={<ProtectedRoute><MyShop /></ProtectedRoute>} />
+                <Route path="/my-institute" element={<ProtectedRoute><MyShop /></ProtectedRoute>} />
                 <Route path="/saved-shops" element={<SavedShops />} />
                 <Route path="/error/:code" element={<ErrorRoute />} />
 
@@ -319,11 +329,13 @@ const App = () => (
                 <Route path="/shop/:id" element={<LegacyShopDetailRedirect />} />
                 <Route path="/bus-timetable" element={<LegacyCityRedirect to="/bus-timetable" />} />
                 <Route path="/schools" element={<LegacyCityRedirect to="/schools" />} />
+                <Route path="/schools/:id" element={<LegacySchoolDetailRedirect />} />
                 <Route path="/mess" element={<LegacyCityRedirect to="/mess" />} />
                 <Route path="/mess/:id" element={<LegacyLivingDetailRedirect module="mess" />} />
                 <Route path="/pg" element={<LegacyCityRedirect to="/pg" />} />
                 <Route path="/pg/:id" element={<LegacyLivingDetailRedirect module="pg" />} />
                 <Route path="/services" element={<LegacyCityRedirect to="/services" />} />
+                <Route path="/news" element={<LegacyCityRedirect to="/news" />} />
                 <Route path="/sections/:key" element={<LegacySectionRedirect />} />
 
                 {/* Town-prefixed routes */}
@@ -333,11 +345,13 @@ const App = () => (
                 <Route path="/:citySlug/shop/:id" element={<CityRouteGuard><ShopDetail /></CityRouteGuard>} />
                 <Route path="/:citySlug/bus-timetable" element={<CityRouteGuard><BusTimetable /></CityRouteGuard>} />
                 <Route path="/:citySlug/schools" element={<CityRouteGuard><Schools /></CityRouteGuard>} />
+                <Route path="/:citySlug/schools/:id" element={<CityRouteGuard><SchoolDetail /></CityRouteGuard>} />
                 <Route path="/:citySlug/mess" element={<CityRouteGuard><Mess /></CityRouteGuard>} />
                 <Route path="/:citySlug/mess/:id" element={<CityRouteGuard><MessDetail /></CityRouteGuard>} />
                 <Route path="/:citySlug/pg" element={<CityRouteGuard><PG /></CityRouteGuard>} />
                 <Route path="/:citySlug/pg/:id" element={<CityRouteGuard><PGDetail /></CityRouteGuard>} />
                 <Route path="/:citySlug/services" element={<CityRouteGuard><EssentialServices /></CityRouteGuard>} />
+                <Route path="/:citySlug/news" element={<CityRouteGuard><LocalNews /></CityRouteGuard>} />
                 <Route path="/:citySlug/sections/:key" element={<CityRouteGuard><SectionComingSoon /></CityRouteGuard>} />
 
                 {/* Fallback 404 */}

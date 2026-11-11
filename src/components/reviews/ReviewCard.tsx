@@ -6,6 +6,7 @@ import {
   useToggleHelpful,
   useDeleteReview,
   type ShopReview,
+  type ReviewEntityType,
 } from '@/lib/reviewsApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
@@ -22,15 +23,24 @@ interface Props {
   review: ShopReview;
   helpfulOn?: boolean;
   onEdit?: () => void;
+  entityType?: ReviewEntityType;
 }
 
-export function ReviewCard({ review, helpfulOn = false, onEdit }: Props) {
+export function ReviewCard({
+  review,
+  helpfulOn = false,
+  onEdit,
+  entityType = 'shop',
+}: Props) {
   const { t } = useT();
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
-  const toggleHelpful = useToggleHelpful(review.shop_id);
-  const deleteReview = useDeleteReview(review.shop_id);
-  const displayName = review.author_name?.trim() || t('reviews.anonymous');
+  const entityId = entityType === 'school' ? (review.school_id || review.shop_id) : review.shop_id;
+  const toggleHelpful = useToggleHelpful(entityId, entityType);
+  const deleteReview = useDeleteReview(entityId, entityType);
+  const displayName =
+    review.author_name?.trim() ||
+    (entityType === 'school' ? t('reviews.anonymousInstitute') : t('reviews.anonymous'));
   const { initial, hue } = avatarFor(displayName);
   const longBody = review.body && review.body.length > 140;
   const isMine = user?.id === review.user_id;

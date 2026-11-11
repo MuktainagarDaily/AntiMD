@@ -4,6 +4,8 @@ import {
   isSpecializedEntity,
   filterRetailShops,
   prioritizeRelatedShops,
+  getSpecializedEntityDomain,
+  getEntityDetailPath,
 } from '@/lib/shopUtils';
 import { getEstablishmentCategory } from '@/lib/living/livingTypes';
 
@@ -87,6 +89,60 @@ describe('Shop & Entity Separation Logic', () => {
       expect(isSpecializedEntity({ name: 'Sai Kirana Store' })).toBe(false);
       expect(isSpecializedEntity({ name: 'Mauli Medical' })).toBe(false);
       expect(isSpecializedEntity({ name: 'Balaji Sarees' })).toBe(false);
+    });
+  });
+
+  describe('getSpecializedEntityDomain & getEntityDetailPath', () => {
+    it('routes hotels, family restaurants, dhabas, and messes to /:citySlug/mess/:slug even without mess_profiles', () => {
+      const hotel = {
+        id: 'h-1',
+        name: 'Hotel Visawa Family Restaurant',
+        slug: 'hotel-visawa-family-restaurant-parandwadi',
+      };
+      expect(getSpecializedEntityDomain(hotel)).toBe('mess');
+      expect(getEntityDetailPath('maval', hotel)).toBe(
+        '/maval/mess/hotel-visawa-family-restaurant-parandwadi',
+      );
+
+      expect(getEntityDetailPath('maval', { id: 'h-2', name: 'हॉटेल विसावा', slug: 'hotel-visawa' })).toBe(
+        '/maval/mess/hotel-visawa',
+      );
+      expect(getEntityDetailPath('maval', { id: 'h-3', name: 'Ruchira Bhojanalay', slug: 'ruchira' })).toBe(
+        '/maval/mess/ruchira',
+      );
+    });
+
+    it('routes PGs and hostels (profiled or unprofiled) to /:citySlug/pg/:slug', () => {
+      expect(
+        getEntityDetailPath('maval', {
+          id: 'p-1',
+          name: 'Sai Residency',
+          slug: 'sai-residency',
+          pg_profiles: [{ shop_id: 'p-1' }],
+        }),
+      ).toBe('/maval/pg/sai-residency');
+
+      expect(
+        getEntityDetailPath('maval', {
+          id: 'p-2',
+          name: 'Omkar PG',
+          slug: 'omkar-pg-parandwadi',
+        }),
+      ).toBe('/maval/pg/omkar-pg-parandwadi');
+
+      expect(
+        getEntityDetailPath('maval', {
+          id: 'p-3',
+          name: 'मुलींचे वसतिगृह',
+          slug: 'girls-residency',
+        }),
+      ).toBe('/maval/pg/girls-residency');
+    });
+
+    it('keeps regular commercial shops on /:citySlug/shop/:slug', () => {
+      const shop = { id: 's-1', name: 'Patil Kirana', slug: 'patil-kirana' };
+      expect(getSpecializedEntityDomain(shop)).toBeNull();
+      expect(getEntityDetailPath('maval', shop)).toBe('/maval/shop/patil-kirana');
     });
   });
 

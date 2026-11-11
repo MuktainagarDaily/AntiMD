@@ -10,10 +10,12 @@ import { schoolsRepo, type SchoolRow } from '@/lib/repos/schoolsRepo';
 import {
   SCHOOL_TYPE_CONFIG,
   SCHOOL_MEDIUM_CONFIG,
+  ADMISSION_STATUS_CONFIG,
+  MANAGEMENT_TYPE_CONFIG,
+  getSchoolResolvedMeta,
   resolveSchoolType,
-  type SchoolType,
 } from '@/lib/schools/schoolHelpers';
-import { Check, EyeOff, GraduationCap, MapPin, Phone } from 'lucide-react';
+import { BadgeCheck, Check, EyeOff, GraduationCap, KeyRound, MapPin, Phone } from 'lucide-react';
 import { createElement } from 'react';
 
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
@@ -24,8 +26,13 @@ const columns: EntityColumn<SchoolRow>[] = [
   {
     key: 'name',
     header: 'Institute Name',
-    render: (s) =>
-      createElement(
+    render: (s) => {
+      const meta = getSchoolResolvedMeta(s);
+      const admCfg = meta.admission_status
+        ? ADMISSION_STATUS_CONFIG[meta.admission_status]
+        : null;
+
+      return createElement(
         'div',
         { className: 'flex items-start gap-2.5 min-w-0 py-0.5' },
         createElement(
@@ -41,8 +48,36 @@ const columns: EntityColumn<SchoolRow>[] = [
           { className: 'min-w-0' },
           createElement(
             'div',
-            { className: 'font-semibold text-foreground truncate' },
-            s.name
+            { className: 'flex items-center gap-1.5 flex-wrap' },
+            createElement(
+              'span',
+              { className: 'font-semibold text-foreground truncate max-w-[220px] sm:max-w-[280px]' },
+              s.name
+            ),
+            s.is_verified
+              ? createElement(
+                  'span',
+                  {
+                    title: 'Verified Institute',
+                    className:
+                      'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-semibold',
+                  },
+                  createElement(BadgeCheck, { className: 'w-2.5 h-2.5' }),
+                  'Verified'
+                )
+              : null,
+            s.is_claimed
+              ? createElement(
+                  'span',
+                  {
+                    title: 'Claimed by Principal / Owner',
+                    className:
+                      'inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 font-semibold',
+                  },
+                  createElement(KeyRound, { className: 'w-2.5 h-2.5' }),
+                  'Claimed'
+                )
+              : null
           ),
           s.name_mr
             ? createElement(
@@ -54,23 +89,46 @@ const columns: EntityColumn<SchoolRow>[] = [
                 s.name_mr
               )
             : null,
-          s.phone
-            ? createElement(
-                'div',
-                {
-                  className:
-                    'text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5',
-                },
-                createElement(Phone, { className: 'w-3 h-3 text-primary/70' }),
-                s.phone
-              )
-            : null
+          createElement(
+            'div',
+            { className: 'flex items-center gap-2 flex-wrap mt-0.5' },
+            s.phone
+              ? createElement(
+                  'span',
+                  {
+                    className: 'text-[11px] text-muted-foreground inline-flex items-center gap-1',
+                  },
+                  createElement(Phone, { className: 'w-3 h-3 text-primary/70' }),
+                  s.phone
+                )
+              : null,
+            meta.udise_aishe_code
+              ? createElement(
+                  'span',
+                  {
+                    className:
+                      'text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.2 rounded',
+                  },
+                  `ID: ${meta.udise_aishe_code}`
+                )
+              : null,
+            admCfg && (meta.admission_status === 'open' || meta.admission_status === 'ongoing')
+              ? createElement(
+                  'span',
+                  {
+                    className: `md:hidden text-[10px] px-1.5 py-0.2 rounded-full border font-semibold ${admCfg.badgeClass}`,
+                  },
+                  admCfg.labelEn
+                )
+              : null
+          )
         )
-      ),
+      );
+    },
   },
   {
     key: 'type',
-    header: 'Category & Medium',
+    header: 'Category & Admissions',
     hideOnMobile: true,
     render: (s) => {
       const resolvedType = resolveSchoolType(s);
@@ -79,6 +137,13 @@ const columns: EntityColumn<SchoolRow>[] = [
         SCHOOL_TYPE_CONFIG.other;
       const medCfg = s.medium
         ? SCHOOL_MEDIUM_CONFIG[s.medium as keyof typeof SCHOOL_MEDIUM_CONFIG]
+        : null;
+      const meta = getSchoolResolvedMeta(s);
+      const mgmtCfg = meta.management_type
+        ? MANAGEMENT_TYPE_CONFIG[meta.management_type]
+        : null;
+      const admCfg = meta.admission_status
+        ? ADMISSION_STATUS_CONFIG[meta.admission_status]
         : null;
 
       return createElement(
@@ -91,15 +156,37 @@ const columns: EntityColumn<SchoolRow>[] = [
           },
           typeCfg.labelMr
         ),
-        medCfg
-          ? createElement(
-              'span',
-              {
-                className: `text-[10px] px-1.5 py-0.2 rounded border ${medCfg.badgeClass}`,
-              },
-              medCfg.labelMr
-            )
-          : null
+        createElement(
+          'div',
+          { className: 'flex items-center gap-1 flex-wrap' },
+          medCfg
+            ? createElement(
+                'span',
+                {
+                  className: `text-[10px] px-1.5 py-0.2 rounded border ${medCfg.badgeClass}`,
+                },
+                medCfg.labelMr
+              )
+            : null,
+          mgmtCfg
+            ? createElement(
+                'span',
+                {
+                  className: `text-[10px] px-1.5 py-0.2 rounded border ${mgmtCfg.badgeClass}`,
+                },
+                mgmtCfg.labelEn.split(' / ')[0]
+              )
+            : null,
+          admCfg
+            ? createElement(
+                'span',
+                {
+                  className: `text-[10px] px-1.5 py-0.2 rounded-full border font-semibold ${admCfg.badgeClass}`,
+                },
+                admCfg.labelEn
+              )
+            : null
+        )
       );
     },
   },

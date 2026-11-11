@@ -73,14 +73,14 @@ export function LanguageSwitcher({ variant = 'pill', tone = 'onPrimary', classNa
     <div
       role="group"
       aria-label={t('lang.switch')}
-      className={`relative inline-flex items-center rounded-full p-0.5 select-none ${className}`}
+      className={`relative inline-grid grid-cols-2 items-center rounded-full p-0.5 select-none ${className}`}
       style={{ background: palette.track, border: `1px solid ${palette.border}` }}
     >
       <span
-        className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-full transition-transform duration-200 ease-out"
+        className="absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full transition-transform duration-200 ease-out"
         style={{
           background: palette.indicator,
-          transform: isMr ? 'translateX(calc(100% + 4px))' : 'translateX(0)',
+          transform: isMr ? 'translateX(100%)' : 'translateX(0)',
         }}
         aria-hidden="true"
       />
@@ -92,7 +92,7 @@ export function LanguageSwitcher({ variant = 'pill', tone = 'onPrimary', classNa
             type="button"
             onClick={() => pick(code)}
             aria-pressed={active}
-            className="relative z-10 min-w-[42px] text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors"
+            className="relative z-10 min-w-[46px] text-[11px] font-bold px-2.5 py-1 rounded-full transition-colors text-center"
             style={{ color: active ? palette.activeText : palette.inactiveText }}
           >
             {code === 'en' ? 'EN' : 'मराठी'}

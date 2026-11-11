@@ -96,17 +96,17 @@ function renderHome(initialRoute = '/muktainagar') {
   );
 }
 
-describe('Home Page ApnaLocal Architecture', () => {
+describe('Home Page ApnaTown Architecture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
   });
 
-  it('renders ApnaLocal master brand and dynamic town badge', async () => {
+  it('renders ApnaTown master brand and dynamic town badge', async () => {
     renderHome();
 
     // Check Master Brand
-    const brandHeading = await screen.findByRole('heading', { level: 1, name: 'ApnaLocal' });
+    const brandHeading = await screen.findByRole('heading', { level: 1, name: 'ApnaTown' });
     expect(brandHeading).toBeInTheDocument();
 
     // Check Town name badge
@@ -147,7 +147,7 @@ describe('Home Page ApnaLocal Architecture', () => {
     renderHome();
 
     expect(
-      await screen.findByText(/Own a business in Muktainagar\? List it on ApnaLocal for free/i)
+      await screen.findByText(/Own a business in Muktainagar\? List it on ApnaTown for free/i)
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Direct Call & WhatsApp — No Middlemen/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/List Your Business Free/i).length).toBeGreaterThan(0);

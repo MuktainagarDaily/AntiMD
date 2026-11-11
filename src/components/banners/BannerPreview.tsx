@@ -1,9 +1,10 @@
 /**
- * Live preview surface for BannerModal — renders the banner exactly the way
- * the public site does (popup vs inline), without view/click tracking.
+ * Live preview surface for BannerModal — renders the banner the way
+ * the public site does (popup vs inline mobile/desktop), without view/click tracking.
  */
-import { X } from 'lucide-react';
-import { Banner, BannerPlacement } from '@/lib/banners/types';
+import { useState } from 'react';
+import { Monitor, Smartphone, X } from 'lucide-react';
+import { BannerPlacement } from '@/lib/banners/types';
 
 interface Props {
   title: string;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function BannerPreview({ title, imageUrl, placement, closeEnableSeconds }: Props) {
+  const [viewport, setViewport] = useState<'desktop' | 'mobile'>('desktop');
   const safeTitle = title.trim() || 'Untitled banner';
 
   if (!imageUrl) {
@@ -58,20 +60,51 @@ export function BannerPreview({ title, imageUrl, placement, closeEnableSeconds }
     );
   }
 
-  // Inline placements
+  // Inline placements (shows exact mobile 16:9 or desktop 3:1 aspect + Sponsored badge)
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-border shadow-sm aspect-[3/1]">
-      <img
-        src={imageUrl}
-        alt={safeTitle}
-        width={900}
-        height={300}
-        decoding="async"
-        className="absolute inset-0 w-full h-full object-cover"
-      />
-      <span className="absolute top-1.5 left-1.5 text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-background/70 text-foreground backdrop-blur-sm">
-        Ad
-      </span>
+    <div className="space-y-2">
+      <div className="flex justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => setViewport('desktop')}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+            viewport === 'desktop'
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <Monitor className="w-3 h-3" /> Desktop (3:1)
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewport('mobile')}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+            viewport === 'mobile'
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <Smartphone className="w-3 h-3" /> Mobile (16:9)
+        </button>
+      </div>
+
+      <div
+        className={`relative overflow-hidden rounded-2xl border border-dashed border-border/80 shadow-sm mx-auto ${
+          viewport === 'mobile' ? 'w-full max-w-[280px] aspect-[16/9]' : 'w-full aspect-[3/1]'
+        }`}
+      >
+        <img
+          src={imageUrl}
+          alt={safeTitle}
+          width={900}
+          height={300}
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <span className="absolute top-1.5 left-1.5 text-[10px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-background/85 text-foreground backdrop-blur-sm border border-border/60">
+          Sponsored
+        </span>
+      </div>
     </div>
   );
 }

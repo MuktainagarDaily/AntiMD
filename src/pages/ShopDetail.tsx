@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { PageSeo } from '@/components/seo/PageSeo';
 
 import { useSmartBack } from '@/hooks/useSmartBack';
@@ -18,7 +18,7 @@ import { PhotoSlider } from '@/components/shared/PhotoSlider';
 import { ShopCard } from '@/components/ShopCard';
 import { ImageLightbox } from '@/components/shared/ImageLightbox';
 import { useAuth } from '@/hooks/useAuth';
-import { formatTime, isShopOpen } from '@/lib/shopUtils';
+import { formatTime, isShopOpen, getSpecializedEntityDomain } from '@/lib/shopUtils';
 import { toast } from 'sonner';
 import { useT } from '@/i18n';
 import { useLocalizedShop, useLocalizeCategoryName } from '@/hooks/useTranslationsCache';
@@ -74,6 +74,7 @@ function RelatedShopSkeleton() {
 export default function ShopDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const goBack = useSmartBack();
   const { currentCity, townBrand, townName, stateName } = useCity();
   const { indicatorNode } = useEdgeSwipeBack({
@@ -95,7 +96,7 @@ export default function ShopDetail() {
       // Try slug first; fall back to id for legacy UUID links
       let query = supabase
         .from('shops')
-        .select('*, shop_categories(category_id, categories(name, icon, is_active))')
+        .select('*, shop_categories(category_id, categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)')
         .eq('is_active', true);
 
       if (isUuid) {
@@ -106,10 +107,29 @@ export default function ShopDetail() {
 
       const { data, error } = await (query as any).single();
       if (error) throw error;
+
+      // Legacy fallback: resolve deprecated single category_id if shop_categories is empty
+      if (data && !(data as any).shop_categories?.length && (data as any).category_id && !(data as any).categories) {
+        try {
+          const { data: cat } = await supabase
+            .from('categories')
+            .select('name, icon, is_active')
+            .eq('id', (data as any).category_id)
+            .maybeSingle();
+          if (cat) {
+            return { ...(data as any), categories: cat };
+          }
+        } catch {
+          // ignore legacy category lookup failure
+        }
+      }
+
       return data as any;
     },
     enabled: !!id,
   });
+
+  const specializedDomain = getSpecializedEntityDomain(rawShop);
 
   // Related shops: other active shops sharing category within the SAME geographic location
   const currentShopId: string | undefined = (rawShop as any)?.id;
@@ -127,7 +147,7 @@ export default function ShopDetail() {
       currentShopVillageId,
       relatedCategoryIds.sort().join(','),
     ],
-    enabled: !!currentShopId && !!currentShopCityId && relatedCategoryIds.length > 0,
+    enabled: !!currentShopId && !!currentShopCityId && relatedCategoryIds.length > 0 && !specializedDomain,
     queryFn: async () => {
       // 1. Fetch active shops in shared categories strictly bounded to the same city_id
       const { data, error } = await supabase
@@ -160,22 +180,32 @@ export default function ShopDetail() {
 
   // Overlay Marathi translations (name/address/area/desc) when locale = mr.
   const shop = useLocalizedShop(rawShop) || rawShop;
+  const effectiveSpecializedDomain = getSpecializedEntityDomain(shop || rawShop);
 
-  // If loaded by UUID and has a slug, redirect to clean slug URL.
-  // Preserve query (?claim=1, etc.) and hash so deep-links still fire.
+  // Redirect specialized entities (Mess/Dining, PG/Hostel) to their dedicated vertical route,
+  // and normalize legacy UUID shop links to canonical slug URLs while preserving query/hash.
   useEffect(() => {
-    if (shop && UUID_RE.test(id!) && (shop as any).slug) {
-      const { search, hash } = window.location;
+    if (!shop) return;
+    const domain = getSpecializedEntityDomain(shop);
+    const slugOrId = (shop as any).slug || (shop as any).id || id;
+    const { search, hash } = location;
+
+    if (domain === 'mess' || domain === 'pg') {
+      navigate(`/${currentCity.slug}/${domain}/${slugOrId}${search}${hash}`, { replace: true });
+      return;
+    }
+
+    if (UUID_RE.test(id!) && (shop as any).slug) {
       navigate(`/${currentCity.slug}/shop/${(shop as any).slug}${search}${hash}`, { replace: true });
     }
-  }, [shop, id, currentCity.slug, navigate]);
+  }, [shop, id, currentCity.slug, navigate, location.search, location.hash]);
 
   // Per-route SEO (title/meta/JSON-LD) is rendered declaratively via <PageSeo> below.
 
 
   // Auto-open claim modal when ?claim=1 (after sign-in deep-link)
   useEffect(() => {
-    if (shop && user && params.get('claim') === '1') {
+    if (shop && !effectiveSpecializedDomain && user && params.get('claim') === '1') {
       setShowClaim(true);
       const nextParams = new URLSearchParams(params);
       nextParams.delete('claim');
@@ -183,12 +213,12 @@ export default function ShopDetail() {
         setParams(nextParams, { replace: true });
       }
     }
-  }, [shop, user, params, setParams]);
+  }, [shop, effectiveSpecializedDomain, user, params, setParams]);
 
   // Is this shop claimed by anyone? (uses SECURITY DEFINER RPC so anon can read)
   const { data: isClaimed } = useQuery({
     queryKey: ['shop-claimed', shop?.id],
-    enabled: !!shop?.id,
+    enabled: !!shop?.id && !effectiveSpecializedDomain,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('shop_is_claimed' as any, { _shop_id: shop!.id });
       if (!error && typeof data === 'boolean') return data;
@@ -204,7 +234,7 @@ export default function ShopDetail() {
   // Is the current user already an owner of this shop?
   const { data: isOwner } = useQuery({
     queryKey: ['is-owner', shop?.id, user?.id],
-    enabled: !!shop?.id && !!user?.id,
+    enabled: !!shop?.id && !!user?.id && !effectiveSpecializedDomain,
     queryFn: async () => {
       const { count } = await supabase
         .from('shop_owners')
@@ -246,7 +276,7 @@ export default function ShopDetail() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || effectiveSpecializedDomain !== null) {
     return (
       <div className="min-h-screen bg-background">
         <div className="h-16 skeleton-shimmer" />
@@ -362,7 +392,7 @@ export default function ShopDetail() {
 
       <header className="bg-primary text-primary-foreground px-4 py-4 sticky top-0 z-40 shadow-md">
         <div className="max-w-lg md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
             <button
               onClick={() => goBack(`/${currentCity.slug}/shops`)}
               aria-label={t('common.back')}
@@ -656,12 +686,12 @@ export default function ShopDetail() {
         {/* ── Related Shops (same-category horizontal strip) ── */}
         {(relatedLoading || relatedShops.length > 0) && (
           <section className="mt-8" aria-labelledby="related-shops-title">
-            <div className="flex items-baseline justify-between mb-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
               <h2 id="related-shops-title" className="text-base font-bold text-foreground">
                 {t('shopDetail.relatedTitle')}
               </h2>
               {allCats[0]?.name && (
-                <p className="text-xs text-muted-foreground truncate ml-3">
+                <p className="text-xs text-muted-foreground truncate">
                   {t('shopDetail.relatedSubtitle', { category: localizeCat(allCats[0].id, allCats[0].name) })}
                 </p>
               )}
@@ -690,9 +720,8 @@ export default function ShopDetail() {
       {/* ── Sticky Bottom Action Bar ── */}
       <div
         className="fixed bottom-0 left-0 right-0 z-20 border-t border-border shadow-2xl"
-        style={{ background: 'hsl(var(--card))' }}
+        style={{ background: 'hsl(var(--card))', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
-        {/* iOS safe-area bottom */}
         <div className={`max-w-lg mx-auto px-3 py-2.5 grid gap-2 ${gridCols}`}>
           {shop.phone && (
             <a
@@ -742,8 +771,6 @@ export default function ShopDetail() {
             <span>{t('shop.share')}</span>
           </button>
         </div>
-        {/* iOS safe-area spacer */}
-        <div className="pb-safe" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} />
       </div>
     </div>
   );

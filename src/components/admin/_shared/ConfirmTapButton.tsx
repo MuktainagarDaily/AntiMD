@@ -7,6 +7,7 @@ interface Props {
   children: ReactNode;
   confirmLabel?: ReactNode;
   title?: string;
+  disabled?: boolean;
 }
 
 /**
@@ -15,7 +16,7 @@ interface Props {
  */
 export function ConfirmTapButton({
   onConfirm, className = '', confirmClassName = '', children,
-  confirmLabel = 'Tap to confirm', title,
+  confirmLabel = 'Tap to confirm', title, disabled = false,
 }: Props) {
   const [armed, setArmed] = useState(false);
   const t = useRef<number | null>(null);
@@ -24,8 +25,10 @@ export function ConfirmTapButton({
     <button
       type="button"
       title={title}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
+        if (disabled) return;
         if (armed) {
           if (t.current) window.clearTimeout(t.current);
           setArmed(false);

@@ -15,10 +15,13 @@ interface Props {
 /** Tree navigation: hubs expand to reveal leaf tabs. Active branch stays open. */
 export function AdminSidebar({ inboxBadge = 0 }: Props) {
   const { currentCity } = useCity();
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === 'collapsed';
   const { pathname } = useLocation();
   const active = findActive(pathname);
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -54,9 +57,9 @@ export function AdminSidebar({ inboxBadge = 0 }: Props) {
                   {!hasLeaves && (
                     <SidebarMenuItem>
                       <SidebarMenuButton asChild isActive={isHubActive} tooltip={hub.label}>
-                        <NavLink to={hub.path}>
-                          <HubIcon className="w-4 h-4" />
-                          {!collapsed && <span>{hub.label}</span>}
+                        <NavLink to={hub.path} onClick={closeOnMobile}>
+                          <HubIcon className="w-4 h-4 shrink-0" />
+                          {!collapsed && <span className="truncate">{hub.label}</span>}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -68,18 +71,18 @@ export function AdminSidebar({ inboxBadge = 0 }: Props) {
                     return (
                       <SidebarMenuItem key={leaf.key}>
                         <SidebarMenuButton asChild isActive={isActive} tooltip={leaf.label}>
-                          <NavLink to={leaf.path}>
-                            <LeafIcon className="w-4 h-4" />
+                          <NavLink to={leaf.path} onClick={closeOnMobile}>
+                            <LeafIcon className="w-4 h-4 shrink-0" />
                             {!collapsed && (
                               <span className="flex items-center justify-between flex-1 min-w-0">
                                 <span className="truncate">{leaf.label}</span>
                                 {leaf.status === 'soon' && (
-                                  <span className="ml-2 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                                  <span className="ml-2 shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
                                     Soon
                                   </span>
                                 )}
                                 {badge > 0 && (
-                                  <span className="ml-2 min-w-[18px] h-[18px] text-[10px] font-bold rounded-full px-1 flex items-center justify-center bg-secondary text-secondary-foreground">
+                                  <span className="ml-2 shrink-0 min-w-[18px] h-[18px] text-[10px] font-bold rounded-full px-1 flex items-center justify-center bg-secondary text-secondary-foreground">
                                     {badge}
                                   </span>
                                 )}

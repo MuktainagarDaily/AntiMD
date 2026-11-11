@@ -205,7 +205,8 @@ export function parseBulkBusCsv(rawText: string): {
   valid: ParsedBulkBusRow[];
   errors: { line: number; message: string; raw: string }[];
 } {
-  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const cleanRaw = rawText.startsWith('\uFEFF') ? rawText.slice(1) : rawText;
+  const lines = cleanRaw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const valid: ParsedBulkBusRow[] = [];
   const errors: { line: number; message: string; raw: string }[] = [];
 
@@ -230,12 +231,20 @@ export function parseBulkBusCsv(rawText: string): {
     let destination_mr = '';
     let timesRaw = '';
     let notes = '';
+    let isActive = true;
 
-    // If 4+ columns: Destination, Marathi, Times, Notes
+    // If 4+ columns: Destination, Marathi, Times, Notes[, Active]
     if (cols.length >= 4) {
       destination_mr = cols[1];
       timesRaw = cols[2];
-      notes = cols.slice(3).join(' · ');
+      const lastLower = cols[cols.length - 1].trim().toLowerCase();
+      if (cols.length >= 5 && (lastLower === 'true' || lastLower === 'false')) {
+        isActive = lastLower === 'true';
+        notes = cols.slice(3, -1).join(', ');
+      } else {
+        // Join comma-split note fragments with ', ' so "via Stop A, Stop B" stays intact
+        notes = cols.slice(3).join(', ');
+      }
     } else if (cols.length === 3) {
       // Check if cols[1] contains digits (meaning it's times: Destination, Times, Notes)
       if (/\d/.test(cols[1])) {
@@ -263,7 +272,7 @@ export function parseBulkBusCsv(rawText: string): {
       destination_mr: destination_mr || undefined,
       departure_times: parsedTimes.ok,
       notes: notes || undefined,
-      is_active: true,
+      is_active: isActive,
     });
   }
 

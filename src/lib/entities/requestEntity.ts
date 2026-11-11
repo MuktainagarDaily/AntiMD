@@ -17,6 +17,10 @@ export interface RequestRow {
   whatsapp: string | null;
   address: string | null;
   area: string | null;
+  sub_area?: string | null;
+  description?: string | null;
+  city_id?: string | null;
+  village_id?: string | null;
   category_text: string | null;
   opening_time: string | null;
   closing_time: string | null;

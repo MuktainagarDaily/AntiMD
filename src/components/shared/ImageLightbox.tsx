@@ -94,7 +94,7 @@ export function ImageLightbox({
 
       {/* Image stage — fills most of the viewport */}
       <div
-        className="relative w-screen h-screen flex items-center justify-center"
+        className="relative w-full h-[100dvh] flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
       >
         <ZoomableImage
@@ -316,8 +316,8 @@ function ZoomableImage({
     <div className="relative w-full h-full flex items-center justify-center select-none">
       <div
         ref={imgWrapRef}
-        className="relative max-w-[100vw] max-h-[100vh] w-auto h-auto flex items-center justify-center touch-none overflow-hidden"
-        style={{ width: '100vw', height: '100vh' }}
+        className="relative max-w-[100vw] max-h-[100dvh] w-auto h-auto flex items-center justify-center touch-none overflow-hidden"
+        style={{ width: '100vw', height: '100dvh' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -337,7 +337,7 @@ function ZoomableImage({
           decoding="async"
           // @ts-ignore
           fetchpriority="high"
-          className="max-w-[100vw] max-h-[100vh] w-auto h-auto object-contain mx-auto"
+          className="max-w-[100vw] max-h-[100dvh] w-auto h-auto object-contain mx-auto"
           style={{
             opacity: loaded ? 1 : 0,
             transform: `translate(${tx}px, ${ty}px) scale(${scale})`,

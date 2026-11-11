@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { normalizeWhatsApp, inputCls } from './adminHelpers';
 import { isValidIndianPhone, cn } from '@/lib/utils';
 import { updateShopWithConcurrency } from '@/lib/shopConcurrency';
-import { uploadShopImage } from '@/lib/storageNaming';
+import { uploadShopImage, removeShopImages, diffRemovedStoragePaths } from '@/lib/storageNaming';
 import { MultiImageCropPicker } from '@/components/shared/MultiImageCropPicker';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -123,7 +123,19 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
   const initialPhotos: string[] = Array.isArray(pg?.photos) && pg.photos.length > 0
     ? pg.photos
     : (pg?.image_url ? [pg.image_url] : []);
+  const initialSavedUrlsRef = useRef<string[]>(initialPhotos);
+  const sessionUploadedUrlsRef = useRef<Set<string>>(new Set());
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
+
+  const handleClose = () => {
+    if (saving) return;
+    const unsavedPaths = diffRemovedStoragePaths(
+      Array.from(sessionUploadedUrlsRef.current),
+      initialSavedUrlsRef.current,
+    );
+    if (unsavedPaths.length > 0) void removeShopImages(unsavedPaths);
+    onClose();
+  };
 
   // Marathi translation
   const [mr, setMr] = useState({
@@ -154,6 +166,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
         if (cancelled || !data) return;
         if (data.updated_at) setBaselineUpdatedAt(data.updated_at);
         if (Array.isArray(data.photos) && data.photos.length > 0) {
+          initialSavedUrlsRef.current = Array.from(new Set([...initialSavedUrlsRef.current, ...data.photos]));
           setPhotos((curr) => (curr.length <= 1 ? data.photos : curr));
         }
         if (data.description && !form.description) {
@@ -421,6 +434,14 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
           );
       }
 
+      const discardedPaths = diffRemovedStoragePaths(
+        [...initialSavedUrlsRef.current, ...Array.from(sessionUploadedUrlsRef.current)],
+        photos,
+      );
+      if (discardedPaths.length > 0) {
+        void removeShopImages(discardedPaths);
+      }
+
       toast.success(isEdit ? 'PG & Hostel updated successfully! ✓' : 'New PG & Hostel listing created! ✓');
       onSaved();
     } catch (err: any) {
@@ -432,15 +453,15 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
   };
 
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl">
-        <DialogHeader className="p-5 pb-3 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20">
+    <Dialog open onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-2xl max-h-[90dvh] overflow-y-auto p-0 gap-0 rounded-2xl">
+        <DialogHeader className="p-4 sm:p-5 pr-12 pb-3 border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10 text-left">
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 min-w-0">
+              <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 border border-blue-500/20 shrink-0">
                 <BedDouble className="w-5 h-5" />
               </span>
-              <span>{isEdit ? 'Edit PG & Hostel Listing' : 'Add New PG & Hostel'}</span>
+              <span className="min-w-0 break-words">{isEdit ? 'Edit PG & Hostel Listing' : 'Add New PG & Hostel'}</span>
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground mt-1">
@@ -448,7 +469,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSave} className="p-5 space-y-6">
+        <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-6">
           {/* SECTION 1: BASIC INFORMATION */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -579,10 +600,10 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
             </div>
 
             {/* Gender Eligibility */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-foreground">Gender Eligibility *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { value: 'boys', label: '👦 Boys' },
                     { value: 'girls', label: '👧 Girls' },
@@ -593,7 +614,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
                       type="button"
                       onClick={() => setGender(opt.value as PGGender)}
                       className={cn(
-                        'py-2 px-2 rounded-lg text-xs font-bold border transition-all text-center',
+                        'py-2 px-1.5 rounded-lg text-xs font-bold border transition-all text-center leading-tight',
                         gender === opt.value
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                           : 'bg-card text-foreground border-border hover:bg-muted'
@@ -710,7 +731,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
               <label className="block text-xs font-semibold text-foreground">
                 Room Sharing Rates (₹ / month per person)
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                 <div>
                   <span className="text-[11px] text-muted-foreground block mb-1">Single Room</span>
                   <div className="relative">
@@ -821,6 +842,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
                 setUploading(true);
                 try {
                   const result = await uploadShopImage(blob, form.name || 'pg', { prefix: 'pg' });
+                  if (!result.isExisting) sessionUploadedUrlsRef.current.add(result.publicUrl);
                   if (result.isExisting) {
                     toast.info('Existing photo found in storage and linked.');
                   }
@@ -852,8 +874,8 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
 
             {showMr && (
               <div className="p-4 pt-1 space-y-3 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] text-muted-foreground">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[11px] text-muted-foreground min-w-[160px] flex-1">
                     Auto-translate or type custom Marathi text.
                   </p>
                   <TranslateAllButton
@@ -893,7 +915,7 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
           </div>
 
           {/* SECTION 5: STATUS & VERIFICATION */}
-          <div className="flex items-center justify-between gap-4 p-3 bg-muted/30 rounded-xl border border-border">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-muted/30 rounded-xl border border-border">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -918,10 +940,10 @@ export function PGModal({ pg, onClose, onSaved }: PGModalProps) {
             </label>
           </div>
 
-          <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur p-4 border-t border-border -mx-5 -mb-5 flex items-center justify-end gap-2">
+          <DialogFooter className="sticky bottom-0 bg-background/95 backdrop-blur p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] border-t border-border -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 flex flex-row flex-wrap items-center justify-end gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={saving}
               className="px-4 py-2 rounded-xl text-xs font-semibold border border-border bg-card hover:bg-muted text-foreground transition-colors disabled:opacity-50"
             >

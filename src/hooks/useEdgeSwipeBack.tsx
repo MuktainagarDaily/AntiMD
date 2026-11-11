@@ -41,7 +41,7 @@ export function useEdgeSwipeBack({
 
   const handleNavigateBack = useCallback(() => {
     try {
-      haptic('light');
+      haptic('tap');
     } catch {
       // Ignore if haptic not supported
     }

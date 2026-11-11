@@ -59,7 +59,7 @@ export const ADMIN_NAV: HubNav[] = [
       { key: 'banks',     label: 'Banks',         path: '/admin/sections/banks',     icon: Landmark,      status: 'soon' },
       { key: 'gov',       label: 'Essential Services & Authorities', path: '/admin/sections/gov', icon: Building2, status: 'live' },
       { key: 'lostfound', label: 'Lost & Found',  path: '/admin/sections/lostfound', icon: SearchX,       status: 'soon' },
-      { key: 'news',      label: 'Local News',    path: '/admin/sections/news',      icon: Newspaper,     status: 'soon' },
+      { key: 'news',      label: 'Local News',    path: '/admin/sections/news',      icon: Newspaper,     status: 'live' },
     ],
   },
   {

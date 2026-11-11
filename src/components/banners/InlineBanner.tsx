@@ -64,7 +64,7 @@ export function InlineBanner({ banner }: Props) {
           from curated directory listings. */}
       <span
         title={t('banner.sponsoredFull')}
-        className="absolute top-1.5 left-1.5 text-[9px] sm:text-[10px] font-bold tracking-wide uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded-md bg-background/85 text-foreground backdrop-blur-sm border border-border/60"
+        className="absolute top-1.5 left-1.5 z-10 text-[9px] sm:text-[10px] font-bold tracking-wide uppercase px-1.5 sm:px-2 py-px sm:py-0.5 rounded-md bg-background/85 text-foreground backdrop-blur-sm border border-border/60"
       >
         {t('banner.sponsored')}
       </span>

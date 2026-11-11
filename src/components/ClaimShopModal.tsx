@@ -145,18 +145,18 @@ export function ClaimShopModal({ shopId, shopName, onClose }: Props) {
 
   return (
     <Backdrop onClose={onClose}>
-      <div className="bg-card rounded-2xl max-w-sm w-full p-5 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+      <div className="bg-card rounded-2xl max-w-sm w-full p-5 max-h-[92vh] overflow-y-auto border border-border shadow-xl">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-bold text-base text-foreground leading-tight">{t('claim.title')}</h3>
-              <p className="text-[11px] text-muted-foreground truncate max-w-[200px]">{shopName}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{shopName}</p>
             </div>
           </div>
-          <button onClick={onClose} aria-label={t('claim.closeAria')} className="p-1.5 rounded-lg hover:bg-muted">
+          <button onClick={onClose} aria-label={t('claim.closeAria')} className="p-1.5 rounded-lg hover:bg-muted shrink-0">
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>

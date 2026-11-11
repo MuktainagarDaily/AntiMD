@@ -322,34 +322,40 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
   /* ── Render ─────────────────────────────────────────────────── */
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
-        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 flex flex-col max-h-[calc(100dvh-2rem)]">
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-3 sm:px-4"
+        onClick={() => setShowCancel(true)}
+      >
+        <div
+          className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 flex flex-col max-h-[calc(100dvh-2rem)] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
-            <div>
-              <h2 className="font-bold text-lg text-foreground flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border shrink-0">
+            <div className="min-w-0">
+              <h2 className="font-bold text-lg text-foreground flex items-center gap-2 truncate">
                 ⚡ Speed Add
               </h2>
-              <p className="text-xs text-muted-foreground">Draft {currentIdx + 1} of {drafts.length} — saved as hidden (inactive)</p>
+              <p className="text-xs text-muted-foreground truncate">Draft {currentIdx + 1} of {drafts.length} — saved as hidden (inactive)</p>
             </div>
-            <button onClick={() => setShowCancel(true)} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={() => setShowCancel(true)} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
           {/* Target Location bar */}
-          <div className="bg-primary/5 border-b border-border px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <div className="bg-primary/5 border-b border-border px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground shrink-0">
               <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
               <span>Location:</span>
             </div>
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto sm:flex-1 sm:max-w-md min-w-0">
               <select
                 value={targetCityId}
                 onChange={(e) => {
                   setTargetCityId(e.target.value);
                   setTargetVillageId('');
                 }}
-                className="text-xs px-2 py-1 rounded-md border border-input bg-background font-medium focus:outline-none"
+                className="text-xs px-2 py-1 rounded-md border border-input bg-background font-medium min-w-0 flex-1 max-w-full truncate focus:outline-none"
               >
                 {allCities.map((c) => (
                   <option key={c.id} value={c.id}>{c.name} {c.name_mr ? `(${c.name_mr})` : ''}</option>
@@ -358,7 +364,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
               <select
                 value={targetVillageId}
                 onChange={(e) => setTargetVillageId(e.target.value)}
-                className="text-xs px-2 py-1 rounded-md border border-input bg-background font-medium flex-1 truncate focus:outline-none"
+                className="text-xs px-2 py-1 rounded-md border border-input bg-background font-medium min-w-0 flex-1 max-w-full truncate focus:outline-none"
               >
                 <option value="">Main Town (no village)</option>
                 {cityVillages.map((v) => (
@@ -370,7 +376,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
 
           {/* Draft thumbnails nav */}
           {drafts.length > 1 && (
-            <div className="flex items-center gap-2 px-6 py-2.5 border-b border-border shrink-0 overflow-x-auto scrollbar-none">
+            <div className="flex items-center gap-2 px-4 sm:px-6 py-2.5 border-b border-border shrink-0 overflow-x-auto no-scrollbar">
               {drafts.map((d, i) => (
                 <button key={d.id} onClick={() => goTo(i)}
                   className={`shrink-0 w-12 h-12 rounded-lg border-2 overflow-hidden transition-all ${i === currentIdx ? 'border-primary' : 'border-border opacity-60 hover:opacity-100'}`}>
@@ -383,7 +389,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
           )}
 
           {/* Form */}
-          <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 p-6 space-y-4">
+          <div className="overflow-y-auto overscroll-contain flex-1 min-h-0 p-4 sm:p-6 space-y-4">
             {DEV_AUTOFILL && (
               <button type="button" onClick={handleDevFill}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border border-dashed border-secondary text-secondary bg-secondary/10 hover:bg-secondary/20 transition-colors">
@@ -412,10 +418,10 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
                 <span className="text-xs text-muted-foreground font-normal ml-1">(always freshly captured)</span>
               </label>
               {(draft.latitude && draft.longitude) ? (
-                <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border bg-muted/40">
-                  <span className="text-[11px] font-mono text-foreground">📍 {draft.latitude}, {draft.longitude}</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 rounded-lg border border-border bg-muted/40">
+                  <span className="text-[11px] font-mono text-foreground min-w-0 break-all">📍 {draft.latitude}, {draft.longitude}</span>
                   <button type="button" onClick={() => updateDraft({ latitude: '', longitude: '' })}
-                    className="text-xs text-destructive font-semibold hover:opacity-70 shrink-0 ml-2">Clear</button>
+                    className="text-xs text-destructive font-semibold hover:opacity-70 shrink-0">Clear</button>
                 </div>
               ) : (
                 <button type="button" onClick={handleGetLocation} disabled={locating}
@@ -446,7 +452,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
 
             {/* Area with Previous Area helper */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                 <label className="text-sm font-semibold text-foreground">Area / Locality</label>
                 {lastArea && (
                   <button type="button" onClick={() => updateDraft({ area: lastArea })}
@@ -480,7 +486,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
               </select>
             </Field>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <TimePickerField label="Opening Time" optional value={draft.opening_time} onChange={(v) => updateDraft({ opening_time: v })} />
               <TimePickerField label="Closing Time" optional value={draft.closing_time} onChange={(v) => updateDraft({ closing_time: v })} />
             </div>
@@ -511,8 +517,8 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
               </button>
               {showMr && (
                 <div className="px-4 pb-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[11px] text-muted-foreground leading-snug flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground leading-snug min-w-[200px] flex-1">
                       Optional. Tap <strong>Translate to Marathi</strong> to auto-fill every empty Marathi field for this draft from the English values. Shared cache — repeats are free. Saved alongside this shop on submit.
                     </p>
                     <TranslateAllButton
@@ -528,7 +534,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
                   </div>
                   <MarathiMirrorField label="Shop name (मराठी)" value={draft.mr_name}
                     onChange={(v) => updateDraft({ mr_name: v })} maxLength={120} />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <MarathiMirrorField label="Area (परिसर)" value={draft.mr_area}
                       onChange={(v) => updateDraft({ mr_area: v })} maxLength={80} />
                     <MarathiMirrorField label="Sub-area (उप-परिसर)" value={draft.mr_sub_area}
@@ -546,7 +552,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
           </div>
 
           {/* Footer actions */}
-          <div className="px-6 py-4 border-t border-border shrink-0 space-y-2">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] border-t border-border shrink-0 space-y-2">
             {/* Nav row */}
             {drafts.length > 1 && (
               <div className="flex items-center justify-between mb-1">
@@ -562,7 +568,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {/* Remove current draft */}
               {drafts.length > 1 && (
                 <button type="button" onClick={() => removeDraft(currentIdx)}
@@ -573,13 +579,13 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
 
               {/* Add another */}
               <button type="button" onClick={handleAddAnother}
-                className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-lg border border-border font-semibold text-sm text-foreground hover:bg-muted transition-colors">
+                className="flex items-center justify-center gap-2 flex-1 min-w-[120px] py-2.5 rounded-lg border border-border font-semibold text-sm text-foreground hover:bg-muted transition-colors">
                 <Plus className="w-4 h-4" /> Add Another
               </button>
 
               {/* Submit all */}
               <button type="button" onClick={handleSubmitAll} disabled={submitting}
-                className="flex items-center justify-center gap-2 flex-1 py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-60">
+                className="flex items-center justify-center gap-2 flex-1 min-w-[120px] py-2.5 rounded-lg bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-colors disabled:opacity-60">
                 {submitting
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Saving…</>
                   : <><Send className="w-4 h-4" />Submit {drafts.length > 1 ? `All (${drafts.length})` : '1 Draft'}</>}

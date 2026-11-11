@@ -9,6 +9,7 @@ import { useCity } from '@/hooks/useCity';
 import { supabase } from '@/integrations/supabase/client';
 import { AdminSidebar } from './AdminSidebar';
 import { findActive } from './adminNav';
+import { isMissingRelationErr } from '@/lib/entities/claimEntity';
 
 export function AdminLayout() {
   const { townBrand, currentCity, allCities, setCity } = useCity();
@@ -30,11 +31,16 @@ export function AdminLayout() {
   const { data: inboxStats } = useQuery({
     queryKey: ['admin-inbox-counts'],
     queryFn: async () => {
-      const [{ count: pending }, { count: claims }] = await Promise.all([
+      const [{ count: pending }, { count: shopClaims }, schoolClaimsRes] = await Promise.all([
         supabase.from('shop_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('shop_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        (supabase.from('school_claims' as any) as any).select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       ]);
-      return { pending: pending ?? 0, claims: claims ?? 0, total: (pending ?? 0) + (claims ?? 0) };
+      const schoolClaims = schoolClaimsRes?.error && isMissingRelationErr(schoolClaimsRes.error)
+        ? 0
+        : (schoolClaimsRes?.count ?? 0);
+      const claims = (shopClaims ?? 0) + schoolClaims;
+      return { pending: pending ?? 0, claims, total: (pending ?? 0) + claims };
     },
     staleTime: 30_000,
   });
@@ -59,8 +65,8 @@ export function AdminLayout() {
                 <Link to="/admin/overview" className="font-semibold hover:underline shrink-0">Admin</Link>
                 {active?.hub && active.hub.key !== 'overview' && (
                   <>
-                    <ChevronRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
-                    <Link to={active.hub.path} className="hover:underline truncate">{active.hub.label}</Link>
+                    <ChevronRight className={`w-3.5 h-3.5 opacity-60 shrink-0 ${active?.leaf ? 'hidden sm:block' : ''}`} />
+                    <Link to={active.hub.path} className={`hover:underline truncate ${active?.leaf ? 'hidden sm:inline' : ''}`}>{active.hub.label}</Link>
                   </>
                 )}
                 {active?.leaf && (
@@ -72,16 +78,16 @@ export function AdminLayout() {
               </nav>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {/* Location Switcher for Admin Data Management */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="flex items-center gap-1.5 bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all border border-primary-foreground/20 shadow-sm"
+                    className="flex items-center gap-1 sm:gap-1.5 bg-primary-foreground/15 hover:bg-primary-foreground/25 text-primary-foreground px-2 sm:px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all border border-primary-foreground/20 shadow-sm"
                     title="Switch active location for uploads and management"
                   >
                     <MapPin className="w-3.5 h-3.5 text-accent shrink-0" />
-                    <span className="truncate max-w-[90px] sm:max-w-[140px]">{currentCity.name}</span>
+                    <span className="truncate max-w-[75px] sm:max-w-[140px]">{currentCity.name}</span>
                     <ChevronDown className="w-3.5 h-3.5 opacity-70 shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
@@ -155,7 +161,7 @@ export function AdminLayout() {
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-4 max-w-6xl w-full mx-auto">
+          <main className="flex-1 min-w-0 overflow-x-clip px-3 sm:px-4 py-4 max-w-6xl w-full mx-auto">
             <Outlet context={{ inboxStats }} />
           </main>
         </div>

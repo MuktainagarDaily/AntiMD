@@ -9,7 +9,13 @@ import { parseGoogleMapsLink } from '@/lib/mapsUtils';
 import { extractStoragePath, normalizeWhatsApp, inputCls } from './adminHelpers';
 import { isValidIndianPhone } from '@/lib/utils';
 import { updateShopWithConcurrency } from '@/lib/shopConcurrency';
-import { uploadShopImage, renameShopImage, removeShopImageQuiet } from '@/lib/storageNaming';
+import {
+  uploadShopImage,
+  renameShopImage,
+  removeShopImageQuiet,
+  removeShopImages,
+  diffRemovedStoragePaths,
+} from '@/lib/storageNaming';
 import { TimePickerField } from '@/components/shared/TimePickerField';
 import { ImageCropPicker } from '@/components/shared/ImageCropPicker';
 import { MultiImageCropPicker } from '@/components/shared/MultiImageCropPicker';
@@ -74,7 +80,20 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
   const initialPhotos: string[] = Array.isArray(shop.photos) && shop.photos.length > 0
     ? shop.photos
     : (shop.image_url ? [shop.image_url] : []);
+  const initialSavedUrlsRef = useRef<string[]>(initialPhotos);
+  const sessionUploadedUrlsRef = useRef<Set<string>>(new Set());
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
+
+  const handleClose = () => {
+    if (saving) return;
+    // Remove newly uploaded photos that were never saved (preserve original saved photos)
+    const unsavedPaths = diffRemovedStoragePaths(
+      Array.from(sessionUploadedUrlsRef.current),
+      initialSavedUrlsRef.current,
+    );
+    if (unsavedPaths.length > 0) void removeShopImages(unsavedPaths);
+    onClose();
+  };
 
   // Background-sync the exact server timestamp and missing columns (photos, description, etc.)
   useEffect(() => {
@@ -91,6 +110,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
           setBaselineUpdatedAt(data.updated_at);
         }
         if (Array.isArray(data.photos) && data.photos.length > 0) {
+          initialSavedUrlsRef.current = Array.from(new Set([...initialSavedUrlsRef.current, ...data.photos]));
           setPhotos((curr) => (curr.length <= 1 ? data.photos : curr));
         }
         if (data.description) {
@@ -371,17 +391,33 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
     }
 
     // If the shop was renamed and still uses an image we own, rename the file
-    // so its filename keeps matching the shop name.
-    if (isEdit && form.image_url && form.name.trim() && shop.name && shop.name.trim() !== form.name.trim()) {
+    // so its filename keeps matching the shop name (keeping photos[0] synced too).
+    let finalPhotos = photos;
+    const coverToRename = photos[0] || form.image_url;
+    if (isEdit && coverToRename && form.name.trim() && shop.name && shop.name.trim() !== form.name.trim()) {
       try {
-        const renamed = await renameShopImage(form.image_url, form.name);
-        if (renamed && renamed.publicUrl !== form.image_url) {
-          await supabase.from('shops').update({ image_url: renamed.publicUrl }).eq('id', shopId);
+        const renamed = await renameShopImage(coverToRename, form.name);
+        if (renamed && renamed.publicUrl !== coverToRename) {
+          finalPhotos = photos.length > 0 ? [renamed.publicUrl, ...photos.slice(1)] : [renamed.publicUrl];
+          await supabase
+            .from('shops')
+            .update({ image_url: renamed.publicUrl, photos: finalPhotos })
+            .eq('id', shopId);
           setForm((f) => ({ ...f, image_url: renamed.publicUrl }));
+          setPhotos(finalPhotos);
         }
       } catch {
         // Non-fatal: shop save already succeeded
       }
+    }
+
+    // Remove any previously saved or session-uploaded photos that were deleted from the gallery
+    const discardedPaths = diffRemovedStoragePaths(
+      [...initialSavedUrlsRef.current, ...Array.from(sessionUploadedUrlsRef.current)],
+      finalPhotos,
+    );
+    if (discardedPaths.length > 0) {
+      void removeShopImages(discardedPaths);
     }
 
     // Persist Marathi translation. Auto-translate any blank Marathi fields
@@ -485,14 +521,20 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
-        <div className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
-            <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-3 sm:px-4"
+        onClick={handleClose}
+      >
+        <div
+          className="bg-card rounded-2xl border border-border w-full max-w-xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border shrink-0">
+            <h2 className="font-bold text-lg text-foreground min-w-0 truncate">{isEdit ? 'Edit Shop' : 'Add New Shop'}</h2>
+            <button type="button" onClick={handleClose} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg shrink-0"><X className="w-5 h-5" /></button>
           </div>
 
-          <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
+          <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             {/* Dev autofill */}
             {DEV_AUTOFILL && (
               <button type="button" onClick={handleDevFill}
@@ -642,9 +684,9 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
                     <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
                       Open Google Maps → find the shop → tap <strong>Share</strong> → <strong>Copy link</strong> → paste below.
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <input value={mapsLinkInput} onChange={(e) => { setMapsLinkInput(e.target.value); setMapsLinkError(''); setParsedPreview(null); }}
-                        className={inputCls + ' text-xs flex-1' + (mapsLinkError ? ' border-destructive' : '')}
+                        className={inputCls + ' text-xs min-w-[180px] flex-1' + (mapsLinkError ? ' border-destructive' : '')}
                         placeholder="https://www.google.com/maps/place/..." />
                       <button type="button" onClick={handleExtractFromLink} disabled={!mapsLinkInput.trim()}
                         className="shrink-0 px-3 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
@@ -684,7 +726,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
             </div>
 
             {/* Times */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <TimePickerField label="Opening Time" optional value={form.opening_time} onChange={(v) => set('opening_time', v)} />
               <TimePickerField label="Closing Time" optional value={form.closing_time} onChange={(v) => set('closing_time', v)} />
             </div>
@@ -720,6 +762,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
                   setUploading(true);
                   try {
                     const result = await uploadShopImage(blob, form.name || 'shop');
+                    if (!result.isExisting) sessionUploadedUrlsRef.current.add(result.publicUrl);
                     if (result.isExisting) {
                       toast.info('Existing image found in storage and linked to shop.');
                     }
@@ -748,8 +791,8 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
               </button>
               {showMr && (
                 <div className="px-4 pb-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[11px] text-muted-foreground leading-snug flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="text-[11px] text-muted-foreground leading-snug min-w-[200px] flex-1">
                       Optional. Tap <strong>Translate to Marathi</strong> once to auto-fill every empty Marathi field from the English values (shared cache — repeats are free). Edit freely. English is used as fallback when blank.
                     </p>
                     <TranslateAllButton
@@ -766,7 +809,7 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
                   <MarathiMirrorField label="Shop name (मराठी)" value={mr.name}
                     onChange={(v) => setMr((m) => ({ ...m, name: v }))}
                     placeholder="उदा. शर्मा जनरल स्टोअर" maxLength={120} />
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <MarathiMirrorField label="Area (परिसर)" value={mr.area}
                       onChange={(v) => setMr((m) => ({ ...m, area: v }))}
                       placeholder="उदा. मुख्य बाजार" maxLength={80} />
@@ -784,10 +827,10 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
               )}
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">Cancel</button>
+            <div className="flex flex-wrap gap-3 pt-2 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]">
+              <button type="button" onClick={handleClose} className="flex-1 min-w-[110px] py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">Cancel</button>
               <button type="submit" disabled={saving || uploading}
-                className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                className="flex-1 min-w-[110px] py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : isEdit ? 'Update Shop' : 'Add Shop'}
               </button>
             </div>

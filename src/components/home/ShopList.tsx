@@ -32,17 +32,17 @@ export function ShopList({ shops }: { shops: any[] }) {
 
   return (
     <section className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <Sparkles className="w-4 h-4 text-primary shrink-0" />
           <h2 className="text-base sm:text-lg font-bold text-foreground">{t('home.recentlyAdded')}</h2>
-          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
             {t('home.recentlyAdded.badge')}
           </span>
         </div>
 
         {/* Desktop Controls & View All link */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => navigate(`/${currentCity.slug}/shops`)}
             className="text-xs font-semibold text-primary hover:underline flex items-center gap-0.5"

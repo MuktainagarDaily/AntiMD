@@ -158,7 +158,7 @@ export default function SavedShops() {
           {!selectMode && shops && shops.length > 0 && (
             <button
               onClick={() => setSelectMode(true)}
-              className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15"
+              className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 shrink-0"
             >
               {t('saved.select')}
             </button>
@@ -171,7 +171,7 @@ export default function SavedShops() {
       {!isLoading && shops && shops.length > 0 && (
         <div className="sticky top-[56px] z-[5] bg-background/95 backdrop-blur border-b border-border">
           <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center gap-2">
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
@@ -189,11 +189,11 @@ export default function SavedShops() {
                 </button>
               )}
             </div>
-            <div className="relative">
+            <div className="relative shrink-0">
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="appearance-none pl-3 pr-7 py-2 rounded-lg border border-input bg-background text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                className="appearance-none max-w-[115px] sm:max-w-none pl-2.5 sm:pl-3 pr-6 sm:pr-7 py-2 rounded-lg border border-input bg-background text-xs font-semibold truncate focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label={t('saved.searchAria')}
               >
                 <option value="recent">{t('saved.sort.recent')}</option>
@@ -251,7 +251,7 @@ export default function SavedShops() {
               {t('saved.empty.hint')}
             </p>
             <button
-              onClick={() => navigate('/shops')}
+              onClick={() => navigate(`/${currentCity.slug}/shops`)}
               className="mt-5 inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground"
             >
               {t('saved.browseShops')}
@@ -296,7 +296,10 @@ export default function SavedShops() {
 
       {/* Bulk action bar */}
       {selectMode && selected.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_12px_-4px_hsl(var(--foreground)/0.15)]">
+        <div
+          className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_12px_-4px_hsl(var(--foreground)/0.15)]"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-2">
             <button
               onClick={exitSelect}

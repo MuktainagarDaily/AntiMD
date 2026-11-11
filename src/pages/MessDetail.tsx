@@ -27,6 +27,7 @@ import { fetchMessBySlugOrId, getMessServingStatus, isSundaySpecialActive } from
 import { getEstablishmentCategory, type MessWithDetails } from '@/lib/living/livingTypes';
 import { BookmarkButton } from '@/components/BookmarkButton';
 import { DesktopNav } from '@/components/DesktopNav';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { PhotoSlider } from '@/components/shared/PhotoSlider';
 import { ReviewsSection } from '@/components/reviews/ReviewsSection';
 import { Footer } from '@/components/shared/Footer';
@@ -144,33 +145,34 @@ export default function MessDetail() {
       />
 
       {/* Top Sticky App Bar */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               onClick={() => navigate(`/${citySlug || currentCity.slug}/mess`)}
               aria-label="Back to Mess Directory"
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-muted-foreground"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-base font-bold truncate">
+            <h1 className="text-sm sm:text-base font-bold leading-tight truncate">
               {displayName}
             </h1>
           </div>
 
-          <DesktopNav variant="default" />
+          <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={handleShare}
               aria-label="Share"
-              className="p-2 rounded-full hover:bg-muted active:scale-95 transition-all text-muted-foreground"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-primary-foreground/10 active:scale-95 transition-all shrink-0"
               title="Share"
             >
               <Share2 className="w-4 h-4" />
             </button>
             <BookmarkButton shopId={mess.id} />
+            <UserMenuDrawer />
           </div>
         </div>
       </header>
@@ -299,7 +301,7 @@ export default function MessDetail() {
 
         {/* Today's Daily Menu (Highlight Feature) */}
         <div className="bg-gradient-to-b from-primary/5 to-card rounded-2xl border border-primary/20 p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
                 <ChefHat className="w-4 h-4" />
@@ -346,7 +348,7 @@ export default function MessDetail() {
               {/* Lunch dishes */}
               {activeMenu.lunch_text && (
                 <div className="p-3 rounded-xl bg-card border border-border/70 space-y-1">
-                  <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs font-bold text-foreground">
                     <span className="flex items-center gap-1">
                       <span>☀️</span> {locale === 'mr' ? 'दुपारचे जेवण (Lunch)' : 'Lunch Menu'}
                     </span>
@@ -363,7 +365,7 @@ export default function MessDetail() {
               {/* Dinner dishes */}
               {activeMenu.dinner_text && (
                 <div className="p-3 rounded-xl bg-card border border-border/70 space-y-1">
-                  <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs font-bold text-foreground">
                     <span className="flex items-center gap-1">
                       <span>🌙</span> {locale === 'mr' ? 'रात्रीचे जेवण (Dinner)' : 'Dinner Menu'}
                     </span>
@@ -398,7 +400,7 @@ export default function MessDetail() {
             <span>{locale === 'mr' ? 'दर आणि मासिक पास (Rates & Packages)' : 'Rates & Subscription Passes'}</span>
           </h2>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {profile?.monthly_rate ? (
               <div className="p-3 rounded-xl border border-primary/25 bg-primary/5 space-y-1">
                 <span className="text-[11px] font-semibold text-muted-foreground">
@@ -485,7 +487,7 @@ export default function MessDetail() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-muted-foreground font-medium">
                 ☀️ {locale === 'mr' ? 'दुपारची वेळ (Lunch)' : 'Lunch Window'}
               </span>
@@ -493,7 +495,7 @@ export default function MessDetail() {
                 {profile?.lunch_timing || '11:30 AM - 02:30 PM'}
               </span>
             </div>
-            <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-muted-foreground font-medium">
                 🌙 {locale === 'mr' ? 'रात्रीची वेळ (Dinner)' : 'Dinner Window'}
               </span>
@@ -553,7 +555,10 @@ export default function MessDetail() {
       </main>
 
       {/* Sticky Bottom Contact Bar */}
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-md border-t border-border p-3">
+      <div
+        className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-md border-t border-border p-3"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+      >
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {phone ? (
             <a
@@ -607,12 +612,6 @@ export default function MessDetail() {
                 alt="Today's Menu Board"
                 className="w-full h-auto max-h-[80vh] object-contain rounded-xl"
               />
-              <button
-                onClick={() => setPreviewPhotoUrl(null)}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
           )}
         </DialogContent>

@@ -81,19 +81,19 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user || pathCitySlug) return;
     let isMounted = true;
-    supabase
-      .from('profiles')
-      .select('city_id, geo_cities:geo_cities!profiles_city_id_fkey(slug)')
-      .eq('id', user.id)
-      .single()
-      .then(({ data }) => {
-        if (!isMounted || !data) return;
-        const profileCitySlug = (data as any)?.geo_cities?.slug;
-        if (profileCitySlug && profileCitySlug !== selectedCitySlug) {
-          setSelectedCitySlug(profileCitySlug);
-        }
-      })
-      .catch(() => {});
+    void Promise.resolve(
+      supabase
+        .from('profiles')
+        .select('city_id, geo_cities:geo_cities!profiles_city_id_fkey(slug)')
+        .eq('id', user.id)
+        .single()
+    ).then(({ data }) => {
+      if (!isMounted || !data) return;
+      const profileCitySlug = (data as any)?.geo_cities?.slug;
+      if (profileCitySlug && profileCitySlug !== selectedCitySlug) {
+        setSelectedCitySlug(profileCitySlug);
+      }
+    }).catch(() => {});
     return () => { isMounted = false; };
   }, [user, pathCitySlug, selectedCitySlug]);
 
@@ -130,12 +130,12 @@ export function CityProvider({ children }: { children: React.ReactNode }) {
 
       // Update signed-in user's profile if applicable
       if (user) {
-        supabase
-          .from('profiles')
-          .update({ city_id: target.id })
-          .eq('id', user.id)
-          .then(() => {})
-          .catch(() => {});
+        void Promise.resolve(
+          supabase
+            .from('profiles')
+            .update({ city_id: target.id })
+            .eq('id', user.id)
+        ).then(() => {}).catch(() => {});
       }
 
       // If inside Admin panel, stay on the current admin route without re-routing to /:citySlug/admin

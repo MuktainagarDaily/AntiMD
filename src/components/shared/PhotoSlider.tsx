@@ -217,25 +217,25 @@ export function PhotoSlider({
         {/* Subtle dark gradient overlay for bottom readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
-        {/* Top-Left Slot */}
-        {overlayTopLeft && (
-          <div className="absolute top-2.5 left-2.5 z-10 pointer-events-auto">
-            {overlayTopLeft}
+        {/* Top Overlay Row (Left + Right/Counter) */}
+        {(overlayTopLeft || overlayTopRight || (total > 1 && showCounter)) && (
+          <div className="absolute top-2.5 inset-x-2.5 z-10 flex items-start justify-between gap-2 pointer-events-none">
+            <div className="min-w-0 pointer-events-auto">
+              {overlayTopLeft}
+            </div>
+            <div className="shrink-0 flex items-center gap-1.5 pointer-events-auto">
+              {overlayTopRight}
+              {total > 1 && showCounter && (
+                <div className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/15 shadow-2xs">
+                  <Camera className="w-3 h-3 text-white/80" />
+                  <span>
+                    {currentIndex + 1}/{total}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         )}
-
-        {/* Top-Right Slot & Counter */}
-        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 pointer-events-auto">
-          {overlayTopRight}
-          {total > 1 && showCounter && (
-            <div className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-md border border-white/15 shadow-2xs">
-              <Camera className="w-3 h-3 text-white/80" />
-              <span>
-                {currentIndex + 1}/{total}
-              </span>
-            </div>
-          )}
-        </div>
 
         {/* Next / Previous Floating Arrow Controls (only if multi-photo) */}
         {total > 1 && showArrows && (
@@ -259,34 +259,14 @@ export function PhotoSlider({
           </>
         )}
 
-        {/* Bottom-Left Slot */}
-        {overlayBottomLeft && (
-          <div className="absolute bottom-2.5 left-2.5 z-10 pointer-events-auto">
-            {overlayBottomLeft}
-          </div>
-        )}
-
-        {/* Bottom-Right Slot & Lightbox trigger hint */}
-        <div className="absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1.5 pointer-events-auto">
-          {overlayBottomRight}
-          {enableLightbox && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setLightboxOpen(true);
-              }}
-              title="Full screen view"
-              className="p-1 rounded-full bg-black/50 hover:bg-black/70 text-white/90 backdrop-blur-md text-[10px] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-            >
-              <Maximize2 className="w-3 h-3" />
-            </button>
-          )}
-        </div>
-
-        {/* Bottom Center Slide Dots */}
+        {/* Bottom Center Slide Dots — lifted clear of bottom overlays when present */}
         {total > 1 && showDots && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/40 backdrop-blur-xs pointer-events-auto">
+          <div
+            className={cn(
+              'absolute left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-xs pointer-events-auto',
+              overlayBottomLeft || overlayBottomRight ? 'bottom-10' : 'bottom-2'
+            )}
+          >
             {images.map((_, i) => (
               <button
                 key={i}
@@ -301,6 +281,31 @@ export function PhotoSlider({
                 )}
               />
             ))}
+          </div>
+        )}
+
+        {/* Bottom Overlay Row (Left + Right/Lightbox) */}
+        {(overlayBottomLeft || overlayBottomRight || enableLightbox) && (
+          <div className="absolute bottom-2.5 inset-x-2.5 z-10 flex items-end justify-between gap-2 pointer-events-none">
+            <div className="min-w-0 flex-1 pointer-events-auto">
+              {overlayBottomLeft}
+            </div>
+            <div className="shrink-0 flex items-center gap-1.5 pointer-events-auto">
+              {overlayBottomRight}
+              {enableLightbox && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxOpen(true);
+                  }}
+                  title="Full screen view"
+                  className="p-1 rounded-full bg-black/50 hover:bg-black/70 text-white/90 backdrop-blur-md text-[10px] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -177,8 +177,9 @@ export function MessProfileManager({ shop, onSaved }: MessProfileManagerProps) {
       };
 
       const result = await updateShopWithConcurrency(shop.id, shop.updated_at, shopPatch);
-      if (!result.ok) {
-        throw new Error(result.error || 'Failed to update shop details');
+      if (result.ok === false) {
+        const errMsg = 'error' in result ? result.error : 'Conflict detected — please reload and try again';
+        throw new Error(errMsg || 'Failed to update shop details');
       }
 
       // 1b. Save Marathi translation to shop_translations
@@ -236,7 +237,7 @@ export function MessProfileManager({ shop, onSaved }: MessProfileManagerProps) {
     <div className="space-y-5">
       {/* ── 1. Dietary Type (आहार प्रकार) ── */}
       <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-xs space-y-3">
-        <label className="text-xs font-bold text-foreground flex items-center justify-between">
+        <label className="text-xs font-bold text-foreground flex flex-wrap items-center justify-between gap-1">
           <span>🥦 {locale === 'mr' ? 'मेसचा प्रकार निवडा (Dietary Category)' : 'Dietary Category'}</span>
           <span className="text-[10px] text-muted-foreground">१ पर्याय निवडा</span>
         </label>
@@ -488,7 +489,7 @@ export function MessProfileManager({ shop, onSaved }: MessProfileManagerProps) {
               placeholder="उदा. 11:30 AM - 02:30 PM"
               className="w-full px-3 py-2 text-xs rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             />
-            <div className="flex gap-1 pt-0.5">
+            <div className="flex flex-wrap gap-1 pt-0.5">
               {['11:30 AM - 02:30 PM', '12:00 PM - 03:00 PM'].map((p) => (
                 <button
                   key={p}
@@ -514,7 +515,7 @@ export function MessProfileManager({ shop, onSaved }: MessProfileManagerProps) {
               placeholder="उदा. 07:30 PM - 10:30 PM"
               className="w-full px-3 py-2 text-xs rounded-xl border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             />
-            <div className="flex gap-1 pt-0.5">
+            <div className="flex flex-wrap gap-1 pt-0.5">
               {['07:30 PM - 10:30 PM', '08:00 PM - 11:00 PM'].map((p) => (
                 <button
                   key={p}
@@ -640,7 +641,7 @@ export function MessProfileManager({ shop, onSaved }: MessProfileManagerProps) {
 
       {/* ── 6. Photos (मेसचे फोटो) ── */}
       <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-xs space-y-3">
-        <label className="text-xs font-bold text-foreground flex items-center justify-between">
+        <label className="text-xs font-bold text-foreground flex flex-wrap items-center justify-between gap-1">
           <span>📸 {locale === 'mr' ? 'मेसचे फोटो (जास्तीत जास्त ५ फोटो)' : 'Mess Photos (Max 5)'}</span>
           <span className="text-[10px] text-muted-foreground">डायनिंग हॉल, स्वयंपाकघर, थाळी</span>
         </label>

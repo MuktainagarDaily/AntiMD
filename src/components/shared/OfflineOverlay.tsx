@@ -73,9 +73,10 @@ export function OfflineOverlay() {
             disabled={retrying}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25 active:scale-95 transition-all disabled:opacity-60"
             title={locale === 'mr' ? 'पुन्हा प्रयत्न करा' : 'Retry'}
+            aria-label={locale === 'mr' ? 'पुन्हा प्रयत्न करा' : 'Retry'}
           >
             <RefreshCw className={cn('w-3 h-3', retrying && 'animate-spin')} />
-            <span className="hidden xs:inline">{locale === 'mr' ? 'पुन्हा पहा' : 'Retry'}</span>
+            <span className="hidden sm:inline">{locale === 'mr' ? 'पुन्हा पहा' : 'Retry'}</span>
           </button>
           <button
             type="button"

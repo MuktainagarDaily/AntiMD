@@ -117,12 +117,20 @@ function formatDuration(mins: number): string {
   return m === 0 ? `${h}h` : `${h}h ${m}m`;
 }
 
-/**
- * Checks if a category name represents a specialized non-shop domain
- * (Mess & Dining, PG & Hostels, Schools, Hospitals, etc.).
- */
-export function isSpecializedCategoryName(name: string | null | undefined): boolean {
-  if (!name) return false;
+export type SpecializedEntityDomain = 'mess' | 'pg';
+
+function matchesPgCategory(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    /\bpg\b/i.test(name) ||
+    lower.includes('paying guest') ||
+    lower.includes('hostel') ||
+    lower.includes('वसतिगृह') ||
+    lower.includes('पीजी')
+  );
+}
+
+function matchesMessCategory(name: string): boolean {
   const lower = name.toLowerCase();
   return (
     lower.includes('mess') ||
@@ -138,11 +146,20 @@ export function isSpecializedCategoryName(name: string | null | undefined): bool
     lower.includes('dhaba') ||
     lower.includes('ढाबा') ||
     lower.includes('khanawal') ||
-    lower.includes('खानावळ') ||
-    lower.includes('pg') ||
-    lower.includes('hostel') ||
-    lower.includes('paying guest') ||
-    lower.includes('वसतिगृह') ||
+    lower.includes('खानावळ')
+  );
+}
+
+/**
+ * Checks if a category name represents a specialized non-shop domain
+ * (Mess & Dining, PG & Hostels, Schools, Hospitals, etc.).
+ */
+export function isSpecializedCategoryName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return (
+    matchesMessCategory(name) ||
+    matchesPgCategory(name) ||
     lower.includes('school') ||
     lower.includes('college') ||
     lower.includes('vidyalaya') ||
@@ -155,56 +172,118 @@ export function isSpecializedCategoryName(name: string | null | undefined): bool
 }
 
 /**
+ * Resolves whether an establishment belongs to the Mess/Dining (`/mess/:slug`)
+ * or PG/Hostel (`/pg/:slug`) vertical, matching Mess.tsx, PG.tsx, and livingService.ts.
+ * Returns `null` for regular retail/commercial shops.
+ */
+export function getSpecializedEntityDomain(shop: any): SpecializedEntityDomain | null {
+  if (!shop) return null;
+
+  // 1. Direct profile association (from embedded joins or living objects)
+  if (shop.pg_profiles && (Array.isArray(shop.pg_profiles) ? shop.pg_profiles.length > 0 : Boolean(shop.pg_profiles))) {
+    return 'pg';
+  }
+  if (shop.pg_profile) {
+    return 'pg';
+  }
+  if (shop.mess_profiles && (Array.isArray(shop.mess_profiles) ? shop.mess_profiles.length > 0 : Boolean(shop.mess_profiles))) {
+    return 'mess';
+  }
+  if (shop.mess_profile) {
+    return 'mess';
+  }
+
+  // 2. Category checking (M2M shop_categories, legacy 1:1 categories, or string category list)
+  const catNames: string[] = [];
+  for (const sc of shop.shop_categories || []) {
+    const n = sc?.categories?.name || sc?.name;
+    if (n) catNames.push(String(n));
+  }
+  if (shop.categories?.name) {
+    catNames.push(String(shop.categories.name));
+  }
+  if (Array.isArray(shop.categories)) {
+    for (const c of shop.categories) {
+      if (typeof c === 'string') catNames.push(c);
+      else if (c?.name) catNames.push(String(c.name));
+    }
+  }
+
+  for (const catName of catNames) {
+    if (matchesPgCategory(catName)) return 'pg';
+  }
+  for (const catName of catNames) {
+    if (matchesMessCategory(catName)) return 'mess';
+  }
+
+  // 3. Name + slug heuristics for unlinked/unmigrated records or bilingual titles
+  const rawName = String(shop.name || '');
+  const rawNameMr = String(shop.name_mr || '');
+  const slugWords = String(shop.slug || '').replace(/-/g, ' ');
+  const combinedText = `${rawName} ${rawNameMr} ${slugWords}`.trim();
+  const lowerCombined = combinedText.toLowerCase();
+
+  if (
+    /\bpg\b/i.test(combinedText) ||
+    lowerCombined.includes('paying guest') ||
+    lowerCombined.includes('hostel') ||
+    lowerCombined.includes('वसतिगृह') ||
+    lowerCombined.includes('पीजी') ||
+    (/\brooms?\b/i.test(combinedText) && /(boy|girl|student|stay|rent|executive|residency)/i.test(combinedText))
+  ) {
+    return 'pg';
+  }
+
+  if (
+    lowerCombined.includes('bhojanalay') ||
+    lowerCombined.includes('भोजनालय') ||
+    /\bmess\b/i.test(combinedText) ||
+    lowerCombined.includes('tiffin') ||
+    lowerCombined.includes('टिफिन') ||
+    /\bhotel\b/i.test(combinedText) ||
+    lowerCombined.includes('हॉटेल') ||
+    lowerCombined.includes('restaurant') ||
+    lowerCombined.includes('रेस्टॉरंट') ||
+    lowerCombined.includes('dhaba') ||
+    lowerCombined.includes('ढाबा') ||
+    lowerCombined.includes('khanawal') ||
+    lowerCombined.includes('खानावळ') ||
+    lowerCombined.includes('dining hall')
+  ) {
+    return 'mess';
+  }
+
+  return null;
+}
+
+/**
+ * Returns the canonical public detail route for a shop, mess/hotel/restaurant, or PG/hostel.
+ */
+export function getEntityDetailPath(citySlug: string, shop: any): string {
+  const slugOrId = shop?.slug || shop?.id || '';
+  const domain = getSpecializedEntityDomain(shop);
+  if (domain === 'mess') return `/${citySlug}/mess/${slugOrId}`;
+  if (domain === 'pg') return `/${citySlug}/pg/${slugOrId}`;
+  return `/${citySlug}/shop/${slugOrId}`;
+}
+
+/**
  * Detects whether a database establishment is a specialized non-retail entity
  * (Mess / Dining, PG / Hostel, etc.) that belongs in its own dedicated section
  * rather than the general commercial shops directory.
  */
 export function isSpecializedEntity(shop: any): boolean {
   if (!shop) return false;
-
-  // 1. Direct profile association (from embedded joins)
-  if (shop.mess_profiles && (Array.isArray(shop.mess_profiles) ? shop.mess_profiles.length > 0 : Boolean(shop.mess_profiles))) {
-    return true;
-  }
-  if (shop.pg_profiles && (Array.isArray(shop.pg_profiles) ? shop.pg_profiles.length > 0 : Boolean(shop.pg_profiles))) {
-    return true;
-  }
-  if (shop.mess_profile || shop.pg_profile) {
+  if (getSpecializedEntityDomain(shop) !== null) {
     return true;
   }
 
-  // 2. Category checking (e.g. "Mess & Dining", "PG & Hostels")
   const cats = shop.shop_categories || [];
   for (const sc of cats) {
     const catName = sc?.categories?.name || sc?.name;
     if (isSpecializedCategoryName(catName)) {
       return true;
     }
-  }
-
-  // 3. Fallback name heuristics for unmigrated or unlinked records
-  const rawName = shop.name || '';
-  const lowerName = rawName.toLowerCase();
-  if (
-    lowerName.includes('bhojanalay') ||
-    lowerName.includes('भोजनालय') ||
-    /\bmess\b/i.test(rawName) ||
-    lowerName.includes('tiffin') ||
-    lowerName.includes('टिफिन') ||
-    /\bhotel\b/i.test(rawName) ||
-    lowerName.includes('हॉटेल') ||
-    lowerName.includes('restaurant') ||
-    lowerName.includes('रेस्टॉरंट') ||
-    lowerName.includes('dhaba') ||
-    lowerName.includes('ढाबा') ||
-    lowerName.includes('khanawal') ||
-    lowerName.includes('खानावळ') ||
-    (/\bpg\b/i.test(rawName) && (lowerName.includes('boy') || lowerName.includes('girl') || lowerName.includes('hostel') || lowerName.includes('guest') || lowerName.includes('stay') || lowerName.includes('room'))) ||
-    lowerName.includes('paying guest') ||
-    lowerName.includes('hostel') ||
-    lowerName.includes('वसतिगृह')
-  ) {
-    return true;
   }
 
   return false;

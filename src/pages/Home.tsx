@@ -122,7 +122,7 @@ export default function Home() {
         is_claimed: Boolean(s.is_claimed || (s.shop_owners && s.shop_owners.length > 0)),
       }));
       // Strictly exclude specialized non-shop entities (Mess, PG, etc.)
-      return filterRetailShops(mapped);
+      return filterRetailShops(mapped) as any[];
     },
   });
 
@@ -132,7 +132,7 @@ export default function Home() {
     staleTime: 60_000,
   });
 
-  const openNowCount = useMemo(() => shops.filter((s) => isShopOpen(s)).length, [shops]);
+  const openNowCount = useMemo(() => (shops as any[]).filter((s) => isShopOpen(s)).length, [shops]);
   const verifiedCount = useMemo(() => shops.filter((s: any) => s.is_verified).length, [shops]);
 
   // Marathi overlays power bilingual + typo-tolerant search.
@@ -417,6 +417,17 @@ export default function Home() {
       return;
     }
 
+    if (
+      lower.includes('news') ||
+      lower.includes('बातम्या') ||
+      lower.includes('ताज्या') ||
+      lower.includes('समाचार')
+    ) {
+      toast.message(locale === 'mr' ? 'स्थानिक बातम्या उघडत आहे...' : 'Opening Local News...');
+      navigate(`/${currentCity.slug}/news`);
+      return;
+    }
+
     // If query matches a category name
     const matchedCat = categories.find(
       (c) => c.name.toLowerCase() === q.toLowerCase()
@@ -499,7 +510,7 @@ export default function Home() {
 
       {/* Hero Header */}
       <header
-        className="text-primary-foreground px-4 pt-12 sm:pt-7 pb-6 relative"
+        className="text-primary-foreground px-4 pt-3 sm:pt-5 pb-6 relative"
         style={{
           background: 'linear-gradient(145deg, hsl(var(--primary)) 0%, hsl(214 85% 28%) 60%, hsl(215 90% 22%) 100%)',
         }}
@@ -524,19 +535,17 @@ export default function Home() {
           />
         </div>
 
-        {/* Language switcher & User menu for mobile only — pinned to top-right */}
-        <div className="absolute top-2 right-3 sm:top-3 sm:right-4 z-30 md:hidden">
+        {/* Inline mobile/tablet top bar (< lg screens) so controls never overlap the brand row */}
+        <div className="flex lg:hidden items-center justify-between gap-2 max-w-2xl mx-auto mb-3 relative z-30">
           <LanguageSwitcher />
-        </div>
-        <div className="absolute right-3 sm:right-4 top-[58px] sm:top-[72px] z-30 md:hidden">
           <UserMenuDrawer />
         </div>
 
-        {/* Desktop Header Topbar (>= md screens) */}
-        <div className="hidden md:flex items-center justify-between max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-6 mb-5 pb-3 border-b border-primary-foreground/15 relative z-20">
-          <div className="flex items-center gap-3">
+        {/* Desktop Header Topbar (>= lg screens, aligned with DesktopNav) */}
+        <div className="hidden lg:flex items-center justify-between gap-3 max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-6 mb-5 pb-3 border-b border-primary-foreground/15 relative z-20">
+          <div className="flex items-center gap-2.5 shrink-0">
             <span className="font-extrabold text-lg text-primary-foreground tracking-tight">
-              {locale === 'mr' ? 'अपनाLocal' : 'ApnaLocal'}
+              {locale === 'mr' ? 'अपनाTown' : 'ApnaTown'}
             </span>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/20">
               {townName}
@@ -545,19 +554,19 @@ export default function Home() {
 
           <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <LanguageSwitcher />
             <UserMenuDrawer />
           </div>
         </div>
 
         <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto relative z-10">
-          {/* Brand Row — master brand ApnaLocal + dynamic town badge + canonical tagline */}
-          <div className="relative flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-1 pr-12 sm:pr-14 md:pr-0">
+          {/* Brand Row — master brand ApnaTown + dynamic town badge + canonical tagline */}
+          <div className="relative flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-1">
             <div className="shrink-0 drop-shadow-md animate-[logo-enter_0.6s_cubic-bezier(0.34,1.56,0.64,1)_both]">
               <img
                 src={logoIcon}
-                alt="ApnaLocal Logo"
+                alt="ApnaTown Logo"
                 width={80}
                 height={80}
                 loading="eager"
@@ -570,7 +579,7 @@ export default function Home() {
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight leading-tight text-primary-foreground">
-                  {locale === 'mr' ? 'अपनाLocal' : 'ApnaLocal'}
+                  {locale === 'mr' ? 'अपनाTown' : 'ApnaTown'}
                 </h1>
                 <span className="text-xs sm:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/20 backdrop-blur-xs">
                   {townName}
@@ -764,9 +773,6 @@ export default function Home() {
         {/* Homepage inline banner */}
         <BannerSlot placement="homepage_inline" className="mb-5" />
 
-        {/* Homepage bottom banner — falls back to homepage_inline */}
-        <BannerSlot placement="home_bottom" fallback="homepage_inline" className="mb-5" />
-
 
         {/* Recently Added */}
         <ShopList shops={recentShops} />
@@ -777,7 +783,7 @@ export default function Home() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base sm:text-lg font-bold text-foreground">{t('home.browseSection')}</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2.5 sm:gap-3.5">
             {([
               { k: 'shops',   to: `/${currentCity.slug}/shops`, title: locale === 'mr' ? 'दुकाने' : 'Shops', sub: locale === 'mr' ? 'स्थानिक व्यवसाय' : 'Local Businesses' },
               { k: 'mess',    to: `/${currentCity.slug}/mess`, title: locale === 'mr' ? 'खाद्य व मेस' : 'Food & Mess', sub: locale === 'mr' ? 'आजचा मेनू व डबा' : "Today's Menu & Tiffin" },
@@ -785,6 +791,7 @@ export default function Home() {
               { k: 'bus',     to: `/${currentCity.slug}/bus-timetable`, title: locale === 'mr' ? 'बस वेळापत्रक' : 'Bus & Transit', sub: locale === 'mr' ? 'एसटी बसेस' : 'ST Bus Schedule' },
               { k: 'schools', to: `/${currentCity.slug}/schools`, title: locale === 'mr' ? 'शाळा-कॉलेज' : 'Education', sub: locale === 'mr' ? 'शिक्षण संस्था' : 'Schools & Colleges' },
               { k: 'gov',     to: `/${currentCity.slug}/services`, title: locale === 'mr' ? 'नागरी सेवा' : 'Civic Services', sub: locale === 'mr' ? 'पाणी, वीज, प्रशासन' : 'Water, Power & Local' },
+              { k: 'news',    to: `/${currentCity.slug}/news`, title: locale === 'mr' ? 'स्थानिक बातम्या' : 'Local News', sub: locale === 'mr' ? 'आजच्या ताज्या बातम्या' : "Today's Town Updates" },
             ] as { k: SectionKey; to: string; title: string; sub: string }[]).map((s) => (
               <button
                 key={s.k}
@@ -836,8 +843,8 @@ export default function Home() {
                 </div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
                   {locale === 'mr'
-                    ? `${townName} मध्ये आपला व्यवसाय आहे का? ApnaLocal वर मोफत जोडा`
-                    : `Own a business in ${townName}? List it on ApnaLocal for free`}
+                    ? `${townName} मध्ये आपला व्यवसाय आहे का? ApnaTown वर मोफत जोडा`
+                    : `Own a business in ${townName}? List it on ApnaTown for free`}
                 </h3>
                 <p className="text-xs text-muted-foreground">
                   {locale === 'mr'
@@ -870,6 +877,8 @@ export default function Home() {
           </button>
         </section>
 
+        {/* Homepage bottom banner — positioned at bottom, falls back to unclaimed homepage_inline */}
+        <BannerSlot placement="home_bottom" fallback="homepage_inline" className="mt-6" />
 
       </main>
 

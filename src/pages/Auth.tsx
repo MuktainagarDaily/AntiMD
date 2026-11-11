@@ -247,7 +247,7 @@ export default function Auth() {
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               </div>
               <p className="font-semibold text-foreground mb-1">{t('auth.signup.checkInbox')}</p>
-              <p className="text-sm text-muted-foreground mb-5">
+              <p className="text-sm text-muted-foreground mb-5 break-words">
                 {t('auth.signup.confirmSent', { email: signupEmail })}
               </p>
               <button
@@ -263,7 +263,7 @@ export default function Auth() {
                 <CheckCircle2 className="w-6 h-6 text-primary" />
               </div>
               <p className="font-semibold text-foreground mb-1">{t('auth.forgot.checkInbox')}</p>
-              <p className="text-sm text-muted-foreground mb-5">
+              <p className="text-sm text-muted-foreground mb-5 break-words">
                 {t('auth.forgot.resetSent', { email })}
               </p>
               <button
@@ -291,7 +291,7 @@ export default function Auth() {
                     placeholder={t('auth.placeholder.fullName')}
                     autoComplete="name"
                     maxLength={80}
-                    className="w-full bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
+                    className="min-w-0 flex-1 bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
                   />
                 </Field>
               )}
@@ -307,7 +307,7 @@ export default function Auth() {
                   inputMode="email"
                   required
                   maxLength={255}
-                  className="w-full bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
+                  className="min-w-0 flex-1 bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
                 />
               </Field>
 
@@ -322,7 +322,7 @@ export default function Auth() {
                     required
                     minLength={6}
                     maxLength={72}
-                    className="w-full bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
+                    className="min-w-0 flex-1 bg-transparent outline-none focus-visible:outline-none focus-visible:shadow-none text-foreground placeholder:text-muted-foreground text-sm"
                   />
                 </Field>
               )}

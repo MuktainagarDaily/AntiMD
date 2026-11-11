@@ -1,25 +1,27 @@
 # Muktainagar Daily (मुक्ताईनगर डेली)
 
-> A bilingual (English + Marathi), mobile-first hyperlocal civic, business, and living directory platform for Muktainagar, Bhusawal, Bodwad, Varangaon, Jalgaon, Pune, Maval, and surrounding clusters in Maharashtra.
+> A bilingual (English + Marathi), mobile-first hyperlocal civic, business, education, news, and living directory platform (**ApnaLocal** / `<Town> Daily`) for Muktainagar, Bhusawal, Bodwad, Varangaon, Jalgaon, Pune/Maval (Parandwadi), and surrounding clusters in Maharashtra.
 
-Find local businesses, mess and dining halls, student & worker PG hostels, schools & colleges, municipal authorities & emergency services, and bus schedules with contact details, opening hours, WhatsApp chat, customer reviews, and GPS directions.
+Find local businesses, mess and dining halls, student & worker PG hostels, schools & colleges (with live admission notices & fee structures), local town news, municipal authorities & emergency services, bus schedules, and ask **Sahayak AI** — with contact details, opening hours, WhatsApp chat, community reviews, and GPS directions.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** React 18, Vite 5.4, TypeScript 5.8, React Router v6
+- **Frontend:** React 18, Vite 5.4, TypeScript 5.8, React Router v6 (`ApnaLocal` metadata)
 - **UI & Components:** Tailwind CSS, shadcn/ui (Radix Primitives), Lucide Icons
 - **State & Caching:** TanStack React Query v5 (2m staleTime, localStorage sync persister)
-- **Database & Auth:** External Supabase PostgreSQL with Row Level Security (RLS) & PostgREST Table Grants
-- **Multi-Location Engine:** Path-scoped routing (`/:citySlug/...`), dynamic town branding, and 5-tier geographic hierarchy (`geo_countries` down to `geo_villages`)
-- **Civic & Living Verticals:** Dedicated Mess & Dining directories (daily menus), PG & Student Hostels (live vacancies), and Essential Services & Local Authorities (outage broadcasts & emergency helplines)
-- **Rich Media:** Multi-image uploads with interactive canvas crop and modern WebP compression
-- **Community:** 5-star customer reviews and ratings with unique constraints and helpfulness votes
-- **Offline / PWA:** Vite PWA + Workbox Service Worker caching
-- **AI Agent Surface:** Model Context Protocol (MCP) server over OAuth 2.0
+- **Database, Auth & Edge:** External Supabase PostgreSQL (RLS + PostgREST + Storage + Realtime) and 3 Deno Edge Functions (`mcp`, `town-assistant`, `scrape-local-news`)
+- **Multi-Location Engine:** Path-scoped routing (`/:citySlug/...`), dynamic town branding (`<Town> Daily`), and 5-tier geographic hierarchy (`geo_countries` down to `geo_villages`)
+- **Civic, Education & Living Verticals:** Dedicated **Mess & Dining** (`/:citySlug/mess`, `/mess/:id`), **PG & Student Hostels** (`/:citySlug/pg`, `/pg/:id`), **Education & Institutes** (`/:citySlug/schools`, `/schools/:id` with admission notices, claims & `SchoolOwnerHub`), **Local News** (`/:citySlug/news` with RSS/web scraper), **Essential Services & Local Authorities** (`/:citySlug/services`), and **Bus Timetable** (`/:citySlug/bus-timetable`)
+- **Sahayak AI Assistant:** Bilingual (EN / MR / Hinglish) conversational & voice-enabled town assistant across all 7 platform verticals powered by Gemini Gateway + deterministic local fallback
+- **Rich Media & Owner Hubs:** Multi-image WebP uploads with canvas cropping; unified Owner Hubs (`/my-shop`, `/my-institute`) for shops, messes, PGs, and schools
+- **Community:** 5-star customer reviews and helpfulness votes for both Shops (`shop_reviews`) and Schools/Institutes (`school_reviews`)
+- **Offline / PWA:** Vite PWA + Workbox Service Worker caching + `mobile-web-app-capable` metadata
+- **Admin Backup & Health:** 20-dataset FK-safe Master ZIP/CSV Backup & Restore, per-module RFC 4180 CSV export/import, and 4-panel Storage & System Health Diagnostics
+- **AI Agent Surface:** OAuth 2.0-protected Model Context Protocol (MCP) server exposing 7 read-only town tools
 - **Hosting / Edge CDN:** Vercel (Primary) & Lovable Cloud
-- **Footer Attribution:** Global footer powered by [Vibe Forge](https://vibe-forge.in/)
+- **Footer Attribution:** Localized copyright active in [`Footer.tsx`](src/components/shared/Footer.tsx) (external Vibe Forge hackathon badge temporarily commented out / hidden)
 
 ---
 
@@ -90,12 +92,12 @@ For detailed migration steps, custom domain setup, and caching details, see the 
 - [Project Bible](docs/PROJECT_BIBLE.md) — Mission, user roles, business model, and high-level architecture.
 - [Architecture](docs/ARCHITECTURE.md) — Technical stack, routing table, state management, and security model.
 - [Multi-Location Architecture](docs/MULTI_LOCATION_ARCHITECTURE.md) — 5-tier geographic hierarchy and path-scoped routing.
-- [Database Reference](docs/DATABASE_REFERENCE.md) — Authoritative catalog of all 26 tables, views, triggers, and RPCs.
-- [Features](docs/FEATURES.md) — Detailed specifications of all visitor, owner, community, and admin capabilities.
-- [Component Catalog](docs/COMPONENT_CATALOG.md) — Reusable UI, forms, reviews, admin layouts, and navigation components.
-- [Admin System](docs/ADMIN_SYSTEM.md) — Modular Hub & Leaf administrative console and moderation pipeline.
-- [Workflows](docs/WORKFLOWS.md) — End-to-end user and admin step-by-step sequence flows.
-- [API Reference](docs/API_REFERENCE.md) — RPCs, PostgREST tables, 4-bucket storage layout, and MCP tools.
+- [Database Reference](docs/DATABASE_REFERENCE.md) — Authoritative catalog of all 42 tables, 2 materialized views, 4 views, triggers, and RPCs.
+- [Features](docs/FEATURES.md) — Detailed specifications of all visitor, owner, community, AI, and admin capabilities.
+- [Component Catalog](docs/COMPONENT_CATALOG.md) — Reusable UI, forms, reviews, owner hubs, admin layouts, and navigation components.
+- [Admin System](docs/ADMIN_SYSTEM.md) — Modular Hub & Leaf administrative console, CSV/ZIP tools, storage health suite, and moderation pipeline.
+- [Workflows](docs/WORKFLOWS.md) — End-to-end user, owner, AI, and admin step-by-step sequence flows.
+- [API Reference](docs/API_REFERENCE.md) — RPCs, Edge Functions (`mcp`, `town-assistant`, `scrape-local-news`), PostgREST tables, 4-bucket storage layout, and 7 MCP tools.
 - [Technical Debt](docs/TECHNICAL_DEBT.md) — Resolved items, refactoring opportunities, and risk register.
 - [Sentinel Context](docs/SENTINEL_CONTEXT.md) — Critical workflows and deletion-protected systems.
 - [AI Changelog](docs/CHANGELOG_AI.md) — Complete audit trail of project changes.

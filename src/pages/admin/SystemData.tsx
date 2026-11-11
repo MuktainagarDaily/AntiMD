@@ -25,7 +25,7 @@ export default function SystemData() {
           <h2 className="font-semibold text-foreground">Master Backup &amp; Restore</h2>
         </div>
         <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          Full offline backup or restore of Shops, Mess &amp; Bhojanalay, PG &amp; Hostels, Categories, Listing Requests, Claims, and uploaded WebP images.
+          Full offline backup or restore across Shops, Mess &amp; PG, Education Portal (Schools &amp; Notices), Bus Timetable, Local News, Banners, Essential Services, Requests, Claims, and uploaded images.
         </p>
 
         <div className="flex flex-wrap gap-2.5">
@@ -49,10 +49,10 @@ export default function SystemData() {
         <div>
           <div className="flex items-center gap-2">
             <Wrench className="w-4 h-4 text-amber-600" />
-            <h3 className="text-sm font-semibold text-foreground">Database Quality &amp; Storage Health</h3>
+            <h3 className="text-sm font-semibold text-foreground">Storage &amp; System Health</h3>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Audit orphaned images in Supabase storage, detect missing phone numbers, and scan unverified listings.
+            Run live Supabase/Edge diagnostics, audit storage orphans &amp; claim PII retention, probe broken media URLs, fix listing hygiene, and clean city-scoped areas &amp; duplicates.
           </p>
         </div>
         <button
@@ -70,10 +70,26 @@ export default function SystemData() {
           onClose={() => setShowImport(false)}
           onDone={() => {
             qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-shops-quality'] });
             qc.invalidateQueries({ queryKey: ['admin-categories'] });
+            qc.invalidateQueries({ queryKey: ['admin-categories-names'] });
             qc.invalidateQueries({ queryKey: ['admin-stats'] });
             qc.invalidateQueries({ queryKey: ['living-messes'] });
             qc.invalidateQueries({ queryKey: ['living-pgs'] });
+            qc.invalidateQueries({ queryKey: ['admin-schools'] });
+            qc.invalidateQueries({ queryKey: ['admin-schools-quality'] });
+            qc.invalidateQueries({ queryKey: ['schools'] });
+            qc.invalidateQueries({ queryKey: ['admin-translations-mr-ids'] });
+            qc.invalidateQueries({ queryKey: ['admin-bus-timetable'] });
+            qc.invalidateQueries({ queryKey: ['admin-bus-stand-info'] });
+            qc.invalidateQueries({ queryKey: ['bus_stand_info'] });
+            qc.invalidateQueries({ queryKey: ['bus-stand-info'] });
+            qc.invalidateQueries({ queryKey: ['local-news'] });
+            qc.invalidateQueries({ queryKey: ['news-sources'] });
+            qc.invalidateQueries({ queryKey: ['banners'] });
+            qc.invalidateQueries({ queryKey: ['authority-announcements'] });
+            qc.invalidateQueries({ queryKey: ['admin-requests'] });
+            qc.invalidateQueries({ queryKey: ['admin-claims'] });
           }}
         />
       )}

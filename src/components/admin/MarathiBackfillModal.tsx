@@ -300,10 +300,11 @@ export function MarathiBackfillModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !running) onClose(); }}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Languages className="w-5 h-5 text-primary" /> Backfill Marathi translations
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="text-left">
+          <DialogTitle className="flex items-center gap-2 pr-8">
+            <Languages className="w-5 h-5 text-primary shrink-0" />
+            <span className="min-w-0 break-words">Backfill Marathi translations</span>
           </DialogTitle>
           <DialogDescription>
             Auto-translates missing Marathi values for shops, categories, and schools. Admin-entered
@@ -336,7 +337,7 @@ export function MarathiBackfillModal({ open, onClose }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Stat label="Shops to fill" value={shopsToFill.length} sub={`${shops.length} total`} />
               <Stat label="Categories to fill" value={catsToFill.length} sub={`${cats.length} active`} />
               <Stat label="Schools to fill" value={schoolsToFill.length} sub={`${schools.length} active`} />

@@ -9,9 +9,12 @@ import { useCity } from '@/hooks/useCity';
 import {
   BedDouble, Plus, Search, Users, Phone, MapPin,
   ExternalLink, Pencil, Check, Loader2, X, AlertCircle, Wifi, Flame,
+  Download, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PGModal } from '@/components/admin/PGModal';
+import { PGCsvImportModal } from '@/components/admin/PGCsvImportModal';
+import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
 import { cn } from '@/lib/utils';
 
 export default function DirectoryPG() {
@@ -21,8 +24,9 @@ export default function DirectoryPG() {
   const directory = ADMIN_NAV.find((h) => h.key === 'directory')!;
 
   const [search, setSearch] = useState('');
-  const [editingShop, setEditingShop] = useState<any>(null);
+  const [editingShop, setEditingShop] = useState<Partial<PGWithDetails> | null>(null);
   const [vacancyModalPG, setVacancyModalPG] = useState<PGWithDetails | null>(null);
+  const [showPgImport, setShowPgImport] = useState(false);
 
   const { data: pgs = [], isLoading } = useQuery<PGWithDetails[]>({
     queryKey: ['living-pgs', currentCity.id],
@@ -39,6 +43,67 @@ export default function DirectoryPG() {
     );
   });
 
+  const handleExportCsv = () => {
+    if (filteredPGs.length === 0) {
+      toast.info('No PG listings to export');
+      return;
+    }
+    const headers = [
+      'Name',
+      'Name (Marathi)',
+      'Phone',
+      'WhatsApp',
+      'Town',
+      'Area',
+      'Address',
+      'Gender',
+      'Occupancy Target',
+      'Total Beds',
+      'Available Beds',
+      'Deposit Amount',
+      'Notice Period Days',
+      'Gate Closing Time',
+      'Food Included',
+      '1-Sharing Rate',
+      '2-Sharing Rate',
+      '3-Sharing Rate',
+      '4-Sharing Rate',
+      'Amenities',
+      'Verified',
+      'Active',
+    ];
+    const csvRows = filteredPGs.map((pg) => {
+      const p = pg.pg_profile;
+      const amenities = (p?.amenities?.length ? p.amenities : pg.amenities) || [];
+      return [
+        pg.name,
+        pg.name_mr || '',
+        pg.phone || '',
+        pg.whatsapp || '',
+        townName,
+        pg.area || '',
+        pg.address || '',
+        p?.gender || 'boys',
+        p?.occupancy_target || 'students',
+        p?.total_beds ?? 0,
+        p?.available_beds ?? 0,
+        p?.deposit_amount ?? 0,
+        p?.notice_period_days ?? 30,
+        p?.gate_closing_time || '',
+        p?.food_included ? 'Yes' : 'No',
+        p?.sharing_rates?.['1_sharing'] ?? '',
+        p?.sharing_rates?.['2_sharing'] ?? '',
+        p?.sharing_rates?.['3_sharing'] ?? '',
+        p?.sharing_rates?.['4_sharing'] ?? '',
+        amenities.join('|'),
+        pg.is_verified ? 'Yes' : 'No',
+        pg.is_active !== false ? 'Yes' : 'No',
+      ];
+    });
+    downloadCsv(townCsvFilename(currentCity.slug, 'pg-directory'), headers, csvRows);
+    toast.success(`Exported ${csvRows.length} PG listing${csvRows.length === 1 ? '' : 's'} to CSV`);
+  };
+
   return (
     <div className="space-y-4">
       <BranchTabs leaves={directory.leaves} badges={{ inbox: inbox.total }} />
@@ -46,7 +111,7 @@ export default function DirectoryPG() {
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border p-4 rounded-2xl">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex flex-wrap items-center gap-2">
             <BedDouble className="w-5 h-5 text-blue-600" />
             <span>PG & Hostels Directory</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 border border-blue-500/20">
@@ -58,7 +123,22 @@ export default function DirectoryPG() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filteredPGs.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPgImport(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" /> Import CSV
+          </button>
           <button
             onClick={() => setEditingShop({})}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-95"
@@ -266,6 +346,19 @@ export default function DirectoryPG() {
           }}
         />
       )}
+
+      {/* Bulk PG CSV Import Modal */}
+      {showPgImport && (
+        <PGCsvImportModal
+          onClose={() => setShowPgImport(false)}
+          onDone={() => {
+            setShowPgImport(false);
+            qc.invalidateQueries({ queryKey: ['living-pgs'] });
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -310,19 +403,19 @@ function PGVacancyQuickModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl p-6">
-        <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-border mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
               <BedDouble className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-bold text-base text-foreground leading-tight">{pg.name}</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-base text-foreground leading-tight truncate">{pg.name}</h3>
               <p className="text-[11px] text-muted-foreground">Update Available Vacant Beds</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg text-muted-foreground">
+          <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -359,7 +452,7 @@ function PGVacancyQuickModal({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block font-semibold text-foreground mb-1">Total Bed Capacity</label>
               <input
@@ -392,7 +485,7 @@ function PGVacancyQuickModal({
             </span>
           </label>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}

@@ -22,7 +22,7 @@ import {
   CheckCircle2, AlertTriangle, AlertCircle, SkipForward,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { parseCsv } from '@/lib/csvUtils';
+import { parseCsv, downloadCsvText } from '@/lib/csvUtils';
 import type {
   CsvImporterConfig,
   CsvImporterRow,
@@ -63,13 +63,7 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
   const errorRows = useMemo(() => rows.filter((r) => r.status === 'error'), [rows]);
 
   function downloadTemplate() {
-    const blob = new Blob([config.templateContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = config.templateFilename;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadCsvText(config.templateFilename, config.templateContent, false);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -109,8 +103,9 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
       setRows(processed);
       setStep('preview');
       if (fileRef.current) fileRef.current.value = '';
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to read CSV file');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to read CSV file';
+      toast.error(msg);
     } finally {
       setParsing(false);
     }
@@ -128,8 +123,9 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
         failed,
       });
       setStep('result');
-    } catch (err: any) {
-      toast.error(err?.message || 'Import failed');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Import failed';
+      toast.error(msg);
     } finally {
       setImporting(false);
     }
@@ -138,20 +134,26 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
   const { entity, entityPlural } = config.labels;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-2xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Upload className="w-5 h-5 text-primary" />
-            <h2 className="font-bold text-lg text-foreground">{config.title}</h2>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-3 sm:px-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl border border-border w-full max-w-2xl shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Upload className="w-5 h-5 text-primary shrink-0" />
+            <h2 className="font-bold text-base sm:text-lg text-foreground truncate">{config.title}</h2>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg" aria-label="Close">
+          <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg shrink-0" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {step === 'upload' && (
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
               <p className="text-sm font-semibold text-foreground">How to use</p>
               <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
@@ -186,7 +188,7 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
         )}
 
         {step === 'preview' && (
-          <div className="p-6 space-y-4 overflow-y-auto">
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/30">
                 <CheckCircle2 className="w-3.5 h-3.5" /> {importableRows.filter((r) => r.status === 'ready').length} Ready
@@ -260,7 +262,7 @@ export function CsvImporter<TRow>({ config, onClose, onDone }: Props<TRow>) {
         )}
 
         {step === 'result' && result && (
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="w-7 h-7 text-success shrink-0" />
               <div>

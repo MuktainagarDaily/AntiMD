@@ -160,6 +160,9 @@ export async function createBanner(input: BannerInput): Promise<Banner> {
     .limit(1)
     .maybeSingle();
   const sort_order = (maxRow?.sort_order ?? 0) + 1;
+  const targetLevel =
+    input.target_level ??
+    (input.target_city_id ? 'city' : input.target_district_id ? 'district' : 'global');
   const { data, error } = await db
     .from('banners')
     .insert({
@@ -172,12 +175,42 @@ export async function createBanner(input: BannerInput): Promise<Banner> {
       close_enable_seconds: input.close_enable_seconds,
       start_date: input.start_date ?? null,
       end_date: input.end_date ?? null,
+      target_level: targetLevel,
+      target_district_id: input.target_district_id ?? null,
+      target_city_id: input.target_city_id ?? null,
       sort_order,
     })
     .select('*')
     .single();
   if (error) throw error;
   return rowToBanner(data as BannerRow);
+}
+
+export async function duplicateBanner(source: Banner): Promise<Banner> {
+  return createBanner({
+    title: `${source.title} (Copy)`.slice(0, 120),
+    image_url: source.image_url,
+    target_url: source.target_url,
+    placement: source.placement,
+    is_active: false, // keep cloned banner paused until admin reviews
+    popup_delay_seconds: source.popup_delay_seconds,
+    close_enable_seconds: source.close_enable_seconds,
+    start_date: source.start_date ?? null,
+    end_date: source.end_date ?? null,
+    target_level:
+      source.target_level ??
+      (source.target_city_id ? 'city' : source.target_district_id ? 'district' : 'global'),
+    target_district_id: source.target_district_id ?? null,
+    target_city_id: source.target_city_id ?? null,
+  });
+}
+
+export async function resetBannerMetrics(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('banners')
+    .update({ view_count: 0, click_count: 0 })
+    .eq('id', id);
+  if (error) throw error;
 }
 
 export async function updateBanner(

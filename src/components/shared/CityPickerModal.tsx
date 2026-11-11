@@ -238,7 +238,7 @@ export function CityPickerModal({ open, onClose, onOpenChange }: CityPickerModal
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {locale === 'mr' ? 'प्रमुख शहरे व तालुके' : 'Towns & Talukas'}
         </p>
-        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
           {filteredCities.map((city) => {
             const isSelected = city.slug === activePreviewCity.slug;
             const isActualCurrent = city.slug === currentCity.slug && !currentVillage;
@@ -289,8 +289,8 @@ export function CityPickerModal({ open, onClose, onOpenChange }: CityPickerModal
 
       {/* Child Villages of Selected City */}
       <div className="space-y-2 pt-2 border-t border-border">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground min-w-0">
             {locale === 'mr'
               ? `${activePreviewCity.name_mr || activePreviewCity.name} जवळील गावे`
               : `Villages in ${activePreviewCity.name}`}
@@ -298,7 +298,7 @@ export function CityPickerModal({ open, onClose, onOpenChange }: CityPickerModal
           <button
             type="button"
             onClick={() => handleSelectCityOnly(activePreviewCity.slug)}
-            className="text-xs text-primary hover:underline font-semibold"
+            className="text-xs text-primary hover:underline font-semibold shrink-0"
           >
             {locale === 'mr' ? `सर्व ${activePreviewCity.name_mr || activePreviewCity.name}` : `Select All ${activePreviewCity.name}`}
           </button>
@@ -368,8 +368,8 @@ export function CityPickerModal({ open, onClose, onOpenChange }: CityPickerModal
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-md p-5 rounded-2xl bg-card border border-border shadow-xl">
-        <DialogHeader className="text-left space-y-1">
+      <DialogContent className="max-w-md w-[calc(100vw-1.5rem)] max-h-[85dvh] overflow-y-auto p-5 rounded-2xl bg-card border border-border shadow-xl">
+        <DialogHeader className="text-left space-y-1 pr-8">
           <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
             <MapPin className="w-5 h-5 text-primary shrink-0" />
             {titleText}

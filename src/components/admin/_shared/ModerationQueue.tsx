@@ -201,7 +201,7 @@ export function ModerationQueue<T extends { id: string }>({
               {confirm?.action === 'approve'
                 ? <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: 'hsl(var(--success))' }} />
                 : <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />}
-              {copy?.title}
+              <span className="min-w-0 break-words">{copy?.title}</span>
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground space-y-2">{copy?.description}</div>

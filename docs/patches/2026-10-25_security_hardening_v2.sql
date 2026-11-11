@@ -81,7 +81,7 @@ CREATE POLICY "Shop images are publicly viewable"
 ON storage.objects FOR SELECT TO public
 USING (
   bucket_id = 'shop-images'
-  AND (storage.foldername(name))[1] <> 'claims'
+  AND ((storage.foldername(name))[1] IS DISTINCT FROM 'claims')
 );
 
 -- Ensure claims proofs are strictly viewable ONLY by the owner or admins

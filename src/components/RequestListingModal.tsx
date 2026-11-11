@@ -20,8 +20,22 @@ import { MarathiMirrorField } from '@/components/shared/MarathiMirrorField';
 import { TranslateAllButton } from '@/components/shared/TranslateAllButton';
 import { DEV_AUTOFILL, DUMMY_SHOP_DATA } from '@/lib/devHelpers';
 import { uploadShopImage } from '@/lib/storageNaming';
-import { isValidIndianPhone, inputCls } from '@/lib/utils';
+import { isValidIndianPhone, isSafeHttpUrl, inputCls } from '@/lib/utils';
 import { normalizeWhatsApp } from '@/components/admin/adminHelpers';
+import {
+  SCHOOL_TYPE_OPTIONS,
+  SCHOOL_MEDIUM_OPTIONS,
+  ADMISSION_STATUS_OPTIONS,
+  MANAGEMENT_TYPE_OPTIONS,
+  COMMON_BOARDS,
+  SCHOOL_TYPE_CONFIG,
+  ADMISSION_STATUS_CONFIG,
+  MANAGEMENT_TYPE_CONFIG,
+  type SchoolType,
+  type SchoolMedium,
+  type AdmissionStatus,
+  type ManagementType,
+} from '@/lib/schools/schoolHelpers';
 import { useCity } from '@/hooks/useCity';
 import { useT } from '@/i18n';
 import { z } from 'zod';
@@ -65,7 +79,7 @@ export const requestListingSchema = z
     submitter_name: optTrim(80),
     latitude: latLngSchema,
     longitude: latLngSchema,
-    truthConfirmed: z.literal(true, { errorMap: () => ({ message: 'Please confirm the information is accurate' }) }),
+    truthConfirmed: z.literal(true, { error: 'Please confirm the information is accurate' }),
   })
   .superRefine((data, ctx) => {
     if (data.opening_time && data.closing_time) {
@@ -158,9 +172,15 @@ export function RequestListingModal({ onClose }: Props) {
   const [rateTriple, setRateTriple] = useState('');
 
   // Specialized School Meta
-  const [schoolType, setSchoolType] = useState<'primary' | 'secondary' | 'higher-secondary' | 'college' | 'other'>('secondary');
-  const [schoolMedium, setSchoolMedium] = useState<'marathi' | 'english' | 'semi-english' | 'other'>('marathi');
-  const [schoolBoard, setSchoolBoard] = useState('State Board');
+  const [schoolType, setSchoolType] = useState<SchoolType>('secondary');
+  const [schoolMedium, setSchoolMedium] = useState<SchoolMedium>('marathi');
+  const [schoolBoard, setSchoolBoard] = useState('State Board (SSC/HSC)');
+  const [schoolManagement, setSchoolManagement] = useState<ManagementType | ''>('');
+  const [schoolAdmissionStatus, setSchoolAdmissionStatus] = useState<AdmissionStatus>('open');
+  const [schoolStreams, setSchoolStreams] = useState('');
+  const [schoolEmail, setSchoolEmail] = useState('');
+  const [schoolWebsite, setSchoolWebsite] = useState('');
+  const [schoolIsOwner, setSchoolIsOwner] = useState(false);
 
   // Marathi mirror values
   const [mr, setMr] = useState({
@@ -234,6 +254,12 @@ export function RequestListingModal({ onClose }: Props) {
         if (draft.schoolMeta.schoolType) setSchoolType(draft.schoolMeta.schoolType);
         if (draft.schoolMeta.schoolMedium) setSchoolMedium(draft.schoolMeta.schoolMedium);
         if (draft.schoolMeta.schoolBoard) setSchoolBoard(draft.schoolMeta.schoolBoard);
+        if (draft.schoolMeta.schoolManagement !== undefined) setSchoolManagement(draft.schoolMeta.schoolManagement);
+        if (draft.schoolMeta.schoolAdmissionStatus) setSchoolAdmissionStatus(draft.schoolMeta.schoolAdmissionStatus);
+        if (draft.schoolMeta.schoolStreams !== undefined) setSchoolStreams(draft.schoolMeta.schoolStreams);
+        if (draft.schoolMeta.schoolEmail !== undefined) setSchoolEmail(draft.schoolMeta.schoolEmail);
+        if (draft.schoolMeta.schoolWebsite !== undefined) setSchoolWebsite(draft.schoolMeta.schoolWebsite);
+        if (draft.schoolMeta.schoolIsOwner !== undefined) setSchoolIsOwner(Boolean(draft.schoolMeta.schoolIsOwner));
       }
       if (typeof draft.step === 'number' && draft.step >= 1 && draft.step <= TOTAL_STEPS) setStep(draft.step);
       setResumePrompt(false);
@@ -267,7 +293,17 @@ export function RequestListingModal({ onClose }: Props) {
         step,
         messMeta: { messType, monthlyRate, singleThaliRate, tiffinDelivery, sundayFeast, lunchTiming, dinnerTiming },
         pgMeta: { pgGender, occupancyTarget, totalBeds, availableBeds, depositAmount, gateClosingTime, foodIncluded, rateSingle, rateDouble, rateTriple },
-        schoolMeta: { schoolType, schoolMedium, schoolBoard },
+        schoolMeta: {
+          schoolType,
+          schoolMedium,
+          schoolBoard,
+          schoolManagement,
+          schoolAdmissionStatus,
+          schoolStreams,
+          schoolEmail,
+          schoolWebsite,
+          schoolIsOwner,
+        },
         savedAt: Date.now(),
       }));
       setDraftStatus('saved');
@@ -371,15 +407,22 @@ export function RequestListingModal({ onClose }: Props) {
         ...f,
         name: 'Adarsh High School & Junior College',
         phone: '9876543210',
+        whatsapp: '919876543210',
         address: 'School Road, Near Panchayat Office',
         area: 'Main Road',
         description: 'Quality secondary and higher secondary education with modern computer lab and playground.',
         opening_time: '07:30',
         closing_time: '17:30',
       }));
-      setSchoolType('secondary');
-      setSchoolMedium('marathi');
-      setSchoolBoard('State Board');
+      setSchoolType('higher-secondary');
+      setSchoolMedium('semi-english');
+      setSchoolBoard('State Board (SSC/HSC)');
+      setSchoolManagement('aided');
+      setSchoolAdmissionStatus('open');
+      setSchoolStreams('Science, Commerce, Arts');
+      setSchoolEmail('admissions@adarshschool.edu.in');
+      setSchoolWebsite('https://adarshschool.edu.in');
+      setSchoolIsOwner(true);
     } else {
       setForm({
         name: DUMMY_SHOP_DATA.name,
@@ -487,7 +530,7 @@ export function RequestListingModal({ onClose }: Props) {
         try {
           const res = await fetch(p);
           const blob = await res.blob();
-          const compressed = await compressImage(blob as unknown as File, { maxWidth: 1200, quality: 0.85 });
+          const compressed = await compressImage(blob as unknown as File, 1200, 0.85);
           const { publicUrl, isExisting } = await uploadShopImage(compressed, form.name || entityType, { prefix: `req-${entityType}` });
           if (isExisting) {
             toast.info(locale === 'mr' ? 'विद्यमान फोटो स्टोरेजमधून लिंक केला आहे.' : 'Existing image found in storage and linked.');
@@ -495,8 +538,8 @@ export function RequestListingModal({ onClose }: Props) {
           finalUrls.push(publicUrl);
         } catch (err) {
           console.warn('Photo upload failed for slot', i, err);
-          // Retain local preview data URL if storage upload failed
-          finalUrls.push(p);
+          // Skip this photo — do NOT persist data: URLs to the database.
+          toast.warning(locale === 'mr' ? `फोटो ${i + 1} अपलोड अयशस्वी — वगळला.` : `Photo ${i + 1} upload failed — skipped.`);
         }
       } else {
         finalUrls.push(p);
@@ -532,9 +575,26 @@ export function RequestListingModal({ onClose }: Props) {
         '3_sharing': rateTriple ? Number(rateTriple) : null,
       };
     } else if (entityType === 'school') {
+      const normalizedWeb = (() => {
+        const w = schoolWebsite.trim();
+        if (!w) return null;
+        const candidate = /^https?:\/\//i.test(w) ? w : `https://${w}`;
+        return isSafeHttpUrl(candidate) ? candidate : null;
+      })();
       entityMeta.school_type = schoolType;
       entityMeta.medium = schoolMedium;
-      entityMeta.board = schoolBoard;
+      entityMeta.board = schoolBoard.trim() || null;
+      entityMeta.management_type = schoolManagement || null;
+      entityMeta.admission_status = schoolAdmissionStatus;
+      entityMeta.streams = schoolStreams
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      entityMeta.email = schoolEmail.trim() || null;
+      entityMeta.website = normalizedWeb;
+      entityMeta.is_owner = schoolIsOwner;
+      if (mr.name.trim()) entityMeta.name_mr = mr.name.trim();
+      if (mr.address.trim()) entityMeta.address_mr = mr.address.trim();
     }
 
     const categoryTextResolved =
@@ -570,7 +630,7 @@ export function RequestListingModal({ onClose }: Props) {
       city_id: currentCity.id,
       village_id: currentVillage?.id ?? null,
       district_id: currentCity.district_id ?? null,
-      state_id: currentCity.state_id ?? null,
+      state_id: currentCity.district?.state_id ?? (currentCity as any).state_id ?? null,
     }).select('id').single();
 
     setSaving(false);
@@ -740,9 +800,9 @@ export function RequestListingModal({ onClose }: Props) {
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center sm:px-4 sm:py-6">
       <div className="bg-card border border-border w-full max-w-xl sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         {/* Sticky header with progress */}
-        <div className="px-5 sm:px-6 pt-5 pb-3 border-b border-border bg-card sm:rounded-t-2xl rounded-t-3xl">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2.5 min-w-0">
+        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 border-b border-border bg-card sm:rounded-t-2xl rounded-t-3xl">
+          <div className="flex items-start justify-between gap-2 sm:gap-3 mb-3">
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                    style={{ background: 'hsl(var(--primary) / 0.12)' }}>
                 {entityType === 'mess' ? <UtensilsCrossed className="w-4.5 h-4.5 text-primary" /> :
@@ -757,7 +817,7 @@ export function RequestListingModal({ onClose }: Props) {
                    entityType === 'school' ? (locale === 'mr' ? 'शाळा नोंदणी' : 'List a School') :
                    t('request.modalTitle')}
                 </h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <span>{t('request.wizard.stepOf', { current: String(step), total: String(TOTAL_STEPS) })}</span>
                   <span className="opacity-50">·</span>
                   <span className="font-medium" style={{ color: 'hsl(var(--primary))' }}>
@@ -766,15 +826,16 @@ export function RequestListingModal({ onClose }: Props) {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleManualSaveDraft}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-muted/50 hover:bg-muted text-xs font-semibold text-foreground transition-all active:scale-95 shadow-xs"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-border bg-muted/50 hover:bg-muted text-xs font-semibold text-foreground transition-all active:scale-95 shadow-xs whitespace-nowrap"
                 title={locale === 'mr' ? 'ड्राफ्ट जतन करा' : 'Save draft'}
               >
-                <Bookmark className="w-3.5 h-3.5 text-primary" />
-                <span>{locale === 'mr' ? 'ड्राफ्ट सेव्ह' : 'Save Draft'}</span>
+                <Bookmark className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="sm:hidden">{locale === 'mr' ? 'सेव्ह' : 'Save'}</span>
+                <span className="hidden sm:inline">{locale === 'mr' ? 'ड्राफ्ट सेव्ह' : 'Save Draft'}</span>
               </button>
               <button onClick={onClose} aria-label={t('claim.closeAria')}
                 className="p-1.5 hover:bg-muted rounded-lg transition-colors shrink-0">
@@ -803,7 +864,7 @@ export function RequestListingModal({ onClose }: Props) {
           </div>
 
           {/* Draft status */}
-          <div className="mt-2 flex items-center justify-between text-[10.5px]">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 text-[10.5px]">
             <span className="inline-flex items-center gap-1 text-muted-foreground">
               {draftStatus === 'saved' && (<><Check className="w-3 h-3 text-emerald-600" /> {locale === 'mr' ? 'ड्राफ्ट जतन झाला' : (t('request.wizard.draftSaved') || 'Draft saved')}</>)}
               {draftStatus === 'idle'   && <span className="text-[10px] text-muted-foreground/60 italic">{locale === 'mr' ? 'नोंदणी कधीही सुरू ठेवण्यासाठी ड्राफ्ट सेव्ह करा' : 'Tap Save Draft to resume anytime'}</span>}
@@ -1138,7 +1199,7 @@ export function RequestListingModal({ onClose }: Props) {
                   </div>
 
                   <Field label={locale === 'mr' ? 'मेसचा प्रकार' : 'Mess Type'}>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { id: 'pure_veg', label: '🟢 Pure Veg', mr: '🟢 शुद्ध शाकाहारी' },
                         { id: 'veg_nonveg', label: '🔴 Veg & Non-Veg', mr: '🔴 व्हेज / नॉन-व्हेज' },
@@ -1161,7 +1222,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </div>
                   </Field>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label={locale === 'mr' ? 'मासिक दर (₹ / महिना)' : 'Monthly Pass Rate (₹)'}>
                       <input
                         type="number"
@@ -1182,7 +1243,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-border bg-card">
                       <input
                         type="checkbox"
@@ -1207,7 +1268,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label={locale === 'mr' ? 'दुपारी जेवण वेळ' : 'Lunch Timing'}>
                       <input
                         value={lunchTiming}
@@ -1239,7 +1300,7 @@ export function RequestListingModal({ onClose }: Props) {
                   </div>
 
                   <Field label={locale === 'mr' ? 'कोणासाठी आहे?' : 'Target Gender'}>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { id: 'boys', label: '👦 Boys Only', mr: '👦 फक्त मुले' },
                         { id: 'girls', label: '👧 Girls Only', mr: '👧 फक्त मुली' },
@@ -1262,7 +1323,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </div>
                   </Field>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label={locale === 'mr' ? 'एकूण खाटा (Total Beds)' : 'Total Beds'}>
                       <input
                         type="number"
@@ -1283,7 +1344,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Field label={locale === 'mr' ? '१ शेअरींग (₹)' : '1-Bed (₹)'}>
                       <input
                         type="number"
@@ -1313,7 +1374,7 @@ export function RequestListingModal({ onClose }: Props) {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-border bg-card">
                       <input
                         type="checkbox"
@@ -1337,52 +1398,135 @@ export function RequestListingModal({ onClose }: Props) {
                 </div>
               )}
 
-              {/* Specialized Section for SCHOOL */}
+              {/* Specialized Section for SCHOOL / INSTITUTE */}
               {entityType === 'school' && (
                 <div className="p-4 rounded-2xl border border-purple-500/20 bg-purple-500/5 space-y-4">
                   <div className="flex items-center gap-2">
                     <GraduationCap className="w-4 h-4 text-purple-600" />
                     <h4 className="font-bold text-sm text-foreground">
-                      {locale === 'mr' ? 'शाळा तपशील व माध्यम' : 'School Details & Medium'}
+                      {locale === 'mr' ? 'शिक्षण संस्था तपशील, माध्यम व प्रवेश' : 'Institute Category, Board & Admissions'}
                     </h4>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label={locale === 'mr' ? 'शाळेचा स्तर' : 'School Level'}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label={locale === 'mr' ? 'संस्थेचा स्तर' : 'Institute Level'}>
                       <select
                         value={schoolType}
-                        onChange={(e) => setSchoolType(e.target.value as any)}
+                        onChange={(e) => setSchoolType(e.target.value as SchoolType)}
                         className={inputCls + ' cursor-pointer'}
                       >
-                        <option value="primary">{locale === 'mr' ? 'प्राथमिक शाळा' : 'Primary School'}</option>
-                        <option value="secondary">{locale === 'mr' ? 'माध्यमिक शाळा' : 'Secondary School'}</option>
-                        <option value="higher-secondary">{locale === 'mr' ? 'कनिष्ठ महाविद्यालय' : 'Junior College'}</option>
-                        <option value="college">{locale === 'mr' ? 'वरिष्ठ महाविद्यालय' : 'Senior College'}</option>
-                        <option value="other">{locale === 'mr' ? 'इतर' : 'Other'}</option>
+                        {SCHOOL_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
                       </select>
                     </Field>
-                    <Field label={locale === 'mr' ? 'शिक्षणाचे माध्यम' : 'Instruction Medium'}>
+                    <Field label={locale === 'mr' ? 'शिक्षणाचे माध्यम' : 'Primary Medium'}>
                       <select
                         value={schoolMedium}
-                        onChange={(e) => setSchoolMedium(e.target.value as any)}
+                        onChange={(e) => setSchoolMedium(e.target.value as SchoolMedium)}
                         className={inputCls + ' cursor-pointer'}
                       >
-                        <option value="marathi">मराठी माध्यम (Marathi)</option>
-                        <option value="semi-english">सेमी-इंग्रजी (Semi-English)</option>
-                        <option value="english">इंग्रजी माध्यम (English)</option>
-                        <option value="other">इतर (Other)</option>
+                        {SCHOOL_MEDIUM_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
                       </select>
                     </Field>
                   </div>
 
-                  <Field label={locale === 'mr' ? 'बोर्ड संलग्नता' : 'Board Affiliation'}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label={locale === 'mr' ? 'व्यवस्थापन प्रकार' : 'Management Type'}>
+                      <select
+                        value={schoolManagement}
+                        onChange={(e) => setSchoolManagement((e.target.value || '') as ManagementType | '')}
+                        className={inputCls + ' cursor-pointer'}
+                      >
+                        <option value="">{locale === 'mr' ? '— निवडा (ऐच्छिक) —' : '— Select (Optional) —'}</option>
+                        {MANAGEMENT_TYPE_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label={locale === 'mr' ? 'प्रवेश स्थिती' : 'Admission Status'}>
+                      <select
+                        value={schoolAdmissionStatus}
+                        onChange={(e) => setSchoolAdmissionStatus(e.target.value as AdmissionStatus)}
+                        className={inputCls + ' cursor-pointer'}
+                      >
+                        {ADMISSION_STATUS_OPTIONS.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label={locale === 'mr' ? 'बोर्ड / विद्यापीठ संलग्नता' : 'Board / University Affiliation'}>
+                      <input
+                        value={schoolBoard}
+                        onChange={(e) => setSchoolBoard(e.target.value)}
+                        list="req-school-boards"
+                        className={inputCls}
+                        placeholder="State Board / CBSE / SPPU"
+                        maxLength={120}
+                      />
+                      <datalist id="req-school-boards">
+                        {COMMON_BOARDS.map((b) => <option key={b.value} value={b.value}>{b.label}</option>)}
+                      </datalist>
+                    </Field>
+                    <Field label={locale === 'mr' ? 'शाखा / कोर्सेस (ऐच्छिक)' : 'Streams / Courses (Optional)'}>
+                      <input
+                        value={schoolStreams}
+                        onChange={(e) => setSchoolStreams(e.target.value)}
+                        className={inputCls}
+                        placeholder="e.g. Science, Commerce, Engineering"
+                        maxLength={160}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Field label={locale === 'mr' ? 'ईमेल (ऐच्छिक)' : 'Official Email (Optional)'}>
+                      <input
+                        type="email"
+                        value={schoolEmail}
+                        onChange={(e) => setSchoolEmail(e.target.value)}
+                        className={inputCls}
+                        placeholder="admissions@institute.edu.in"
+                        maxLength={120}
+                      />
+                    </Field>
+                    <Field label={locale === 'mr' ? 'वेबसाईट (ऐच्छिक)' : 'Website URL (Optional)'}>
+                      <input
+                        type="url"
+                        value={schoolWebsite}
+                        onChange={(e) => setSchoolWebsite(e.target.value)}
+                        className={inputCls}
+                        placeholder="https://institute.edu.in"
+                        maxLength={200}
+                      />
+                    </Field>
+                  </div>
+
+                  <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-xl border border-purple-500/30 bg-background">
                     <input
-                      value={schoolBoard}
-                      onChange={(e) => setSchoolBoard(e.target.value)}
-                      className={inputCls}
-                      placeholder="e.g. Maharashtra State Board / CBSE"
+                      type="checkbox"
+                      checked={schoolIsOwner}
+                      onChange={(e) => setSchoolIsOwner(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-purple-600 rounded shrink-0"
                     />
-                  </Field>
+                    <span className="text-xs leading-relaxed text-foreground">
+                      <strong className="block">
+                        {locale === 'mr'
+                          ? 'मी प्राचार्य / संस्था चालक / अधिकृत प्रतिनिधी आहे'
+                          : 'I am Principal / Owner / Authorized Coordinator'}
+                      </strong>
+                      <span className="text-muted-foreground">
+                        {locale === 'mr'
+                          ? 'मंजुरीनंतर मला नोटीस बोर्ड व प्रवेश स्थिती अद्यतनित करण्यासाठी पोर्टल प्रवेश द्या.'
+                          : 'Grant me School Owner Portal access on approval to post notices & manage admissions.'}
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
 
@@ -1425,7 +1569,6 @@ export function RequestListingModal({ onClose }: Props) {
                 <AmenitiesPicker
                   value={amenities}
                   onChange={setAmenities}
-                  category={entityType === 'mess' ? 'mess' : entityType === 'pg' ? 'pg' : 'business'}
                 />
               </Field>
 
@@ -1470,7 +1613,7 @@ export function RequestListingModal({ onClose }: Props) {
                         />
                       </div>
                       <MarathiMirrorField label="नाव (मराठी)" value={mr.name} onChange={(v) => setMr((m) => ({ ...m, name: v }))} maxLength={120} />
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <MarathiMirrorField label="परिसर (Area)" value={mr.area} onChange={(v) => setMr((m) => ({ ...m, area: v }))} maxLength={80} />
                         <MarathiMirrorField label="उप-परिसर" value={mr.sub_area} onChange={(v) => setMr((m) => ({ ...m, sub_area: v }))} maxLength={80} />
                       </div>
@@ -1493,7 +1636,7 @@ export function RequestListingModal({ onClose }: Props) {
                     <span className="flex items-center gap-1.5"><ImageIcon className="w-3.5 h-3.5 text-primary" /> Photos ({photos.length})</span>
                     <button type="button" onClick={() => setStep(4)} className="text-primary text-[11px] hover:underline">Edit</button>
                   </div>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {photos.map((url, i) => (
                       <div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-border bg-muted group">
                         <img src={url} alt={`Photo ${i+1}`} className="w-full h-full object-cover" />
@@ -1543,9 +1686,21 @@ export function RequestListingModal({ onClose }: Props) {
                 )}
                 {entityType === 'school' && (
                   <>
-                    <ReviewRow label="School Level" value={schoolType} empty="—" />
+                    <ReviewRow label="Institute Level" value={SCHOOL_TYPE_CONFIG[schoolType]?.labelEn || schoolType} empty="—" />
                     <ReviewRow label="Medium" value={schoolMedium} empty="—" />
-                    <ReviewRow label="Board" value={schoolBoard} empty="—" />
+                    <ReviewRow label="Board / Univ" value={schoolBoard} empty="—" />
+                    <ReviewRow
+                      label="Management"
+                      value={schoolManagement ? MANAGEMENT_TYPE_CONFIG[schoolManagement]?.labelEn : ''}
+                      empty={t('request.wizard.reviewEmpty')}
+                    />
+                    <ReviewRow
+                      label="Admissions"
+                      value={ADMISSION_STATUS_CONFIG[schoolAdmissionStatus]?.labelEn || schoolAdmissionStatus}
+                      empty="—"
+                    />
+                    {schoolStreams.trim() && <ReviewRow label="Streams" value={schoolStreams} empty="—" />}
+                    {schoolIsOwner && <ReviewRow label="Portal Access" value="Requested as Principal / Owner" empty="—" />}
                   </>
                 )}
                 <ReviewRow label={t('request.field.openingTime')} value={form.opening_time ? formatTime(form.opening_time) : ''} empty={t('request.wizard.reviewEmpty')} />
@@ -1575,7 +1730,10 @@ export function RequestListingModal({ onClose }: Props) {
         </div>
 
         {/* Sticky footer */}
-        <div className="px-5 sm:px-6 py-3.5 border-t border-border bg-card sm:rounded-b-2xl flex items-center gap-2.5">
+        <div
+          className="px-4 sm:px-6 pt-3.5 pb-3.5 border-t border-border bg-card sm:rounded-b-2xl flex items-center gap-2.5"
+          style={{ paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom, 0px))' }}
+        >
           {step > 1 ? (
             <button type="button" onClick={goBack}
               className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors">

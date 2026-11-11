@@ -31,6 +31,7 @@ import { fetchPGBySlugOrId } from '@/lib/living/livingService';
 import type { PGWithDetails } from '@/lib/living/livingTypes';
 import { BookmarkButton } from '@/components/BookmarkButton';
 import { DesktopNav } from '@/components/DesktopNav';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { PhotoSlider } from '@/components/shared/PhotoSlider';
 import { ReviewsSection } from '@/components/reviews/ReviewsSection';
 import { Footer } from '@/components/shared/Footer';
@@ -160,33 +161,34 @@ export default function PGDetail() {
       />
 
       {/* Top Sticky App Bar */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             <button
               onClick={() => navigate(`/${citySlug || currentCity.slug}/pg`)}
               aria-label="Back to PG Directory"
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-muted-foreground"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-base font-bold truncate">
+            <h1 className="text-sm sm:text-base font-bold leading-tight truncate">
               {displayName}
             </h1>
           </div>
 
-          <DesktopNav variant="default" />
+          <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={handleShare}
               aria-label="Share"
-              className="p-2 rounded-full hover:bg-muted active:scale-95 transition-all text-muted-foreground"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg hover:bg-primary-foreground/10 active:scale-95 transition-all shrink-0"
               title="Share"
             >
               <Share2 className="w-4 h-4" />
             </button>
             <BookmarkButton shopId={pg.id} />
+            <UserMenuDrawer />
           </div>
         </div>
       </header>
@@ -291,7 +293,7 @@ export default function PGDetail() {
 
         {/* Live Bed Vacancy Card */}
         <div className="bg-gradient-to-b from-indigo-500/5 to-card rounded-2xl border border-indigo-500/20 p-4 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">
                 <BedDouble className="w-4 h-4" />
@@ -343,7 +345,7 @@ export default function PGDetail() {
                 <DoorOpen className="w-3.5 h-3.5 text-primary" />
                 <span>{locale === 'mr' ? 'खोल्यांचे तपशील (Room Breakdown)' : 'Rooms & Occupancy'}</span>
               </h3>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 {rooms.map((room) => (
                   <div key={room.id} className="p-2.5 rounded-xl bg-card border border-border/80 flex items-center justify-between">
                     <div>
@@ -456,7 +458,7 @@ export default function PGDetail() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-            <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-muted-foreground font-medium flex items-center gap-1">
                 <span>🚪</span> {locale === 'mr' ? 'गेट बंद होण्याची वेळ' : 'Gate Closing Time'}
               </span>
@@ -464,7 +466,7 @@ export default function PGDetail() {
                 {profile?.gate_closing_time || '10:00 PM'}
               </span>
             </div>
-            <div className="p-3 rounded-xl bg-muted/40 border border-border flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border flex flex-wrap items-center justify-between gap-1.5">
               <span className="text-muted-foreground font-medium flex items-center gap-1">
                 <span>🍲</span> {locale === 'mr' ? 'भोजन व्यवस्था' : 'Food Facility'}
               </span>
@@ -524,7 +526,10 @@ export default function PGDetail() {
       </main>
 
       {/* Sticky Bottom Contact Bar */}
-      <div className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-md border-t border-border p-3">
+      <div
+        className="fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-md border-t border-border p-3"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+      >
         <div className="max-w-2xl mx-auto flex items-center gap-2">
           {phone ? (
             <a

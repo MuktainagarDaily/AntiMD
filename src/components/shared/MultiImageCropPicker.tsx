@@ -51,7 +51,7 @@ export function MultiImageCropPicker({
     try {
       setLocalProcessing(activeSlot);
       // Client-side WebP compression (< 250 KB)
-      const compressedBlob = await compressImage(file, { maxWidth: 1200, quality: 0.85 });
+      const compressedBlob = await compressImage(file, 1200, 0.85);
 
       if (onUploadFile) {
         // Direct remote upload provided by parent
@@ -108,11 +108,11 @@ export function MultiImageCropPicker({
       />
 
       {/* Header and status */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <ImageIcon className="w-3.5 h-3.5 text-primary" />
-            <span>{label || (locale === 'mr' ? 'फोटो (कमाल ५)' : 'Photos (Up to 5)')}</span>
+            <ImageIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{label || (locale === 'mr' ? 'फोटो (कमाल ५)' : 'Photos (Up to 5)')}</span>
           </label>
           <p className="text-[10px] text-muted-foreground">
             {locale === 'mr'
@@ -120,7 +120,7 @@ export function MultiImageCropPicker({
               : 'Slot 1 is your main cover photo shown on search and cards.'}
           </p>
         </div>
-        <span className="text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
+        <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold text-muted-foreground px-2 py-0.5 rounded-full bg-muted">
           {photos.length} / {maxPhotos}
         </span>
       </div>
@@ -193,7 +193,7 @@ export function MultiImageCropPicker({
           {locale === 'mr' ? 'अतिरिक्त गॅलरी फोटो (ऐच्छिक)' : 'Gallery Photos (Optional)'}
         </p>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {galleryPhotos.map((photo, idx) => {
             const slotIndex = idx + 1;
             const isProcessingThis = localProcessing === slotIndex;
@@ -205,20 +205,22 @@ export function MultiImageCropPicker({
                   className="relative h-20 rounded-xl overflow-hidden border border-border bg-muted group shadow-2xs"
                 >
                   <img src={photo} alt={`Gallery ${slotIndex}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent sm:bg-black/45 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity flex items-end sm:items-center justify-end sm:justify-center gap-1.5 p-1.5 sm:p-0">
                     <button
                       type="button"
                       onClick={() => handleMakeCover(slotIndex)}
-                      className="p-1 rounded-lg bg-primary text-primary-foreground text-[9px] hover:scale-110 transition-transform"
+                      className="p-1.5 sm:p-1 rounded-lg bg-primary text-primary-foreground text-[9px] hover:scale-110 transition-transform shadow-xs"
                       title={locale === 'mr' ? 'कव्हर करा' : 'Set as cover'}
+                      aria-label={locale === 'mr' ? 'कव्हर करा' : 'Set as cover'}
                     >
                       <Star className="w-3 h-3 fill-current" />
                     </button>
                     <button
                       type="button"
                       onClick={() => handleRemove(slotIndex)}
-                      className="p-1 rounded-lg bg-destructive text-destructive-foreground hover:scale-110 transition-transform"
+                      className="p-1.5 sm:p-1 rounded-lg bg-destructive text-destructive-foreground hover:scale-110 transition-transform shadow-xs"
                       title={locale === 'mr' ? 'काढून टाका' : 'Remove'}
+                      aria-label={locale === 'mr' ? 'काढून टाका' : 'Remove'}
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>

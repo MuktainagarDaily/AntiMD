@@ -103,7 +103,7 @@ export function AmenitiesPicker({ value, onChange }: Props) {
       </div>
 
       {/* Custom input */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap sm:flex-nowrap gap-2">
         <input
           type="text"
           value={customInput}
@@ -115,7 +115,7 @@ export function AmenitiesPicker({ value, onChange }: Props) {
             }
           }}
           placeholder={t('amenities.customPlaceholder')}
-          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="min-w-[160px] flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           maxLength={40}
         />
         <button
@@ -135,13 +135,13 @@ export function AmenitiesPicker({ value, onChange }: Props) {
           {customValues.map((label) => (
             <span
               key={label}
-              className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border border-border bg-muted"
+              className="inline-flex items-center gap-1 max-w-full text-xs px-2.5 py-1 rounded-full font-medium border border-border bg-muted"
             >
-              {label}
+              <span className="truncate">{label}</span>
               <button
                 type="button"
                 onClick={() => removeChip(label)}
-                className="text-muted-foreground hover:text-destructive"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
                 aria-label={`Remove ${label}`}
               >
                 <X className="w-3 h-3" />

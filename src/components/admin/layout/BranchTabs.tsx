@@ -10,7 +10,7 @@ interface Props {
 export function BranchTabs({ leaves, badges = {} }: Props) {
   if (leaves.length <= 1) return null;
   return (
-    <div className="sticky top-[56px] z-20 -mx-4 px-4 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b mb-4 flex gap-2 overflow-x-auto scrollbar-none">
+    <div className="sticky top-[56px] z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 pr-5 pt-2.5 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b mb-4 flex gap-2 overflow-x-auto no-scrollbar">
       {leaves.map((leaf) => {
         const Icon = leaf.icon;
         const badge = badges[leaf.key] ?? 0;

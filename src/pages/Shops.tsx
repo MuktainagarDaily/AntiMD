@@ -11,7 +11,7 @@ import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { DesktopNav } from '@/components/DesktopNav';
 import { ShopCard } from '@/components/ShopCard';
 import { Footer } from '@/components/shared/Footer';
-import { isShopOpen, filterRetailShops, isSpecializedCategoryName } from '@/lib/shopUtils';
+import { isShopOpen, filterRetailShops, isSpecializedCategoryName, getEntityDetailPath } from '@/lib/shopUtils';
 import { BannerSlot } from '@/components/banners/BannerSlot';
 import { haptic } from '@/lib/uxUtils';
 import { useInterval } from '@/hooks/useInterval';
@@ -35,7 +35,7 @@ function SuggestionRow({ shop: rawShop, query, onPick, localizeCat, currentCityS
   const shop = useLocalizedShop(rawShop) || rawShop;
   const sc = rawShop.shop_categories?.[0];
   const catLabel = sc?.categories?.name ? localizeCat(sc.category_id, sc.categories.name) : null;
-  const shopPath = shop.slug ? `/${currentCitySlug}/shop/${shop.slug}` : `/${currentCitySlug}/shop/${shop.id}`;
+  const shopPath = getEntityDetailPath(currentCitySlug, rawShop);
   const areaLine = [shop.area, shop.sub_area].filter(Boolean).join(', ');
   return (
     <div
@@ -494,7 +494,7 @@ export default function Shops() {
         <div className="max-w-lg md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto">
           {/* Title row */}
           <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               <button onClick={() => navigate(`/${currentCity.slug}`)} aria-label={t('shops.backHomeAria')} className="p-1 shrink-0 hover:bg-primary-foreground/10 rounded-lg transition-colors">
                 <ArrowLeft className="w-6 h-6" />
               </button>
@@ -1134,7 +1134,7 @@ export default function Shops() {
           </div>
 
           {/* Apply CTA */}
-          <div className="px-5 pb-8 pt-2 border-t border-border">
+          <div className="px-5 pt-2 border-t border-border pb-[max(2rem,env(safe-area-inset-bottom))]">
             <button
               type="button"
               onClick={handleApply}

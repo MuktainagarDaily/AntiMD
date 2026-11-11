@@ -11,7 +11,7 @@ export const BANNER_LIST_SELECT = '*';
 
 export const bannersRepo = {
   async list(activeOnly = true, select = BANNER_LIST_SELECT) {
-    let q = supabase.from('banners').select(select).order('position', { ascending: true });
+    let q = supabase.from('banners').select(select).order('sort_order', { ascending: true });
     if (activeOnly) q = q.eq('is_active', true);
     const { data, error } = await q;
     if (error) throw error;

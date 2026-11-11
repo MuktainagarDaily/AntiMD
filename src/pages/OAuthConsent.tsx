@@ -87,39 +87,39 @@ export default function OAuthConsent() {
     <>
       <PageSeo title={`Authorize app · ${townBrand}`} description={`Approve or deny an app connecting to your ${townBrand} account.`} noindex />
       <main className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-md rounded-2xl border bg-card shadow-sm p-6 space-y-5">
+        <div className="w-full max-w-md rounded-2xl border bg-card shadow-sm p-5 sm:p-6 space-y-5">
           {error ? (
             <>
               <h1 className="text-lg font-semibold">Authorization request failed</h1>
-              <p className="text-sm text-muted-foreground">{error}</p>
+              <p className="text-sm text-muted-foreground break-words">{error}</p>
             </>
           ) : !details ? (
             <div className="flex items-center gap-3 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin shrink-0" />
               <span>Loading authorization request…</span>
             </div>
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <ShieldCheck className="h-5 w-5 text-primary" />
                 </div>
-                <div>
-                  <h1 className="text-lg font-semibold leading-tight">
+                <div className="min-w-0">
+                  <h1 className="text-lg font-semibold leading-tight break-words">
                     Connect {details.client?.name ?? "an app"} to your account
                   </h1>
                   <p className="text-xs text-muted-foreground">{townBrand} · MCP access</p>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground break-words">
                 {details.client?.name ?? "This app"} is requesting access to use {townBrand} on your behalf.
                 It will be able to call directory tools as you.
               </p>
-              <div className="flex gap-2 pt-2">
-                <Button variant="outline" className="flex-1" disabled={busy} onClick={() => decide(false)}>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button variant="outline" className="min-w-[110px] flex-1" disabled={busy} onClick={() => decide(false)}>
                   Deny
                 </Button>
-                <Button className="flex-1" disabled={busy} onClick={() => decide(true)}>
+                <Button className="min-w-[110px] flex-1" disabled={busy} onClick={() => decide(true)}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve"}
                 </Button>
               </div>

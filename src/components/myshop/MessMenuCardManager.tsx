@@ -175,31 +175,31 @@ export function MessMenuCardManager({ shopId, shopName }: MessMenuCardManagerPro
 
       {/* Mode Switcher: Simple vs Categorized */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2 rounded-xl bg-muted/30 border border-border">
-        <div className="flex items-center gap-1 bg-card p-1 rounded-lg border border-border shadow-2xs">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 bg-card p-1 rounded-lg border border-border shadow-2xs">
           <button
             type="button"
             onClick={() => setViewMode('simple')}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+              'flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
               viewMode === 'simple'
                 ? 'bg-primary text-primary-foreground shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <List className="w-3.5 h-3.5" />
+            <List className="w-3.5 h-3.5 shrink-0" />
             <span>{locale === 'mr' ? '⚡ साधी यादी (लहान मेस)' : '⚡ Simple List (Small Mess)'}</span>
           </button>
           <button
             type="button"
             onClick={() => setViewMode('categorized')}
             className={cn(
-              'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+              'flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
               viewMode === 'categorized'
                 ? 'bg-primary text-primary-foreground shadow-xs'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-3.5 h-3.5 shrink-0" />
             <span>{locale === 'mr' ? '📋 वर्गवारीनुसार (हॉटेल / मोठे मेस)' : '📋 Categorized (Hotel Style)'}</span>
           </button>
         </div>
@@ -339,7 +339,7 @@ export function MessMenuCardManager({ shopId, shopName }: MessMenuCardManagerPro
 
       {/* Menu Items List */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <div className="flex flex-wrap items-center justify-between gap-1.5 text-xs text-muted-foreground px-1">
           <span>
             {locale === 'mr' ? `एकूण पदार्थ (${displayedItems.length})` : `Total Menu Items (${displayedItems.length})`}
           </span>
@@ -375,7 +375,7 @@ export function MessMenuCardManager({ shopId, shopName }: MessMenuCardManagerPro
                 <div
                   key={item.id}
                   className={cn(
-                    'p-3 flex items-center justify-between gap-3 hover:bg-muted/20 transition-colors',
+                    'p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 hover:bg-muted/20 transition-colors',
                     !item.is_available && 'opacity-60 bg-muted/10'
                   )}
                 >
@@ -384,7 +384,7 @@ export function MessMenuCardManager({ shopId, shopName }: MessMenuCardManagerPro
                     <span className="text-xs font-mono font-bold text-muted-foreground w-5 shrink-0">
                       {idx + 1}.
                     </span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         <span
@@ -410,7 +410,7 @@ export function MessMenuCardManager({ shopId, shopName }: MessMenuCardManagerPro
                   </div>
 
                   {/* Price editor & Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     {/* Price Input */}
                     <div className="relative w-24">
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">₹</span>

@@ -32,6 +32,8 @@ export interface GeoCity {
   is_active: boolean;
   sort_order: number;
   district?: GeoDistrict | null;
+  /** Denormalized from district.state_id — populated by multi-town hierarchy SQL patch. */
+  state_id?: string | null;
 }
 
 export interface GeoVillage {
@@ -50,9 +52,11 @@ export interface GeoVillage {
 export interface TownBranding {
   name: string;           // 'Muktainagar'
   name_mr: string;        // 'मुक्ताईनगर'
-  brandTitle: string;     // 'ApnaLocal · Muktainagar'
-  brandTitle_mr: string;  // 'ApnaLocal · मुक्ताईनगर'
+  brandTitle: string;     // 'ApnaTown · Muktainagar'
+  brandTitle_mr: string;  // 'ApnaTown · मुक्ताईनगर'
   tagline: string;        // 'Your town. Everything local.'
   tagline_mr: string;     // 'आपलं शहर. स्थानिक सर्वकाही.'
   centerCoords: { lat: number; lng: number };
+  /** Optional SEO description for PageSeo component. */
+  metaDescription?: string;
 }

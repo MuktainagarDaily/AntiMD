@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Bus, Plus, Pencil, Trash2, Eye, EyeOff, MapPin, Phone, AlertCircle, Search, X, ChevronDown, Upload, Sparkles, CalendarCheck } from 'lucide-react';
+import { Bus, Plus, Pencil, Trash2, Eye, EyeOff, MapPin, Phone, AlertCircle, Search, X, ChevronDown, Upload, Download, Sparkles, CalendarCheck } from 'lucide-react';
 import { z } from 'zod';
 import { ConfirmTapButton } from './_shared/ConfirmTapButton';
 import { EmptyState } from './_shared/EmptyState';
@@ -9,6 +9,7 @@ import { MarathiMirrorField } from '@/components/shared/MarathiMirrorField';
 import { useToast } from '@/hooks/use-toast';
 import { useCity } from '@/hooks/useCity';
 import type { GeoCity } from '@/lib/geo/types';
+import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
 import { BusBulkImportModal } from './BusBulkImportModal';
 import {
   type BusDirection,
@@ -230,6 +231,23 @@ export function BusTimetableTab() {
     qc.invalidateQueries({ queryKey: ['bus_timetable_public'] });
   };
 
+  const handleExportCsv = () => {
+    if (filteredRows.length === 0) {
+      toast({ title: 'No bus routes to export' });
+      return;
+    }
+    const headers = ['Destination', 'Marathi Name', 'Departure Times', 'Notes', 'Active'];
+    const csvRows = filteredRows.map((r) => [
+      r.destination ?? '',
+      r.destination_mr ?? '',
+      (r.departure_times ?? []).join(' '),
+      r.notes ?? '',
+      r.is_active ? 'true' : 'false',
+    ]);
+    downloadCsv(townCsvFilename(selectedCity.slug, 'bus-timetable'), headers, csvRows);
+    toast({ title: 'Exported CSV', description: `${filteredRows.length} bus route(s) downloaded.` });
+  };
+
   return (
     <div className="space-y-4">
       {/* Header with City Dropdown Switcher */}
@@ -239,11 +257,11 @@ export function BusTimetableTab() {
             <h2 className="text-base font-bold text-foreground flex items-center gap-2">
               <Bus className="w-4 h-4 text-primary" /> Bus Timetable
             </h2>
-            <div className="relative inline-block">
+            <div className="relative inline-block max-w-full">
               <select
                 value={selectedCityId}
                 onChange={(e) => setSelectedCityId(e.target.value)}
-                className="appearance-none text-xs pl-2.5 pr-7 py-1 rounded-full font-semibold bg-primary/10 text-primary border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer hover:bg-primary/15 transition-colors"
+                className="appearance-none max-w-full text-xs pl-2.5 pr-7 py-1 rounded-full font-semibold bg-primary/10 text-primary border border-primary/20 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer hover:bg-primary/15 transition-colors"
                 aria-label="Filter routes by town"
               >
                 {allCities.map((c) => (
@@ -281,6 +299,14 @@ export function BusTimetableTab() {
           </button>
           <button
             type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border bg-card hover:bg-muted text-foreground text-xs sm:text-sm font-semibold active:scale-95 transition shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5 text-primary" />
+            Export CSV
+          </button>
+          <button
+            type="button"
             onClick={() => setCreating(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm font-semibold hover:bg-primary/90 active:scale-95 transition shrink-0 shadow-xs"
           >
@@ -315,7 +341,7 @@ export function BusTimetableTab() {
 
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Direction Filter */}
-          <div className="flex items-center gap-0.5 bg-muted/60 p-1 rounded-lg shrink-0">
+          <div className="flex flex-wrap items-center gap-0.5 bg-muted/60 p-1 rounded-lg max-w-full">
             <button
               type="button"
               onClick={() => setDirectionFilter('all')}
@@ -352,7 +378,7 @@ export function BusTimetableTab() {
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-0.5 bg-muted/60 p-1 rounded-lg shrink-0">
+          <div className="flex flex-wrap items-center gap-0.5 bg-muted/60 p-1 rounded-lg max-w-full">
             <button
               type="button"
               onClick={() => setStatusFilter('all')}
@@ -522,6 +548,7 @@ export function BusTimetableTab() {
         cityId={selectedCity.id}
         cityName={selectedCity.name}
         existingCount={rows.length}
+        existingDestinations={rows.map((r) => r.destination)}
         onClose={() => setBulkImportOpen(false)}
         onImported={() => {
           qc.invalidateQueries({ queryKey: ['admin-bus-timetable'] });
@@ -600,12 +627,12 @@ function BusRowModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
-      <div className="bg-background w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[92vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-background border-b border-border px-5 py-3 flex items-center justify-between">
-          <h3 className="font-bold text-base">{row ? 'Edit destination' : 'New destination'}</h3>
-          <button onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground">Close</button>
+      <div className="bg-background w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-background border-b border-border px-4 sm:px-5 py-3 flex items-center justify-between gap-2">
+          <h3 className="font-bold text-base truncate">{row ? 'Edit destination' : 'New destination'}</h3>
+          <button onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground shrink-0">Close</button>
         </div>
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-4 sm:px-5 py-4 space-y-4">
           <div>
             <label className="block text-sm font-semibold mb-1.5">City / Taluka</label>
             <select
@@ -755,7 +782,7 @@ function BusRowModal({
             </div>
           </div>
         </div>
-        <div className="sticky bottom-0 bg-background border-t border-border px-5 py-3 flex items-center justify-end gap-2">
+        <div className="sticky bottom-0 bg-background border-t border-border px-4 sm:px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] flex items-center justify-end gap-2">
           <button onClick={onClose} className="px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted">Cancel</button>
           <button
             onClick={handleSave}

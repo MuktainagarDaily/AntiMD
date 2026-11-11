@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Download, Upload, Plus, Zap, Inbox, Languages, MapPin, UtensilsCrossed, BedDouble, Globe } from 'lucide-react';
+import { Download, Upload, Plus, Zap, Inbox, Languages, MapPin, UtensilsCrossed, BedDouble, Globe, GraduationCap } from 'lucide-react';
+import { isMissingRelationErr } from '@/lib/entities/claimEntity';
 import { useState } from 'react';
 import { ADMIN_NAV } from '@/components/admin/layout/adminNav';
 import { MasterExportModal } from '@/components/admin/MasterExportModal';
@@ -48,7 +49,8 @@ export default function AdminOverview() {
         { count: cats },
         { count: verified },
         { count: pending },
-        { count: claims },
+        { count: shopClaims },
+        schoolClaimsRes,
         { count: messCount },
         { count: pgCount },
       ] = await Promise.all([
@@ -58,9 +60,14 @@ export default function AdminOverview() {
         verifiedShopQ,
         supabase.from('shop_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('shop_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        (supabase.from('school_claims' as any) as any).select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         messQ,
         pgQ,
       ]);
+
+      const schoolClaims = schoolClaimsRes?.error && isMissingRelationErr(schoolClaimsRes.error)
+        ? 0
+        : (schoolClaimsRes?.count ?? 0);
 
       return {
         total: total ?? 0,
@@ -68,7 +75,7 @@ export default function AdminOverview() {
         cats: cats ?? 0,
         verified: verified ?? 0,
         pending: pending ?? 0,
-        claims: claims ?? 0,
+        claims: (shopClaims ?? 0) + schoolClaims,
         mess: messCount ?? 0,
         pg: pgCount ?? 0,
       };
@@ -116,7 +123,7 @@ export default function AdminOverview() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         <Stat label="Total Shops" value={stats?.total} icon="🏪" onClick={() => navigate('/admin/directory/shops')} />
         <Stat label="Active" value={stats?.active} icon="✅" onClick={() => navigate('/admin/directory/shops')} />
         <Stat label="Verified" value={stats?.verified} icon="🛡️" onClick={() => navigate('/admin/directory/shops')} />
@@ -129,7 +136,7 @@ export default function AdminOverview() {
 
       {/* Needs attention */}
       {(stats?.pending || stats?.claims) ? (
-        <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-4 flex items-center justify-between gap-3">
+        <div className="rounded-xl border border-secondary/40 bg-secondary/5 p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center shrink-0" style={{ color: 'hsl(var(--secondary))' }}>
               <Inbox className="w-5 h-5" />
@@ -155,10 +162,11 @@ export default function AdminOverview() {
       {/* Quick actions */}
       <div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Quick actions</div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <ActionCard icon={Plus} label="Add Shop" onClick={() => navigate('/admin/directory/shops?new=1')} />
           <ActionCard icon={UtensilsCrossed} label="Manage Mess" onClick={() => navigate('/admin/directory/mess')} />
           <ActionCard icon={BedDouble} label="Manage PG" onClick={() => navigate('/admin/directory/pg')} />
+          <ActionCard icon={GraduationCap} label="Manage Institutes" onClick={() => navigate('/admin/sections/schools')} />
           <ActionCard icon={Zap} label="Speed Add" onClick={() => setShowSpeed(true)} />
           <ActionCard icon={Upload} label="Import CSV" onClick={() => setShowCsv(true)} />
         </div>
@@ -167,7 +175,7 @@ export default function AdminOverview() {
       {/* Sections health */}
       <div>
         <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Sections</div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
           {sectionsHub.leaves.map((leaf) => {
             const Icon = leaf.icon;
             return (

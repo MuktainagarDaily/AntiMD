@@ -25,17 +25,21 @@ export function CategoryCsvImportModal({ onClose, onDone }: Props) {
     queryKey: ['admin-categories-names'],
     queryFn: async () => {
       const { data } = await supabase.from('categories').select('name');
-      return (data || []).map((c: any) => (c.name as string).toLowerCase().trim());
+      return (data || []).map((c) => c.name.toLowerCase().trim());
     },
   });
 
   const config = useMemo<CsvImporterConfig<CatRow>>(() => ({
     title: 'Import Categories from CSV',
-    templateFilename: 'muktainagar_categories_template.csv',
+    templateFilename: 'apnatown_categories_template.csv',
     templateContent: TEMPLATE,
     columns: ['Icon', 'Name', 'Active'],
     labels: { entity: 'Category', entityPlural: 'Categories' },
-    loadExistingKeys: async () => existingCats,
+    loadExistingKeys: async () => {
+      if (existingCats.length > 0) return existingCats;
+      const { data } = await supabase.from('categories').select('name');
+      return (data || []).map((c) => c.name.toLowerCase().trim());
+    },
     parseRow: (raw): CsvImporterRow<CatRow> => {
       const name = (raw['name'] || '').trim();
       const icon = (raw['icon'] || '').trim();

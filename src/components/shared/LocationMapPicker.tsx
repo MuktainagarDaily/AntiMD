@@ -400,9 +400,9 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
   }, [provider, value]);
 
   return (
-    <div className="relative rounded-xl overflow-hidden border border-border shadow-xs" style={{ height }}>
+    <div className="relative isolate z-0 rounded-xl overflow-hidden border border-border shadow-xs" style={{ height }}>
       {/* Top Banner & Mode Toggle */}
-      <div className="absolute top-2 inset-x-2 z-[400] flex items-center justify-between pointer-events-none">
+      <div className="absolute top-2 inset-x-2 z-[400] flex flex-wrap items-center justify-between gap-1.5 pointer-events-none">
         {/* OpenStreetMap Fallback Notice */}
         {provider === 'osm' ? (
           <div className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-background/90 text-foreground border border-border backdrop-blur-xs shadow-xs">

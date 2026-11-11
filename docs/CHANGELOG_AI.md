@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-11-08 → 2026-11-13 — Essential Services, Local News, Sahayak AI v2, Education Portal, Storage & Health Suite, Export/Import v2 & Documentation Sync
+
+### Features & Verticals
+- **Education Portal v2 & School Owner Hub (`supabase/migrations/20261112000000_education_portal_and_owner_hub.sql`, `src/pages/SchoolDetail.tsx`, `src/components/ClaimSchoolModal.tsx`, `src/components/myshop/SchoolOwnerHub.tsx`, `src/lib/schools/`):**
+  - Expanded `schools` with ~30 structured columns (`slug`, `whatsapp`, `is_verified`, `is_claimed`, `management_type`, `gender_type`, `udise_aishe_code`, `established_year`, `accreditation`, `board`, `classes_offered`, `mediums[]`, `streams[]`, `facilities[]`, `principal_name`, `office_timing`, `admission_status`, `admission_deadline`, `admission_url`, `prospectus_url`, `fee_tier`, `annual_fee_min/max`, `scholarships[]`, `required_documents[]`, `transport_villages[]`, `coaching_focus[]`, `total_seats`, `available_seats`, `meta`).
+  - Added dedicated public institute detail route (`/:citySlug/schools/:id`, legacy `/schools/:id`), live `school_notices` circulars, institute `school_reviews` + `school_review_helpful` (with `get_school_rating` & `get_schools_rating_summary` RPCs), `ClaimSchoolModal`, `school_engagement` analytics, WhatsApp admission enquiry builder, and `/my-institute` (`SchoolOwnerHub`) with optimistic concurrency (`src/lib/schoolConcurrency.ts`) and DB trigger column guard (`protect_school_admin_columns`).
+  - Added optional SQL demo seed `docs/patches/2026-11-12_seed_education_notices_reviews.sql` and unit tests (`SchoolsPublic.test.tsx`, `EducationAdmin.test.ts`).
+- **Local News Module & Automated RSS Scraper (`supabase/migrations/20261111000000_local_news_module.sql`, `supabase/functions/scrape-local-news/index.ts`, `src/pages/LocalNews.tsx`, `src/components/admin/LocalNewsTab.tsx`, `src/lib/news/`):**
+  - Added `news_sources` and `local_news` tables with `(city_id, source_url)` deduplication and RLS.
+  - Added public `/:citySlug/news` (`/news` redirect) feed with category/date filters, pinned notices, and auto-seed refresh, plus `LocalNewsTab` admin console and SSRF-safe `/api/news-proxy` dev middleware (`vite.config.ts`). Tested via `LocalNews.test.tsx`.
+- **Sahayak AI v2 & 7-Tool MCP Server (`supabase/functions/town-assistant/index.ts`, `src/components/TownAssistantDrawer.tsx`, `src/lib/assistant/assistantService.ts`, `src/lib/mcp/index.ts`):**
+  - Upgraded Sahayak AI to query all **7 entity verticals** (`mess`, `pg`, `shop`, `bus`, `school`, `news`, `service`), added Parandwadi PMPML/MSRTC bus seeds, IST clock awareness, multi-turn history, and browser Web Speech API voice input in `TownAssistantDrawer`.
+  - Expanded `muktainagar-daily-mcp` from 4 to **7 OAuth-protected read-only tools** by adding `get_local_news`, `search_schools`, and `get_civic_services` (`src/lib/mcp/tools/`).
+- **Essential Services & Security Hardening v3 (`docs/patches/2026-11-08_essential_services_schema.sql`, `2026-11-09_security_hardening_v3.sql`, `src/pages/EssentialServices.tsx`, `src/components/admin/GovernmentServicesTab.tsx`):**
+  - Launched civic authorities & emergency helplines directory (`authority_departments`, `authority_organizations`, `authority_announcements`, `announcement_locations`, `authority_admin_grants`), in-memory officer PII protection, `get_shops_page` resource bounds, explicit Mess/PG DELETE policies, and `mcp_endpoints` lock-down.
+- **Mess & PG Detail Pages + Owner Hubs (`src/pages/MessDetail.tsx`, `src/pages/PGDetail.tsx`, `src/components/myshop/MessOwnerHub.tsx`, `src/components/myshop/PGOwnerHub.tsx`):**
+  - Launched public `/:citySlug/mess/:id` and `/:citySlug/pg/:id` detail views with PhotoSlider, ReviewsSection, fixed-price menu cards (`MessMenuCardManager`), and Simple / Room-by-Room bed vacancy controls.
+
+### Admin, Data Quality & Export/Import v2
+- **Storage & System Health Suite (`supabase/migrations/20261113000000_storage_and_health_fixes.sql`, `src/components/admin/health/`, `src/lib/admin/storageHealthService.ts`, `src/lib/admin/dataQualityHelpers.ts`):**
+  - Moved Quality from Directory to **System › Storage & Health** (`/admin/system/quality`; `/admin/directory/quality` redirects cleanly).
+  - Fixed `storage.objects` root listing RLS (`(storage.foldername(name))[1] IS DISTINCT FROM 'claims'`) eliminating 409 upload collisions, added admin policy across `shop-images`, extended `image_checked_at`/`image_broken_at` to `schools` & `banners`, and added `get_system_health_snapshot()` RPC.
+  - Built 4 modular diagnostic panels (`SystemDiagnosticsPanel`, `StorageAuditPanel`, `ListingHygienePanel`, `AreaDuplicatesPanel`) supporting Devanagari-safe area normalization, 8-table media reference extraction, expired resolved claim proof purging, and unified media probing.
+- **20-Dataset Master Backup & Hardened RFC 4180 CSV Export/Import (`src/lib/csvUtils.ts`, `src/lib/admin/masterDatasets.ts`, `src/components/admin/*CsvImportModal*` / `*BulkImportModal*`):**
+  - Replaced single-line CSV splitting with an RFC 4180 state machine, formula-injection escaping, UTF-8 BOM Marathi compatibility, and `>1,000`-row pagination (`fetchAllPaged`).
+  - Upgraded `MasterExportModal` & `MasterImportModal` to cover **20 datasets across 20 platform tables** in FK-safe order (`MASTER_DATASETS` + `coerceDatasetRow()`) plus organized `/images` ZIP folders.
+  - Wired per-module CSV export & import across Shops, Mess (`MessCsvImportModal`), PG (`PGCsvImportModal`), Categories, Inbox (Claims & Owners), Schools (45-col `SCHOOL_CSV_EXPORT_HEADERS` + `SchoolBulkImportModal`), Bus (`BusBulkImportModal`), Local News (`NewsCsvImportModal`), Essential Services (`AuthorityCsvImportModal`), Ads (14-col CTR CSV), Analytics, and Quality audits.
+
+### UI, PWA & Configuration
+- **Footer & PWA Metadata (`src/components/shared/Footer.tsx`, `index.html`):** Temporarily commented out the "Built for Vibe Forge Hackathon" attribution link in `Footer.tsx` while keeping `home.footer` copyright live; added `<meta name="mobile-web-app-capable" content="yes" />` alongside existing Apple web-app tags in `index.html`.
+
+### Documentation Sync
+- Updated `README.md`, `PROJECT_BIBLE.md`, `ARCHITECTURE.md`, `MULTI_LOCATION_ARCHITECTURE.md`, `DATABASE_REFERENCE.md`, `API_REFERENCE.md`, `ADMIN_SYSTEM.md`, `FEATURES.md`, `WORKFLOWS.md`, `COMPONENT_CATALOG.md`, `SENTINEL_CONTEXT.md`, `TECHNICAL_DEBT.md`, and `VERCEL_MIGRATION_PLAN.md` to match the verified codebase and migrations (42 public tables, 3 Edge Functions, 7 MCP tools, 20-dataset backup, 31 test files / 252 tests).
+
+---
+
 ## 2026-10-24 — Multi-Town / Village Regional Directory Platform Transformation
 
 ### Architecture & Routing (Option B Implementation)

@@ -15,11 +15,18 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ query, city, limit }) => {
     const supabase = getSupabase();
+    const safeQuery = query.replace(/[%,()\\]/g, " ").trim();
+    if (!safeQuery) {
+      return {
+        content: [{ type: "text", text: "[]" }],
+        structuredContent: { shops: [] },
+      };
+    }
     let q = supabase
       .from("shops")
       .select("id, slug, name, description, address, phone, opening_time, closing_time, is_verified")
       .eq("is_active", true)
-      .or(`name.ilike.%${query}%,description.ilike.%${query}%`);
+      .or(`name.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`);
     if (city) {
       const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", city.toLowerCase()).maybeSingle();
       if (cityRow?.id) q = q.eq("city_id", cityRow.id);

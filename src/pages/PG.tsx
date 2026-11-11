@@ -30,6 +30,7 @@ import { useT } from '@/i18n';
 import { fetchPGsForCity } from '@/lib/living/livingService';
 import type { PGWithDetails, PGGender } from '@/lib/living/livingTypes';
 import { CityPickerModal } from '@/components/shared/CityPickerModal';
+import { BannerSlot } from '@/components/banners/BannerSlot';
 import { PhotoSlider } from '@/components/shared/PhotoSlider';
 import { DesktopNav } from '@/components/DesktopNav';
 import { UserMenuDrawer } from '@/components/UserMenuDrawer';
@@ -112,37 +113,41 @@ export default function PG() {
       />
 
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(`/${currentCitySlug}`)}
               aria-label="Back"
-              className="p-2 -ml-2 rounded-full hover:bg-muted active:scale-95 transition-all text-muted-foreground"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
-              <h1 className="text-base font-bold flex items-center gap-1.5 truncate">
-                <BedDouble className="w-4 h-4 text-primary shrink-0" />
-                <span>{locale === 'mr' ? 'पीजी व वसतिगृह' : 'PG & Hostels'}</span>
-              </h1>
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <BedDouble className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-bold leading-tight truncate">
+                  {locale === 'mr' ? 'पीजी व वसतिगृह' : 'PG & Hostels'}
+                </h1>
+                <p className="text-[11px] sm:text-xs text-primary-foreground/80 leading-tight truncate">
+                  {locationLabel}
+                </p>
+              </div>
             </div>
           </div>
 
-          <DesktopNav variant="default" />
+          <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => setCityPickerOpen(true)}
-              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0 hover:bg-primary/15 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 shrink-0 hover:bg-primary-foreground/25 transition-colors"
+              title={locale === 'mr' ? 'स्थान बदला' : 'Change Location'}
             >
-              <MapPin className="w-3 h-3" />
-              <span className="truncate max-w-[100px] sm:max-w-[140px]">{locationLabel}</span>
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate max-w-[78px] sm:max-w-[130px]">{locationLabel}</span>
             </button>
-            <div className="hidden md:block">
-              <UserMenuDrawer />
-            </div>
+            <UserMenuDrawer />
           </div>
         </div>
       </header>
@@ -362,23 +367,29 @@ export default function PG() {
                   {/* Sharing Rates & Details */}
                   <div className="p-4 bg-muted/15 space-y-3">
                     {/* Sharing rates grid */}
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="flex flex-wrap gap-2 text-center text-xs">
                       {sharing['1_sharing'] && (
-                        <div className="p-2 rounded-xl bg-card border border-border">
+                        <div className="flex-1 min-w-[78px] p-2 rounded-xl bg-card border border-border">
                           <p className="text-[10px] text-muted-foreground">1-Sharing</p>
                           <p className="font-bold text-foreground mt-0.5">₹{sharing['1_sharing']}</p>
                         </div>
                       )}
                       {sharing['2_sharing'] && (
-                        <div className="p-2 rounded-xl bg-card border border-border">
+                        <div className="flex-1 min-w-[78px] p-2 rounded-xl bg-card border border-border">
                           <p className="text-[10px] text-muted-foreground">2-Sharing</p>
                           <p className="font-bold text-foreground mt-0.5">₹{sharing['2_sharing']}</p>
                         </div>
                       )}
                       {sharing['3_sharing'] && (
-                        <div className="p-2 rounded-xl bg-card border border-border">
+                        <div className="flex-1 min-w-[78px] p-2 rounded-xl bg-card border border-border">
                           <p className="text-[10px] text-muted-foreground">3-Sharing</p>
                           <p className="font-bold text-foreground mt-0.5">₹{sharing['3_sharing']}</p>
+                        </div>
+                      )}
+                      {sharing['4_sharing'] && (
+                        <div className="flex-1 min-w-[78px] p-2 rounded-xl bg-card border border-border">
+                          <p className="text-[10px] text-muted-foreground">4-Sharing</p>
+                          <p className="font-bold text-foreground mt-0.5">₹{sharing['4_sharing']}</p>
                         </div>
                       )}
                     </div>
@@ -408,14 +419,14 @@ export default function PG() {
                   </div>
 
                   {/* Actions */}
-                  <div className="p-3 bg-card border-t border-border flex items-center gap-2">
+                  <div className="p-3 bg-card border-t border-border flex flex-wrap sm:flex-nowrap items-center gap-2">
                     {phone && (
                       <a
                         href={`tel:${phone}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
+                        className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
                       >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>{locale === 'mr' ? 'कॉल करा' : 'Call Owner'}</span>
+                        <Phone className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{locale === 'mr' ? 'कॉल करा' : 'Call Owner'}</span>
                       </a>
                     )}
                     {pg.whatsapp && (
@@ -473,6 +484,8 @@ export default function PG() {
             </div>
           </div>
         )}
+
+        <BannerSlot placement="shops_inline" fallback="homepage_inline" className="mt-6" />
       </main>
 
       <Footer />

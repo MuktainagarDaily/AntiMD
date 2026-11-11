@@ -11,10 +11,12 @@ export function cn(...inputs: ClassValue[]) {
  * attributes to prevent `javascript:`/`data:` XSS.
  */
 export function isSafeHttpUrl(raw: unknown): raw is string {
-  if (typeof raw !== 'string' || !raw.trim()) return false;
+  if (typeof raw !== 'string') return false;
+  const trimmed = raw.trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
   try {
-    const u = new URL(raw.trim());
-    return u.protocol === 'http:' || u.protocol === 'https:';
+    const u = new URL(trimmed);
+    return (u.protocol === 'http:' || u.protocol === 'https:') && Boolean(u.hostname);
   } catch {
     return false;
   }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useT } from '@/i18n';
+import { useCity } from '@/hooks/useCity';
 import { getTodayDateString, getMessServingStatus, isSundaySpecialActive } from '@/lib/living/livingService';
 import { supabase } from '@/integrations/supabase/client';
 import { updateShopWithConcurrency } from '@/lib/shopConcurrency';
@@ -38,6 +39,7 @@ type MessTab = 'today_menu' | 'menu_card' | 'profile' | 'preview';
 
 export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
   const { locale } = useT();
+  const { currentCity } = useCity();
   const [activeTab, setActiveTab] = useState<MessTab>('today_menu');
   const today = getTodayDateString();
 
@@ -90,7 +92,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
 
   const copyPublicLink = () => {
     const slug = shop.slug || shop.id;
-    const url = `${window.location.origin}/shop/${slug}`;
+    const url = `${window.location.origin}/${currentCity.slug}/mess/${slug}`;
     navigator.clipboard.writeText(url).then(
       () => toast.success(locale === 'mr' ? 'मेस लिंक कॉपी झाली!' : 'Mess link copied!'),
       () => toast.error('Failed to copy link')
@@ -171,9 +173,9 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-2 self-stretch sm:self-auto shrink-0">
             <Link
-              to="/mess"
+              to={`/${currentCity.slug}/mess`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-border bg-background hover:bg-muted text-foreground transition-all shadow-2xs"
@@ -200,7 +202,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('today_menu')}
           className={cn(
-            'flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'today_menu'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -215,7 +217,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('menu_card')}
           className={cn(
-            'flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'menu_card'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -229,7 +231,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('profile')}
           className={cn(
-            'flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'profile'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -243,7 +245,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('preview')}
           className={cn(
-            'flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'preview'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -295,6 +297,7 @@ export function MessOwnerHub({ shop, onSaved }: MessOwnerHubProps) {
  */
 function MessCustomerPreview({ shop, todayMenu }: { shop: any; todayMenu: any }) {
   const { locale } = useT();
+  const { currentCity } = useCity();
   const displayName = locale === 'mr' && shop.name_mr ? shop.name_mr : shop.name;
   const profile = shop.mess_profile || shop.mess_profiles?.[0];
   const servingInfo = getMessServingStatus(shop, locale);
@@ -302,14 +305,14 @@ function MessCustomerPreview({ shop, todayMenu }: { shop: any; todayMenu: any })
 
   return (
     <div className="space-y-4">
-      <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
+      <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground min-w-0 flex-1">
           {locale === 'mr'
             ? 'खालील कार्ड तुमच्या ग्राहकांना "मेस व भोजनालय" पानावर असे दिसेल:'
             : 'This is how your mess appears to customers on the Mess Directory:'}
         </p>
         <Link
-          to={`/shop/${shop.slug || shop.id}`}
+          to={`/${currentCity.slug}/mess/${shop.slug || shop.id}`}
           target="_blank"
           className="text-xs font-bold text-primary hover:underline flex items-center gap-1 shrink-0"
         >
@@ -338,7 +341,7 @@ function MessCustomerPreview({ shop, todayMenu }: { shop: any; todayMenu: any })
                 <span>{servingInfo.label}</span>
               </span>
             </div>
-            <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white">
+            <div className="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-1.5 text-white">
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs border border-white/20">
                 {profile?.mess_type === 'pure_veg'
                   ? '🥦 Pure Veg'
@@ -487,7 +490,7 @@ function MessCustomerPreview({ shop, todayMenu }: { shop: any; todayMenu: any })
         </div>
 
         {/* Action CTA */}
-        <div className="p-3 bg-card border-t border-border flex items-center gap-2">
+        <div className="p-3 bg-card border-t border-border flex flex-wrap items-center gap-2">
           {shop.phone && (
             <div className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-xs">
               <Phone className="w-3.5 h-3.5" />

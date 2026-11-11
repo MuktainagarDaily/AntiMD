@@ -4,16 +4,19 @@ import { BranchTabs } from '@/components/admin/layout/BranchTabs';
 import { ADMIN_NAV } from '@/components/admin/layout/adminNav';
 import { useAdminOutletInbox } from './_useAdminOutlet';
 import { fetchMessesForCity, saveMessDailyMenu, getTodayDateString } from '@/lib/living/livingService';
-import type { MessWithDetails } from '@/lib/living/livingTypes';
+import { getEstablishmentCategory, type MessWithDetails } from '@/lib/living/livingTypes';
 import { useCity } from '@/hooks/useCity';
 import {
   UtensilsCrossed, Plus, Search, Sparkles, Clock, Phone, MapPin,
   ExternalLink, Pencil, Check, Loader2, X, AlertCircle, Calendar,
+  Download, Upload,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { MessModal } from '@/components/admin/MessModal';
+import { MessCsvImportModal } from '@/components/admin/MessCsvImportModal';
 import { ImageCropPicker } from '@/components/shared/ImageCropPicker';
 import { uploadShopImage } from '@/lib/storageNaming';
+import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
 import { cn } from '@/lib/utils';
 
 export default function DirectoryMess() {
@@ -23,8 +26,9 @@ export default function DirectoryMess() {
   const directory = ADMIN_NAV.find((h) => h.key === 'directory')!;
 
   const [search, setSearch] = useState('');
-  const [editingShop, setEditingShop] = useState<any>(null);
+  const [editingShop, setEditingShop] = useState<Partial<MessWithDetails> | null>(null);
   const [menuModalMess, setMenuModalMess] = useState<MessWithDetails | null>(null);
+  const [showMessImport, setShowMessImport] = useState(false);
 
   const { data: messes = [], isLoading } = useQuery<MessWithDetails[]>({
     queryKey: ['living-messes', currentCity.id],
@@ -43,6 +47,65 @@ export default function DirectoryMess() {
     );
   });
 
+  const handleExportCsv = () => {
+    if (filteredMesses.length === 0) {
+      toast.info('No mess listings to export');
+      return;
+    }
+    const headers = [
+      'Name',
+      'Name (Marathi)',
+      'Establishment Type',
+      'Phone',
+      'WhatsApp',
+      'Town',
+      'Area',
+      'Address',
+      'Mess Type',
+      'Monthly Rate',
+      'Single Thali Rate',
+      'Tiffin Delivery',
+      'Sunday Feast',
+      'Lunch Timing',
+      'Dinner Timing',
+      'Amenities',
+      'Today Lunch',
+      'Today Dinner',
+      'Today Special',
+      'Verified',
+      'Active',
+    ];
+    const csvRows = filteredMesses.map((m) => {
+      const p = m.mess_profile;
+      const menu = m.today_menu ?? m.latest_menu;
+      return [
+        m.name,
+        m.name_mr || '',
+        getEstablishmentCategory(m),
+        m.phone || '',
+        m.whatsapp || '',
+        townName,
+        m.area || '',
+        m.address || '',
+        p?.mess_type || 'pure_veg',
+        p?.monthly_rate ?? '',
+        p?.single_thali_rate ?? '',
+        p?.tiffin_delivery ? 'Yes' : 'No',
+        p?.sunday_feast ? 'Yes' : 'No',
+        p?.lunch_timing || '',
+        p?.dinner_timing || '',
+        (m.amenities || []).join('|'),
+        menu?.lunch_text || '',
+        menu?.dinner_text || '',
+        menu?.special_tag || '',
+        m.is_verified ? 'Yes' : 'No',
+        m.is_active !== false ? 'Yes' : 'No',
+      ];
+    });
+    downloadCsv(townCsvFilename(currentCity.slug, 'mess-directory'), headers, csvRows);
+    toast.success(`Exported ${csvRows.length} mess listing${csvRows.length === 1 ? '' : 's'} to CSV`);
+  };
+
   return (
     <div className="space-y-4">
       <BranchTabs leaves={directory.leaves} badges={{ inbox: inbox.total }} />
@@ -50,7 +113,7 @@ export default function DirectoryMess() {
       {/* Header bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border p-4 rounded-2xl">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+          <h1 className="text-xl font-bold tracking-tight text-foreground flex flex-wrap items-center gap-2">
             <UtensilsCrossed className="w-5 h-5 text-amber-600" />
             <span>Mess & Hotels Directory</span>
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
@@ -62,7 +125,22 @@ export default function DirectoryMess() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={filteredMesses.length === 0}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMessImport(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted transition-colors"
+          >
+            <Upload className="w-3.5 h-3.5" /> Import CSV
+          </button>
           <button
             onClick={() => setEditingShop({})}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-95"
@@ -255,6 +333,19 @@ export default function DirectoryMess() {
           }}
         />
       )}
+
+      {/* Bulk Mess CSV Import Modal */}
+      {showMessImport && (
+        <MessCsvImportModal
+          onClose={() => setShowMessImport(false)}
+          onDone={() => {
+            setShowMessImport(false);
+            qc.invalidateQueries({ queryKey: ['living-messes'] });
+            qc.invalidateQueries({ queryKey: ['admin-shops'] });
+            qc.invalidateQueries({ queryKey: ['admin-stats'] });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -317,19 +408,19 @@ function MessMenuQuickModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl p-6 max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
+        <div className="flex items-center justify-between gap-2 pb-3 border-b border-border mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
               <UtensilsCrossed className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-bold text-base text-foreground leading-tight">{mess.name}</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-base text-foreground leading-tight truncate">{mess.name}</h3>
               <p className="text-[11px] text-muted-foreground">Post / Update Today's Daily Menu</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg text-muted-foreground">
+          <button onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground shrink-0">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -384,7 +475,7 @@ function MessMenuQuickModal({
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}

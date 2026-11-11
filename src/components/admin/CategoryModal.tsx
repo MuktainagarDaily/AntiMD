@@ -90,21 +90,27 @@ export function CategoryModal({ category, onClose, onSaved }: CategoryModalProps
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
-      <div className="bg-card rounded-2xl border border-border w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="font-bold text-lg text-foreground">{isEdit ? 'Edit Category' : 'Add Category'}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-muted rounded-lg"><X className="w-5 h-5" /></button>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-3 sm:px-4 py-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl border border-border w-full max-w-sm shadow-2xl max-h-[90dvh] overflow-y-auto overscroll-contain"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border">
+          <h2 className="font-bold text-lg text-foreground min-w-0 truncate">{isEdit ? 'Edit Category' : 'Add Category'}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg shrink-0"><X className="w-5 h-5" /></button>
         </div>
 
         {/* Language tab strip */}
-        <div className="flex border-b border-border px-6">
+        <div className="flex border-b border-border px-4 sm:px-6 overflow-x-auto no-scrollbar">
           {(['en', 'mr'] as const).map((code) => (
             <button
               key={code}
               type="button"
               onClick={() => setTab(code)}
-              className={`px-3 py-2 text-xs font-bold border-b-2 -mb-px transition-colors ${
+              className={`px-3 py-2 text-xs font-bold border-b-2 -mb-px transition-colors shrink-0 ${
                 tab === code
                   ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -115,15 +121,15 @@ export function CategoryModal({ category, onClose, onSaved }: CategoryModalProps
           ))}
         </div>
 
-        <form onSubmit={handleSave} className="p-6 space-y-4">
+        <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4">
           {tab === 'en' ? (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-[76px_minmax(0,1fr)] gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-1.5">Icon (Emoji)</label>
-                  <input value={form.icon} onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))} className={inputCls + ' text-2xl'} maxLength={4} />
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Icon</label>
+                  <input value={form.icon} onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))} className={inputCls + ' text-2xl text-center'} maxLength={4} />
                 </div>
-                <div className="col-span-2">
+                <div className="min-w-0">
                   <label className="block text-sm font-semibold text-foreground mb-1.5">Category Name *</label>
                   <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. Grocery" maxLength={60} />
                 </div>
@@ -150,11 +156,11 @@ export function CategoryModal({ category, onClose, onSaved }: CategoryModalProps
             </>
           )}
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 min-w-[100px] py-3 border border-border rounded-xl font-semibold text-foreground hover:bg-muted transition-colors">
               {t('common.cancel')}
             </button>
-            <button type="submit" disabled={saving} className="flex-1 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+            <button type="submit" disabled={saving} className="flex-1 min-w-[100px] py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : isEdit ? t('common.update') : t('common.add')}
             </button>
           </div>

@@ -394,6 +394,7 @@ export function processAnnouncementExpiry(ann: AuthorityAnnouncement): Authority
 
 /**
  * Fetch all authority departments.
+ * Demo fallback is strictly limited to DEV/test simulation; production returns live rows only.
  */
 export async function fetchDepartments(): Promise<AuthorityDepartment[]> {
   try {
@@ -406,15 +407,18 @@ export async function fetchDepartments(): Promise<AuthorityDepartment[]> {
     if (!error && data && data.length > 0) {
       return data;
     }
-  } catch {
-    /* fallback to demo */
+    if (error && !import.meta.env.DEV) {
+      throw error;
+    }
+  } catch (err) {
+    if (!import.meta.env.DEV) throw err;
   }
-  return DEMO_DEPARTMENTS;
+  return import.meta.env.DEV ? DEMO_DEPARTMENTS : [];
 }
 
 /**
  * Fetch organizations in a city.
- * Merges Supabase remote records with local runtime updates so admin contact edits persist immediately.
+ * Production reads exclusively from Supabase; DEV mode overlays the session runtime store for prototype testing.
  */
 export async function fetchOrganizationsForCity(cityId?: string): Promise<AuthorityOrganization[]> {
   let dbOrgs: AuthorityOrganization[] = [];
@@ -425,11 +429,18 @@ export async function fetchOrganizationsForCity(cityId?: string): Promise<Author
       query = query.eq('city_id', cityId);
     }
     const { data, error } = await query;
+    if (error && !import.meta.env.DEV) {
+      throw error;
+    }
     if (!error && data && data.length > 0) {
       dbOrgs = data;
     }
-  } catch {
-    /* fallback to local store */
+  } catch (err) {
+    if (!import.meta.env.DEV) throw err;
+  }
+
+  if (!import.meta.env.DEV) {
+    return dbOrgs;
   }
 
   const localOrgs = getRuntimeOrganizations().filter((o) => !cityId || o.city_id === cityId);
@@ -439,7 +450,7 @@ export async function fetchOrganizationsForCity(cityId?: string): Promise<Author
   for (const org of dbOrgs) {
     map.set(org.id, org);
   }
-  // 2. Overlay local runtime store (ensures updated helplines, addresses & rosters take precedence)
+  // 2. Overlay local runtime store (DEV prototype testing only)
   for (const org of localOrgs) {
     const existing = map.get(org.id);
     map.set(org.id, {
@@ -458,6 +469,35 @@ export async function fetchOrganizationsForCity(cityId?: string): Promise<Author
 export async function saveOrganizationContact(
   orgData: Partial<AuthorityOrganization> & { id: string }
 ): Promise<AuthorityOrganization> {
+  if (!import.meta.env.DEV) {
+    if (!isValidUuid(orgData.id)) {
+      throw new Error('Invalid organization ID');
+    }
+    const updatedAt = new Date().toISOString();
+    const payload: any = { updated_at: updatedAt };
+    if (orgData.name !== undefined) payload.name = orgData.name;
+    if (orgData.name_mr !== undefined) payload.name_mr = orgData.name_mr;
+    if (orgData.office_address !== undefined) payload.office_address = orgData.office_address;
+    if (orgData.helpline_phone !== undefined) payload.helpline_phone = orgData.helpline_phone;
+    if (orgData.emergency_phone !== undefined) payload.emergency_phone = orgData.emergency_phone;
+    if (orgData.whatsapp_number !== undefined) payload.whatsapp_number = orgData.whatsapp_number;
+    if (orgData.email !== undefined) payload.email = orgData.email;
+    if (orgData.maps_url !== undefined) payload.maps_url = orgData.maps_url;
+    if (orgData.visiting_hours !== undefined) payload.visiting_hours = orgData.visiting_hours;
+    if (orgData.key_contacts !== undefined) payload.key_contacts = orgData.key_contacts;
+    if (orgData.is_active !== undefined) payload.is_active = orgData.is_active;
+
+    const { data, error } = await (supabase as any)
+      .from('authority_organizations')
+      .update(payload)
+      .eq('id', orgData.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data as AuthorityOrganization;
+  }
+
   const orgs = getRuntimeOrganizations();
   const existingIdx = orgs.findIndex((o) => o.id === orgData.id);
   const baseline =
@@ -515,7 +555,7 @@ export async function saveOrganizationContact(
 
 /**
  * Fetch announcements for a given city with optional filters and automatic expiry.
- * Merges Supabase remote announcements with local runtime store so newly created items appear instantly.
+ * Production reads exclusively from Supabase (never mixing localStorage/DEMO records).
  */
 export async function fetchAnnouncementsForCity(
   cityId?: string,
@@ -543,30 +583,44 @@ export async function fetchAnnouncementsForCity(
       query = query.eq('city_id', cityId);
     }
 
+    if (!import.meta.env.DEV) {
+      query = query.eq('is_demo', false);
+      if (!options?.includeDrafts) {
+        query = query.lte('published_at', new Date().toISOString());
+      }
+    }
+
     const { data, error } = await query;
+    if (error && !import.meta.env.DEV) {
+      throw error;
+    }
     if (!error && data && data.length > 0) {
       dbAnnouncements = data.map((item: any) => ({
         ...item,
-        department: item.department || DEMO_DEPARTMENTS.find((d) => d.id === item.department_id),
-        organization: item.organization || DEMO_ORGANIZATIONS.find((o) => o.id === item.org_id),
+        department: item.department || (import.meta.env.DEV ? DEMO_DEPARTMENTS.find((d) => d.id === item.department_id) : undefined),
+        organization: item.organization || (import.meta.env.DEV ? DEMO_ORGANIZATIONS.find((o) => o.id === item.org_id) : undefined),
       }));
     }
-  } catch {
-    /* fallback */
+  } catch (err) {
+    if (!import.meta.env.DEV) throw err;
   }
 
-  // Merge database items with local runtime items (keyed by id, local updates take precedence)
-  const localList = getRuntimeStore().filter((a) => !cityId || a.city_id === cityId);
-  const mergedMap = new Map<string, AuthorityAnnouncement>();
+  let announcements: AuthorityAnnouncement[];
+  if (import.meta.env.DEV) {
+    // Merge database items with local runtime items (DEV prototype simulation only)
+    const localList = getRuntimeStore().filter((a) => !cityId || a.city_id === cityId);
+    const mergedMap = new Map<string, AuthorityAnnouncement>();
 
-  for (const ann of dbAnnouncements) {
-    mergedMap.set(ann.id, ann);
+    for (const ann of dbAnnouncements) {
+      mergedMap.set(ann.id, ann);
+    }
+    for (const ann of localList) {
+      mergedMap.set(ann.id, ann);
+    }
+    announcements = Array.from(mergedMap.values());
+  } else {
+    announcements = dbAnnouncements;
   }
-  for (const ann of localList) {
-    mergedMap.set(ann.id, ann);
-  }
-
-  let announcements = Array.from(mergedMap.values());
 
   // 1. Apply Automatic Expiry calculation
   let processed = announcements.map(processAnnouncementExpiry);
@@ -645,13 +699,54 @@ export async function saveAnnouncement(
     end_time: toSafeIso(data.end_time),
     published_at: toSafeIso(data.published_at) || nowStr,
     media_urls: Array.isArray(data.media_urls) ? data.media_urls : [],
-    is_demo: data.is_demo ?? true,
+    is_demo: data.is_demo ?? false,
     department,
     organization,
     locations: data.locations || [],
   };
 
-  // 1. Immediately persist to runtime store so UI updates with zero latency
+  if (!import.meta.env.DEV) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData?.session?.user) {
+      throw new Error('Authentication required to publish civic announcements.');
+    }
+
+    const { error: upsertError } = await (supabase as any).from('authority_announcements').upsert({
+      id: fullRecord.id,
+      org_id: fullRecord.org_id,
+      department_id: fullRecord.department_id,
+      city_id: fullRecord.city_id,
+      title: fullRecord.title,
+      title_mr: fullRecord.title_mr,
+      description: fullRecord.description,
+      description_mr: fullRecord.description_mr,
+      category: fullRecord.category,
+      priority: fullRecord.priority,
+      status: fullRecord.status,
+      start_time: fullRecord.start_time,
+      end_time: fullRecord.end_time,
+      published_at: fullRecord.published_at,
+      media_urls: fullRecord.media_urls,
+      is_demo: fullRecord.is_demo,
+    });
+    if (upsertError) throw upsertError;
+
+    if (fullRecord.locations && fullRecord.locations.length > 0) {
+      await (supabase as any).from('announcement_locations').delete().eq('announcement_id', fullRecord.id);
+      const locationRows = fullRecord.locations.map((loc) => ({
+        announcement_id: fullRecord.id,
+        city_id: fullRecord.city_id,
+        village_id: isValidUuid(loc.village_id) ? loc.village_id : null,
+        area_text: loc.area_text || 'Town-wide',
+      }));
+      const { error: locErr } = await (supabase as any).from('announcement_locations').insert(locationRows);
+      if (locErr) throw locErr;
+    }
+
+    return processAnnouncementExpiry(fullRecord);
+  }
+
+  // 1. In DEV/test mode, persist to runtime store so prototype simulation works offline
   const store = getRuntimeStore();
   const existingIndex = store.findIndex((a) => a.id === id);
   if (existingIndex >= 0) {
@@ -712,6 +807,16 @@ export async function updateAnnouncementStatus(
   id: string,
   newStatus: AnnouncementStatus
 ): Promise<boolean> {
+  if (!import.meta.env.DEV) {
+    if (!isValidUuid(id)) throw new Error('Invalid announcement ID');
+    const { error } = await (supabase as any)
+      .from('authority_announcements')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
   const store = getRuntimeStore();
   const found = store.find((a) => a.id === id);
   if (found) {
@@ -740,6 +845,13 @@ export async function updateAnnouncementStatus(
  * Deletes an announcement.
  */
 export async function deleteAnnouncement(id: string): Promise<boolean> {
+  if (!import.meta.env.DEV) {
+    if (!isValidUuid(id)) throw new Error('Invalid announcement ID');
+    const { error } = await (supabase as any).from('authority_announcements').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
   const store = getRuntimeStore();
   const nextStore = store.filter((a) => a.id !== id);
   saveRuntimeStore(nextStore);
@@ -795,7 +907,7 @@ export function formatAnnouncementWhatsAppShare(
 
   const areas = ann.locations?.map((l) => l.area_text).filter(Boolean).join(', ') || (isMr ? 'संपूर्ण शहर' : 'Entire Town');
   const helpline = ann.organization?.emergency_phone || ann.organization?.helpline_phone || 'N/A';
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://apnalocal.in';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://apnatown.in';
   const url = `${origin}/${townName.toLowerCase()}/services`;
 
   if (isMr) {
@@ -809,9 +921,8 @@ export function formatAnnouncementWhatsAppShare(
       `📞 *हेल्पलाईन:* ${helpline}`,
       ``,
       `📝 *तपशील:* ${desc}`,
-      ``,
-      `⚠️ _[डेमो सिम्युलेशन — सराव सूचना]_`,
-      `👉 अधिक माहिती व थेट संपर्क ApnaLocal वर पहा:`,
+      ...(ann.is_demo ? [``, `⚠️ _[डेमो सिम्युलेशन — सराव सूचना]_`] : [``]),
+      `👉 अधिक माहिती व थेट संपर्क ApnaTown वर पहा:`,
       `${url}`,
     ].join('\n');
   }
@@ -826,9 +937,8 @@ export function formatAnnouncementWhatsAppShare(
     `📞 *Helpline:* ${helpline}`,
     ``,
     `📝 *Details:* ${desc}`,
-    ``,
-    `⚠️ _[DEMO SIMULATION — Illustrative Testing Update]_`,
-    `👉 View live updates & official contacts on ApnaLocal:`,
+    ...(ann.is_demo ? [``, `⚠️ _[DEMO SIMULATION — Illustrative Testing Update]_`] : [``]),
+    `👉 View live updates & official contacts on ApnaTown:`,
     `${url}`,
   ].join('\n');
 }

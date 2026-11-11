@@ -1,84 +1,85 @@
 # Technical Debt
 
-> For each entry: *what it is · where · why it's debt · prior cleanup attempts (if known)*.
+> For each entry: *what it is · where · why it's debt · status / recommendations*.
+
+---
 
 ## Duplicate / Conflicting Logic
 
-### ~~Two Supabase type files~~ — RESOLVED 2026-06-26
-- **Resolution:** `src/integrations/supabase/types.ts` vs `external-types.ts` reconciled.
-- **Rationale:** The app connects to the EXTERNAL Supabase project `fhlaqgzensagjangkpop` (configured in `client.ts`). Role-checking code is type-checked end-to-end with `'admin' | 'shopkeeper' | 'user'`.
+### Dual Supabase Type Files (`external-types.ts` vs partial `types.ts`)
+- **What:** `src/integrations/supabase/client.ts` imports `./external-types` (a lightweight permissive wrapper defining `AppRole` + `AnyTable` helper for dynamic tables), while a static auto-generated snapshot `src/integrations/supabase/types.ts` (21 older tables, lacking `schools`, `school_notices`, `local_news`, etc.) remains in the repository and is still imported via `type Database` in [`MessCsvImportModal.tsx`](file:///c:/Users/Asus/Downloads/muktainagar-daily-main/src/components/admin/MessCsvImportModal.tsx) and [`PGCsvImportModal.tsx`](file:///c:/Users/Asus/Downloads/muktainagar-daily-main/src/components/admin/PGCsvImportModal.tsx).
+- **Why it's debt:** Table definitions in `types.ts` are stale relative to the 42 live PostgreSQL tables/views in production, forcing dynamic `(supabase as any)` casts across newer modules (`schoolsRepo`, `newsService`, `storageHealthService`, `MasterExportModal`).
+- **Recommendation:** Regenerate `types.ts` from the linked live Supabase schema (`fhlaqgzensagjangkpop`) with `supabase gen types typescript` and reconcile `external-types.ts` onto a single generated `Database` type.
 
-### ~~Two role models~~ — RESOLVED 2026-06-26
-- **Resolution:** Confirmed via `supabase/master_schema.sql` that the live `public.app_role` enum is `('admin','shopkeeper','user')`. `useAuth.tsx` `AppRole` union matches this enum.
+### Parallel Reviews Pipelines (`shop_reviews` & `school_reviews`) + Legacy `mockReviews.ts`
+- **What:** Businesses use `shop_reviews` + `shop_review_helpful` + `get_shop_rating`, while Education uses `school_reviews` + `school_review_helpful` + `get_school_rating` / `get_schools_rating_summary`, unified in React via `src/lib/reviewsApi.ts` (`entityType: 'shop' | 'school'`). A static `src/lib/mockReviews.ts` module also still sits in `src/lib/`.
+- **Why it's debt:** Schema triggers, helpful-vote counters, and RLS rules are duplicated per entity table whenever a new reviewable vertical is added (e.g., civic services or living entities outside `shops`).
+- **Status:** Cleanly separated with proper FKs (`REFERENCES shops(id)` / `REFERENCES schools(id)`); audit whether `mockReviews.ts` is still referenced anywhere before deleting.
 
 ### `shops.is_open` boolean vs computed open/closed
-- **What:** Column kept as quick-toggle in MyShop UI; actual open/closed status computed from `opening_time`/`closing_time` text via `isShopUtils.ts > isShopOpen()`.
-- **Why it's debt:** Two sources of truth for "is this shop currently open". When they disagree the UI can be ambiguous.
-- **Status:** Marked legacy in master_schema comment.
+- **What:** Boolean kept for instant quick-toggle in `MyShop` / admin UI; true open/closed status is computed from `opening_time` / `closing_time` via `shopUtils.ts > isShopOpen()`.
+- **Why it's debt:** Two signals for "is this shop open".
+- **Status:** Marked legacy in schema comments.
 
-### Reviews: `reviews` vs `shop_reviews` schema coexistence
-- **What:** The modern customer ratings & reviews feature utilizes the generic `reviews` table (supporting `entity_type` like `'shop'`, rating, comment, and `get_shop_rating` RPC), while the database also has `shop_reviews` and `shop_review_helpful`.
-- **Why it's debt:** Two review table representations exist in the schema definitions.
-- **Recommendation:** Consolidate any remaining legacy queries to the unified `reviews` table and deprecate `shop_reviews`.
+### Minor Comment Drift in Master Dataset Registry
+- **What:** Header JSDoc comments in `src/lib/admin/masterDatasets.ts`, `MasterExportModal.tsx`, and `MasterImportModal.tsx` say `"19 directory/platform tables"`, whereas `MASTER_DATASETS` exports **20 table datasets** (`categories`, `shops`, `shop_categories`, `mess_profiles`, `mess_daily_menus`, `pg_profiles`, `schools`, `school_notices`, `school_claims`, `bus_timetable`, `bus_stand_info`, `news_sources`, `local_news`, `banners`, `authority_departments`, `authority_organizations`, `authority_announcements`, `announcement_locations`, `requests`, `claims`) plus `'images'`.
+- **Recommendation:** Update JSDoc comments to match `MASTER_DATASETS.length` (`20`) on next touch.
+
+---
 
 ## Legacy Code
 
 ### `shops.category_id` column
-- **What:** Single-category FK on `shops`, kept "for backward compat".
-- **Where:** master_schema.sql.
-- **Why it's debt:** All modern app code uses the `shop_categories` junction table. Column is largely legacy but still indexed (`idx_shops_category_id`).
-- **Prior attempts:** Migration backfilled `shop_categories` from `shops.category_id` and marked the column DEPRECATED in the schema comment.
-- **Recommendation:** Drop the column after auditing legacy admin imports.
+- **What:** Single-category FK on `shops` (`idx_shops_category_id`), retained for backward compat alongside `shop_categories`.
+- **Why it's debt:** Modern app flows exclusively write/read `shop_categories`.
+- **Recommendation:** Drop column after confirming all historical CSV templates omit it cleanly.
 
-### `/admin/login` route
-- **What:** Thin redirect route that immediately invokes `<Navigate to="/auth" replace />`.
-- **Why it's debt:** Extra lazy chunk for a 1-line redirect.
-- **Recommendation:** Keep as `<Navigate>` directly in `App.tsx` routes to eliminate the chunk.
+### Legacy `schools` Bracket Tag Encoding in `description`
+- **What:** Older school records stored `[Type: ...]`, `[Board: ...]`, `[Streams: ...]`, `[Facilities: ...]` tags inside `schools.description`. Migration `20261112000000_education_portal_and_owner_hub.sql` non-destructively backfilled them into typed columns, while `schoolHelpers.ts` still preserves read fallback (`getSchoolResolvedMeta`) and serialization (`serializeSchoolDescription`).
+- **Why it's debt:** Dual read path while mixed legacy/structured CSVs or older clients exist.
+- **Recommendation:** Keep read fallback until all legacy data sources are retired, then simplify `serializeSchoolDescription`.
 
-### `claim_first_admin` RPC
-- **What:** One-shot bootstrap RPC.
-- **Why it's debt:** Historical bootstrap function. Admins are primarily managed via `user_roles` seed and admin delegation.
+### `AdminLogin.tsx` & `claim_first_admin` RPC
+- **`src/pages/AdminLogin.tsx`:** 7-line wrapper redirecting to `/auth?next=%2Fadmin%2Foverview` (lazy route chunk for a one-line `<Navigate>`).
+- **`claim_first_admin` RPC:** Historical one-shot bootstrap function no longer needed once initial admins are seeded.
+
+---
 
 ## Refactor Opportunities
 
-### Multi-Location Rollout & Legacy Route Redirects
-- **What:** Active path-scoped routing (`/:citySlug/...`) is fully implemented with `LegacyCityRedirect` preserving old un-scoped URLs (`/shops`, `/categories`, etc.).
-- **Status:** Option B is live in production.
-- **Opportunity:** Update all internal hardcoded markdown or legacy links to omit redirect hops.
+### Dev/Preview Middleware vs Production Edge Scraper (`/api/news-proxy` vs `scrape-local-news`)
+- **What:** `vite.config.ts` bundles `localNewsProxyPlugin` at `/api/news-proxy` for local `vite dev` / `vite preview`, while production deployments rely on the deployed `scrape-local-news` Supabase Edge Function (`newsService.ts`).
+- **Why it's debt:** Two HTTP fetch/parse entry points must stay aligned on RSS/Atom/HTML extraction rules and SSRF checks (`isBlockedHost()` in `vite.config.ts` vs Edge Function domain handling).
+- **Recommendation:** Route local scraping through `supabase functions serve` or ensure shared parser test parity between both paths.
 
-### Unused server RPCs
-- **`search_shops`**: full pg_trgm + indexed implementation; client currently uses Fuse.js in-memory search.
-- **`get_trending_shops`**: backed by `shop_engagement_stats` materialized view; ready to power a "Trending" carousel on Home.
-- **`refresh_engagement_stats`**: callable via SQL editor or trigger; could be exposed on an admin maintenance widget.
+### Unadopted Server Read Optimizations
+- **What:** Database ships slim `shops_list_public`, `shops_search_public`, `category_shop_counts` MV, `get_shops_page(...)`, `search_shops` (`pg_trgm`), and `get_trending_shops` (`shop_engagement_stats`), while `Home.tsx` / `Shops.tsx` primarily read `shops_with_claim` + client Fuse.js.
+- **Recommendation:** Adopt `shops_list_public` / `get_shops_page` file-by-file as shop volume scales past a few thousand listings per town, and expose a Home "Trending" carousel backed by `get_trending_shops`.
 
-### Banner "fallback chain" duplication
-- **What:** Multiple `BannerSlot` consumers hardcode the same fallback (`fallback="homepage_inline"`).
-- **Recommendation:** Centralize the fallback map into `useBannersForPlacement` so each placement has a single canonical fallback.
+### Legacy Flat Route Redirects & Hardcoded `Footer.tsx` State
+- **Legacy routes:** `LegacyCityRedirect` preserves flat paths (`/shops`, `/schools`, `/mess`, `/pg`, `/services`, `/news`, `/saved`); audit any remaining internal `<Link>` or docs targeting flat routes instead of `/:citySlug/...`.
+- **Commented-out Vibe Forge footer attribution:** In [`Footer.tsx`](file:///c:/Users/Asus/Downloads/muktainagar-daily-main/src/components/shared/Footer.tsx#L21-L54) and [`UserMenuDrawer.tsx`](file:///c:/Users/Asus/Downloads/muktainagar-daily-main/src/components/UserMenuDrawer.tsx#L805-L835), the `"Built for Vibe Forge Hackathon"` block (`vibe-forge.in`) is wrapped in JSX comments while hidden. Clean up or re-enable deliberately via feature config rather than commented blocks when finalizing production branding.
 
-## Risk Areas
+### Banner "Fallback Chain" Duplication
+- **What:** Multiple `BannerSlot` consumers pass `fallback="homepage_inline"` manually.
+- **Recommendation:** Centralize default placement fallbacks inside `useBannersForPlacement`.
 
-### ~~Single bucket for shops + banners + requests~~ — RESOLVED 2026-07-05
-- **Resolution:** Storage bucket split shipped (patch `2026-07-05_bucket_split.sql`). Four dedicated buckets: `shop-images`, `school-images`, `request-images`, and `banner-images`. All runtime paths flow through `src/lib/storageNaming.ts`.
+---
 
-### `shop_engagement.event_type` naming drift
-- **What:** `src/lib/engagement.ts > logShopEngagement()` writes `event_type: 'directions'` for map-open events; some analytics views assume `'maps'`.
-- **Recommendation:** Backfill via `UPDATE shop_engagement SET event_type='maps' WHERE event_type='directions'` and add a CHECK constraint.
+## Resolved Risk Areas
 
-### Hardcoded Supabase configuration in `client.ts`
-- **What:** `src/integrations/supabase/client.ts` hardcodes URL + anon key.
-- **Why:** Preserved to prevent external automated environments from clobbering production keys.
-- **Risk:** Key rotation requires a code commit.
+- **~~Storage root listing bug hiding shop photos & causing 409 collisions~~ — RESOLVED 2026-11-13 (`20261113000000_storage_and_health_fixes.sql`):** Replaced `(storage.foldername(name))[1] <> 'claims'` with `IS DISTINCT FROM 'claims'` so root-level objects in `shop-images` enumerate cleanly via `.list('')`, and added `Admins manage all shop-images`.
+- **~~Missing `image_checked_at` / `image_broken_at` columns causing 42703 errors~~ — RESOLVED 2026-11-13 (`20261113000000`):** Idempotently added both timestamp columns + partial indexes across `public.shops`, `public.schools`, and `public.banners`, paired with `get_system_health_snapshot()` diagnostics.
+- **~~Dual-owner `shopkeeper` role strip bug~~ — RESOLVED 2026-11-12 (`20261112000000_education_portal_and_owner_hub.sql`):** Updated `revoke_shop_owner` and `revoke_school_owner` to verify both `shop_owners` and `school_owners` before deleting `'shopkeeper'` from `user_roles`.
+- **~~CSV multiline corruption & formula injection~~ — RESOLVED 2026-11-11 (`csvUtils.ts` + `masterDatasets.ts`):** Replaced naive line splitting with RFC 4180 state-machine parsing (`parseCsv`), escaped leading `= + - @ \t \r` cells, and properly serialized `text[]` / JSONB columns.
+- **~~Single storage bucket for all uploads~~ — RESOLVED 2026-07-05 (`2026-07-05_bucket_split.sql`):** Split cleanly across `shop-images`, `school-images`, `request-images`, and `banner-images` via `src/lib/storageNaming.ts`.
 
-### MyMemory free tier translation
-- **What:** `translateApi.ts` uses MyMemory's free tier.
-- **Mitigation:** 3-tier cache (memory $\to$ localStorage $\to$ `translation_cache` table) absorbs repeat lookups.
+---
 
-## Documentation / Knowledge Gaps
+## Remaining Risks & Knowledge Gaps
 
-- DR workflow: `MasterExport` produces full ZIP archives, but periodic restoration verification on a test DB should be executed.
-- Deployment targets: Vercel is the primary documented deployment target (`vercel.json` + `docs/VERCEL_MIGRATION_PLAN.md`).
-
-## m-Pulse DB optimizations landed, client not migrated
-
-- **What:** DB optimizations shipped slim `shops_list_public` + `shops_search_public` views, materialized `category_shop_counts` (refreshed by triggers), and `get_shops_page(...)` RPC — while pages like `Home.tsx` and `Shops.tsx` can still read `shops_with_claim` for backward-compatible full column projection.
-- **Recommendation:** File-by-file adoption — Home first, then Shops list. Keep `shops_with_claim` as the write/detail path; the new views are read-only projections.
+- **`shop_engagement.event_type` naming drift:** `engagement.ts` logs `'directions'` while UI analytics displays `"Maps"`; `school_engagement` uses `'maps'`. Unifying `'directions'` → `'maps'` via migration + constraint would remove dual checks.
+- **Hardcoded Supabase configuration (`client.ts` & `src/lib/mcp/supabaseClient.ts`):** URL & anon key remain hardcoded intentionally to guard against preview/sandbox env resets; key rotation requires a coordinated code commit.
+- **MyMemory translation quota:** Free-tier / registered `&de=` limit relies on the 3-tier cache (`memory → localStorage → translation_cache`); consider migrating batch translation to Gemini if quota saturation occurs across multi-town onboarding.
+- **DR Restore Verification:** `MasterExportModal` / `MasterImportModal` round-trip logic is tested via Vitest unit specs (`ExportImportRegression.test.ts`), but periodic end-to-end staging DB restores of full 20-dataset ZIP bundles (including binary images) should still be rehearsed before major releases.
+- **Documentation Maintenance:** Ensure historical audit snapshots (`docs/FORGE_REPORT.md`, `docs/FORGE_RECOMMENDATIONS.md`, `docs/MPULSE_REPORT.md`) stay clearly marked as point-in-time historical archives rather than current-state specs.

@@ -113,7 +113,7 @@ export default function ResetPassword() {
                     autoComplete="new-password"
                     required
                     minLength={6}
-                    className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground text-sm"
+                    className="min-w-0 flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground text-sm"
                   />
                 </span>
               </label>
@@ -130,7 +130,7 @@ export default function ResetPassword() {
                     autoComplete="new-password"
                     required
                     minLength={6}
-                    className="w-full bg-transparent outline-none text-foreground placeholder:text-muted-foreground text-sm"
+                    className="min-w-0 flex-1 bg-transparent outline-none text-foreground placeholder:text-muted-foreground text-sm"
                   />
                 </span>
               </label>

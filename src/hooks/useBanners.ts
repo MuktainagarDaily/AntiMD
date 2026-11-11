@@ -35,9 +35,48 @@ export function useAllBanners(): Banner[] {
   return data ?? EMPTY;
 }
 
+function bannerSpecificityRank(
+  b: Banner,
+  city: { id: string; district_id?: string | null },
+): number | null {
+  const bCityId = b.target_city_id || (b as any).city_id || null;
+  if (bCityId) {
+    return bCityId === city.id ? 0 : null;
+  }
+  if (b.target_level === 'district' || b.target_district_id) {
+    if (!b.target_district_id) return 1;
+    return city.district_id && b.target_district_id === city.district_id ? 1 : null;
+  }
+  return 2; // global
+}
+
+export function selectBannersForCity(
+  banners: Banner[],
+  placement: BannerPlacement,
+  city: { id: string; district_id?: string | null },
+  now = new Date(),
+): Banner[] {
+  const matched: Array<{ banner: Banner; rank: number; idx: number }> = [];
+  for (let i = 0; i < banners.length; i++) {
+    const b = banners[i];
+    if (b.placement !== placement || !isBannerLive(b, now)) continue;
+    const rank = bannerSpecificityRank(b, city);
+    if (rank === null) continue;
+    matched.push({ banner: b, rank, idx: i });
+  }
+  matched.sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if ((a.banner.sort_order ?? 0) !== (b.banner.sort_order ?? 0)) {
+      return (a.banner.sort_order ?? 0) - (b.banner.sort_order ?? 0);
+    }
+    return a.idx - b.idx;
+  });
+  return matched.map((m) => m.banner);
+}
+
 /** Active, live banners for a given placement (public). Honors the build
  *  flag and runtime admin override — both must be ON for any banner to
- *  reach this hook's return value. */
+ *  reach this hook's return value. City > District > Global specificity order. */
 export function useBannersForPlacement(p: BannerPlacement): Banner[] {
   const runtimeOn = useAdsRuntime();
   const { currentCity } = useCity();
@@ -51,13 +90,9 @@ export function useBannersForPlacement(p: BannerPlacement): Banner[] {
   return useMemo(
     () =>
       runtimeOn && adsEnabled()
-        ? (data ?? EMPTY).filter((b) => {
-            if (b.placement !== p || !isBannerLive(b)) return false;
-            const bCityId = (b as any).target_city_id || (b as any).city_id;
-            return !bCityId || bCityId === currentCity.id;
-          })
+        ? selectBannersForCity(data ?? EMPTY, p, currentCity)
         : EMPTY,
-    [data, p, runtimeOn, currentCity.id],
+    [data, p, runtimeOn, currentCity],
   );
 }
 

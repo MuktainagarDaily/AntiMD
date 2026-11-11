@@ -14,7 +14,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchVillagesForCity } from '@/lib/geo/geoService';
+import { fetchVillagesForCity, fetchAllActiveVillages } from '@/lib/geo/geoService';
 import { filterRetailShops, isSpecializedCategoryName } from '@/lib/shopUtils';
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Search, Filter, Loader2, ShieldCheck, ShieldOff,
@@ -29,13 +29,14 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { downloadCsv } from '@/lib/csvUtils';
+import { downloadCsv, fetchAllPaged, townCsvFilename } from '@/lib/csvUtils';
 import { QuickFilters } from './_shared/QuickFilters';
 import { AdminFab } from './_shared/AdminFab';
 import { EmptyState } from './_shared/EmptyState';
 import { ConfirmTapButton } from './_shared/ConfirmTapButton';
 import { optimizedImage } from '@/lib/uxUtils';
 import { verifyImageUrl } from '@/lib/imageVerify';
+import { extractEntityStoragePaths, removeShopImages } from '@/lib/storageNaming';
 import { SafeImage } from '@/components/SafeImage';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { EntityTab } from './_shared/EntityTab';
@@ -60,6 +61,8 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
   const [quick, setQuick] = useState<QuickFilter>('all');
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [imgVerifyColsMissing, setImgVerifyColsMissing] = useState(false);
 
   // Keep table's town filter synchronized when admin switches town in the top header
   useEffect(() => {
@@ -82,25 +85,11 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
 
   const debouncedSearch = useDebouncedValue(searchText, 300);
 
-  const PAGE_SIZE = 40;
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery({
-    queryKey: ['admin-shops', { quick, search: debouncedSearch.trim(), categoryFilter, cityFilter, villageFilter }],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const from = (pageParam as number) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-      const select = categoryFilter
-        ? '*, shop_categories!inner(categories(id, name, icon)), mess_profiles(shop_id), pg_profiles(shop_id)'
-        : '*, shop_categories(categories(id, name, icon)), mess_profiles(shop_id), pg_profiles(shop_id)';
+  const buildShopsFilterQuery = useCallback(
+    (selectStr: string, useBrokenCol: boolean, withCount = false) => {
       let q = supabase
         .from('shops')
-        .select(select, { count: 'estimated' })
+        .select(selectStr, withCount ? { count: 'estimated' } : undefined)
         .order('created_at', { ascending: false });
 
       if (villageFilter && villageFilter !== 'all') {
@@ -121,7 +110,9 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
       else if (quick === 'verified') q = q.eq('is_verified', true);
       else if (quick === 'unverified') q = q.eq('is_verified', false);
       else if (quick === 'noimage') {
-        q = q.or('image_url.is.null,image_url.eq.,image_broken_at.not.is.null');
+        q = useBrokenCol
+          ? q.or('image_url.is.null,image_url.eq.,image_broken_at.not.is.null')
+          : q.or('image_url.is.null,image_url.eq.');
       }
       if (categoryFilter) {
         q = q.eq('shop_categories.category_id', categoryFilter);
@@ -140,7 +131,41 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
         }
         q = q.or(ors.join(','));
       }
-      const { data, error, count } = await q.range(from, to);
+      return q;
+    },
+    [allCities, categoryFilter, cityFilter, debouncedSearch, quick, villageFilter],
+  );
+
+  const PAGE_SIZE = 40;
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['admin-shops', { quick, search: debouncedSearch.trim(), categoryFilter, cityFilter, villageFilter }],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const from = (pageParam as number) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const select = categoryFilter
+        ? '*, shop_categories!inner(categories(id, name, icon)), mess_profiles(shop_id), pg_profiles(shop_id)'
+        : '*, shop_categories(categories(id, name, icon)), mess_profiles(shop_id), pg_profiles(shop_id)';
+
+      let { data, error, count } = await buildShopsFilterQuery(select, !imgVerifyColsMissing, true).range(from, to);
+      if (
+        error &&
+        quick === 'noimage' &&
+        !imgVerifyColsMissing &&
+        (error.code === '42703' || /image_broken_at|image_checked_at/i.test(error.message || ''))
+      ) {
+        setImgVerifyColsMissing(true);
+        const fbRes = await buildShopsFilterQuery(select, false, true).range(from, to);
+        data = fbRes.data;
+        error = fbRes.error;
+        count = fbRes.count;
+      }
       if (error) throw error;
       return { rows: filterRetailShops(data ?? []), count: count ?? 0, page: pageParam as number };
     },
@@ -204,13 +229,31 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
 
   const deleteShop = useMutation({
     mutationFn: async (id: string) => {
+      // Collect every storage path attached to this shop (cover, gallery, mess menus) before row delete.
+      const [{ data: shopRow }, { data: menuRows }] = await Promise.all([
+        supabase.from('shops').select('image_url, photos').eq('id', id).maybeSingle(),
+        supabase.from('mess_daily_menus').select('photo_url').eq('shop_id', id),
+      ]);
+      const paths = new Set<string>();
+      if (shopRow) {
+        extractEntityStoragePaths(shopRow as any).forEach((p) => paths.add(p));
+      }
+      for (const m of (menuRows ?? []) as any[]) {
+        extractEntityStoragePaths(m).forEach((p) => paths.add(p));
+      }
+
       const { error } = await supabase.from('shops').delete().eq('id', id);
       if (error) throw error;
+
+      if (paths.size > 0) {
+        await removeShopImages(Array.from(paths));
+      }
     },
     onSuccess: () => {
-      toast.success('Shop deleted');
+      toast.success('Shop & attached images deleted');
       setDeleteTarget(null);
       qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-shops-quality'] });
       qc.invalidateQueries({ queryKey: ['admin-stats'] });
     },
     onError: () => {
@@ -218,37 +261,93 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
     },
   });
 
-  const exportCsv = useCallback(() => {
-    const headers = [
-      'name', 'phone', 'whatsapp', 'area', 'sub_area', 'address',
-      'description', 'keywords', 'opening_time', 'closing_time',
-      'latitude', 'longitude', 'category', 'is_active', 'is_verified', 'is_open',
-      'amenities', 'image_url', 'slug',
-    ];
-    const rows = filtered.map((s: any) => {
-      const cats = (s.shop_categories || [])
-        .map((sc: any) => sc.categories?.name)
-        .filter(Boolean)
-        .join(' | ');
-      const amenities = Array.isArray(s.amenities)
-        ? s.amenities.join('|')
-        : (typeof s.amenities === 'string' ? s.amenities : '');
-      return [
-        s.name ?? '', s.phone ?? '', s.whatsapp ?? '', s.area ?? '',
-        s.sub_area ?? '', s.address ?? '', s.description ?? '', s.keywords ?? '',
-        s.opening_time ?? '', s.closing_time ?? '',
-        s.latitude ?? '', s.longitude ?? '',
-        cats,
-        s.is_active ? 'true' : 'false',
-        s.is_verified ? 'true' : 'false',
-        s.is_open ? 'true' : 'false',
-        amenities,
-        s.image_url ?? '',
-        s.slug ?? '',
+  const exportCsv = useCallback(async () => {
+    if (exportingCsv) return;
+    setExportingCsv(true);
+    const tId = toast.loading('Fetching all matching shops for CSV export…');
+    try {
+      const select = categoryFilter
+        ? '*, shop_categories!inner(categories(id, name)), shop_translations(locale, name), mess_profiles(shop_id), pg_profiles(shop_id)'
+        : '*, shop_categories(categories(id, name)), shop_translations(locale, name), mess_profiles(shop_id), pg_profiles(shop_id)';
+
+      const [allRows, allVillages] = await Promise.all([
+        fetchAllPaged<any>((from, to) =>
+          buildShopsFilterQuery(select, !imgVerifyColsMissing, false).range(from, to)
+        ),
+        fetchAllActiveVillages(),
+      ]);
+
+      const retail = filterRetailShops(allRows);
+      const cityById = new Map(allCities.map((c) => [c.id, c]));
+      const villageById = new Map(allVillages.map((v) => [v.id, v]));
+
+      const headers = [
+        'name', 'name_mr', 'phone', 'whatsapp', 'city', 'village', 'area', 'sub_area', 'address',
+        'description', 'keywords', 'opening_time', 'closing_time',
+        'latitude', 'longitude', 'category', 'is_active', 'is_verified', 'is_open',
+        'amenities', 'image_url', 'photos', 'slug',
       ];
-    });
-    downloadCsv('muktainagar-shops', headers, rows);
-  }, [filtered]);
+      const rows = retail.map((s: any) => {
+        const cats = (s.shop_categories || [])
+          .map((sc: any) => sc.categories?.name)
+          .filter(Boolean)
+          .join('|');
+        const mrTx = Array.isArray(s.shop_translations)
+          ? s.shop_translations.find((tx: any) => tx.locale === 'mr')?.name ?? ''
+          : '';
+        const amenities = Array.isArray(s.amenities)
+          ? s.amenities.join('|')
+          : (typeof s.amenities === 'string' ? s.amenities : '');
+        const photosArr: string[] = Array.isArray(s.photos) && s.photos.length > 0
+          ? s.photos
+          : s.image_url
+            ? [s.image_url]
+            : [];
+        const cityObj = s.city_id ? cityById.get(s.city_id) : undefined;
+        const villageObj = s.village_id ? villageById.get(s.village_id) : undefined;
+        return [
+          s.name ?? '',
+          mrTx,
+          s.phone ?? '',
+          s.whatsapp ?? '',
+          cityObj?.slug ?? '',
+          villageObj?.slug ?? '',
+          s.area ?? '',
+          s.sub_area ?? '',
+          s.address ?? '',
+          s.description ?? '',
+          s.keywords ?? '',
+          s.opening_time ?? '',
+          s.closing_time ?? '',
+          s.latitude ?? '',
+          s.longitude ?? '',
+          cats,
+          s.is_active ? 'true' : 'false',
+          s.is_verified ? 'true' : 'false',
+          s.is_open ? 'true' : 'false',
+          amenities,
+          s.image_url ?? '',
+          photosArr.join('|'),
+          s.slug ?? '',
+        ];
+      });
+      const fileSlug = cityFilter !== 'all' ? selectedCityObj?.slug || cityFilter : 'all-towns';
+      downloadCsv(townCsvFilename(fileSlug, 'shops'), headers, rows);
+      toast.success(`Exported ${retail.length} shop(s)`, { id: tId });
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to export shops CSV', { id: tId });
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [
+    allCities,
+    buildShopsFilterQuery,
+    categoryFilter,
+    cityFilter,
+    exportingCsv,
+    imgVerifyColsMissing,
+    selectedCityObj?.slug,
+  ]);
 
   const scanBrokenImages = useCallback(async () => {
     if (scanning) return;
@@ -257,12 +356,28 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
     try {
       const FRESH_DAYS = 7;
       const freshCutoff = new Date(Date.now() - FRESH_DAYS * 86400_000).toISOString();
-      const { data: rows, error } = await supabase
+      let hasVerificationCols = true;
+      let { data: rows, error } = await supabase
         .from('shops')
         .select('id, image_url, image_checked_at, image_broken_at')
         .not('image_url', 'is', null)
         .neq('image_url', '')
         .or(`image_checked_at.is.null,image_checked_at.lt.${freshCutoff},image_broken_at.not.is.null`);
+
+      if (
+        error &&
+        (error.code === '42703' || /image_broken_at|image_checked_at/i.test(error.message || ''))
+      ) {
+        hasVerificationCols = false;
+        setImgVerifyColsMissing(true);
+        const fb = await supabase
+          .from('shops')
+          .select('id, image_url')
+          .not('image_url', 'is', null)
+          .neq('image_url', '');
+        rows = fb.data as any;
+        error = fb.error;
+      }
       if (error) throw error;
       const list = (rows ?? []) as { id: string; image_url: string }[];
       if (list.length === 0) {
@@ -290,17 +405,16 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
       );
       const now = new Date().toISOString();
       if (broken.length > 0) {
+        const brokenUpdate = hasVerificationCols
+          ? { image_url: null, image_broken_at: now, image_checked_at: now }
+          : { image_url: null };
         const { error: upErr } = await supabase
           .from('shops')
-          .update({
-            image_url: null,
-            image_broken_at: now,
-            image_checked_at: now,
-          })
+          .update(brokenUpdate)
           .in('id', broken);
         if (upErr) throw upErr;
       }
-      if (ok.length > 0) {
+      if (ok.length > 0 && hasVerificationCols) {
         const { error: okErr } = await supabase
           .from('shops')
           .update({ image_broken_at: null, image_checked_at: now })
@@ -310,7 +424,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
       toast.success(
         broken.length
           ? `Cleared ${broken.length} broken image link${broken.length === 1 ? '' : 's'} (of ${list.length} checked)`
-          : `All ${list.length} image links are valid`,
+          : `All ${list.length} image links are valid${!hasVerificationCols ? ' (run Storage & Health SQL patch to persist check timestamps)' : ''}`,
         { id: t },
       );
       qc.invalidateQueries({ queryKey: ['admin-shops'] });
@@ -413,8 +527,8 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
               <button onClick={onImport} className="flex items-center gap-2 bg-card border border-border text-foreground px-3 py-2 rounded-lg font-semibold text-sm hover:bg-muted">
                 <Upload className="w-4 h-4" /> Import
               </button>
-              <button onClick={exportCsv} className="flex items-center gap-2 bg-card border border-border text-foreground px-3 py-2 rounded-lg font-semibold text-sm hover:bg-muted">
-                <Download className="w-4 h-4" /> Export
+              <button onClick={exportCsv} disabled={exportingCsv} className="flex items-center gap-2 bg-card border border-border text-foreground px-3 py-2 rounded-lg font-semibold text-sm hover:bg-muted disabled:opacity-60">
+                {exportingCsv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export
               </button>
               <button onClick={onSpeedAdd} className="flex items-center gap-2 bg-secondary text-secondary-foreground px-3 py-2 rounded-lg font-semibold text-sm hover:bg-secondary/90">
                 <Zap className="w-4 h-4" /> Speed Add (Quick)
@@ -437,8 +551,8 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
         }
         filters={
           <div className="space-y-3">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+              <div className="relative flex-1 min-w-[180px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
@@ -454,7 +568,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="pl-9 pr-2 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer max-w-[140px]"
+                    className="pl-9 pr-3 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer w-full sm:w-auto sm:max-w-[160px]"
                   >
                     <option value="">All cats</option>
                     {allCategories.map((c) => (
@@ -471,7 +585,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
                     setCityFilter(e.target.value);
                     setVillageFilter('all');
                   }}
-                  className="pl-9 pr-2 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer max-w-[150px]"
+                  className="pl-9 pr-3 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer w-full sm:w-auto sm:max-w-[160px]"
                   title="Filter shops by town"
                 >
                   <option value="all">All Towns</option>
@@ -488,7 +602,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
                   <select
                     value={villageFilter}
                     onChange={(e) => setVillageFilter(e.target.value)}
-                    className="px-3 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer max-w-[160px]"
+                    className="px-3 h-10 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer w-full sm:w-auto sm:max-w-[170px]"
                     title="Filter shops by village"
                   >
                     <option value="all">All Villages / Wards</option>
@@ -517,8 +631,8 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
         }
         banner={
           quick === 'noimage' ? (
-            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-muted/40">
-              <p className="text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-muted/40">
+              <p className="text-xs text-muted-foreground min-w-[180px] flex-1">
                 Some shops may still have an <code>image_url</code> that points to a deleted file.
                 Scan to verify each link and clear broken ones — they'll then appear in this list.
               </p>
@@ -537,7 +651,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
               <span className="text-foreground font-medium">
                 Looking for Mess, Hotels, PG, or Schools? These specialized directories are managed in dedicated modules:
               </span>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0 max-w-full">
                 <Link to="/admin/directory/mess" className="px-2.5 py-1 rounded bg-background border border-border text-foreground hover:border-primary font-semibold transition-colors">
                   🍽️ Mess & Hotels
                 </Link>
@@ -616,7 +730,7 @@ export function ShopsTab({ onEdit, onImport, onSpeedAdd }: ShopsTabProps) {
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.name}"?</AlertDialogTitle>
+            <AlertDialogTitle className="break-words">Delete "{deleteTarget?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete this shop and all its data. This action cannot be undone.
             </AlertDialogDescription>

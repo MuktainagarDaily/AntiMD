@@ -165,33 +165,34 @@ export default function EssentialServices() {
       />
 
       {/* 1. Header Bar */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-lg md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
+      <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
+        <div className="max-w-lg md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <button
               onClick={() => navigate(`/${currentCity.slug}`)}
-              className="p-1.5 -ml-1 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors active:scale-95"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all shrink-0"
               aria-label="Back"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground truncate">
-                {isMr ? 'अत्यावश्यक सेवा व सूचना' : 'Essential Services & Alerts'}
-              </h1>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {isMr ? `${townName} नागरी व स्थानिक प्रशासन` : `${townName} Local Authorities`}
-              </p>
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Building2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-bold leading-tight truncate">
+                  {isMr ? 'अत्यावश्यक सेवा व सूचना' : 'Essential Services & Alerts'}
+                </h1>
+                <p className="text-[11px] sm:text-xs text-primary-foreground/80 leading-tight truncate">
+                  {isMr ? `${townName} नागरी व स्थानिक प्रशासन` : `${townName} Local Authorities`}
+                </p>
+              </div>
             </div>
           </div>
 
-          <DesktopNav variant="default" />
+          <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2 shrink-0">
-            <LocationPill />
-            <div className="hidden md:block">
-              <UserMenuDrawer />
-            </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <LocationPill tone="onPrimary" className="max-w-[96px] sm:max-w-none" />
+            <UserMenuDrawer />
           </div>
         </div>
       </header>
@@ -289,7 +290,7 @@ export default function EssentialServices() {
                     key={ann.id}
                     className="rounded-2xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-card to-card p-4 shadow-2xs space-y-3"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                           {getDeptIcon(ann.department?.slug)}
@@ -338,14 +339,14 @@ export default function EssentialServices() {
 
                     {/* Quick Helpline Actions */}
                     {org && (
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-1">
                         {org.emergency_phone && (
                           <a
                             href={`tel:${org.emergency_phone}`}
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all active:scale-95 shadow-2xs"
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all active:scale-95 shadow-2xs"
                           >
-                            <Phone className="w-3.5 h-3.5" />
-                            <span>{isMr ? 'तातडीची हेल्पलाईन' : 'Emergency Call'}</span>
+                            <Phone className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{isMr ? 'तातडीची हेल्पलाईन' : 'Emergency Call'}</span>
                           </a>
                         )}
                         {org.whatsapp_number && (
@@ -353,10 +354,10 @@ export default function EssentialServices() {
                             href={`https://wa.me/${org.whatsapp_number}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:opacity-90 transition-all active:scale-95 shadow-2xs"
+                            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold bg-[#25D366] text-white hover:opacity-90 transition-all active:scale-95 shadow-2xs"
                           >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>WhatsApp</span>
+                            <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">WhatsApp</span>
                           </a>
                         )}
                       </div>
@@ -451,7 +452,7 @@ export default function EssentialServices() {
               <div className="mt-2.5 space-y-2">
                 {pastAnnouncements.map((ann) => (
                   <div key={ann.id} className="rounded-xl border bg-muted/30 p-3 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-1.5">
                       <span className="font-semibold text-foreground">
                         {isMr ? ann.title_mr || ann.title : ann.title}
                       </span>
@@ -560,19 +561,19 @@ export default function EssentialServices() {
                       {org.key_contacts.map((officer, idx) => (
                         <div
                           key={officer.id || idx}
-                          className="flex items-center justify-between p-2 rounded-xl border bg-muted/40 text-xs"
+                          className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl border bg-muted/40 text-xs"
                         >
-                          <div>
-                            <span className="font-bold text-foreground">{officer.name}</span>
-                            <span className="text-[11px] text-muted-foreground block">{officer.role}</span>
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-foreground block truncate">{officer.name}</span>
+                            <span className="text-[11px] text-muted-foreground block truncate">{officer.role}</span>
                           </div>
                           {officer.phone && (
                             <a
                               href={`tel:${officer.phone}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
                             >
-                              <Phone className="w-3 h-3" />
-                              <span>{officer.phone}</span>
+                              <Phone className="w-3 h-3 shrink-0" />
+                              <span className="tabular-nums">{officer.phone}</span>
                             </a>
                           )}
                         </div>

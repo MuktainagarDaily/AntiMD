@@ -8,6 +8,7 @@ import {
   useShopReviews,
   useMyHelpfulVotes,
   type ShopReview,
+  type ReviewEntityType,
 } from '@/lib/reviewsApi';
 import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
@@ -19,14 +20,15 @@ type SortKey = 'recent' | 'highest' | 'lowest' | 'helpful';
 interface Props {
   shopId: string;
   shopName: string;
+  entityType?: ReviewEntityType;
 }
 
-export function ReviewsSection({ shopId, shopName }: Props) {
+export function ReviewsSection({ shopId, shopName, entityType = 'shop' }: Props) {
   const { t } = useT();
   const { user } = useAuth();
-  const { data: rating } = useShopRating(shopId);
-  const { data: reviews = [], isLoading } = useShopReviews(shopId);
-  const { data: helpfulSet } = useMyHelpfulVotes(shopId);
+  const { data: rating } = useShopRating(shopId, entityType);
+  const { data: reviews = [], isLoading } = useShopReviews(shopId, entityType);
+  const { data: helpfulSet } = useMyHelpfulVotes(shopId, entityType);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [sort, setSort] = useState<SortKey>('recent');
   const [visible, setVisible] = useState(5);
@@ -96,8 +98,8 @@ export function ReviewsSection({ shopId, shopName }: Props) {
 
   return (
     <section id="reviews" aria-labelledby="reviews-title" className="scroll-mt-20">
-      <div className="flex items-start justify-between gap-3 mb-4">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 mb-4">
+        <div className="min-w-0 flex-1">
           <h2 id="reviews-title" className="text-lg font-bold text-foreground leading-tight">
             {t('reviews.section.title')}
           </h2>
@@ -117,7 +119,7 @@ export function ReviewsSection({ shopId, shopName }: Props) {
           ))}
         </div>
       ) : !rating || reviews.length === 0 ? (
-        <EmptyReviews onWrite={user ? openWrite : undefined} />
+        <EmptyReviews entityType={entityType} onWrite={user ? openWrite : undefined} />
       ) : (
         <>
           <div className="bg-card rounded-xl border border-border p-4 mb-4">
@@ -180,6 +182,7 @@ export function ReviewsSection({ shopId, shopName }: Props) {
                   review={r}
                   helpfulOn={helpfulSet?.has(r.id)}
                   onEdit={r.user_id === user?.id ? openWrite : undefined}
+                  entityType={entityType}
                 />
               ))}
             </div>
@@ -205,12 +208,19 @@ export function ReviewsSection({ shopId, shopName }: Props) {
         shopId={shopId}
         shopName={shopName}
         existing={myReview}
+        entityType={entityType}
       />
     </section>
   );
 }
 
-function EmptyReviews({ onWrite }: { onWrite?: () => void }) {
+function EmptyReviews({
+  onWrite,
+  entityType = 'shop',
+}: {
+  onWrite?: () => void;
+  entityType?: ReviewEntityType;
+}) {
   const { t } = useT();
   return (
     <div className="bg-card rounded-xl border border-dashed border-border p-8 flex flex-col items-center text-center">
@@ -219,7 +229,9 @@ function EmptyReviews({ onWrite }: { onWrite?: () => void }) {
         <MessageSquareText className="w-7 h-7" />
       </div>
       <p className="font-bold text-foreground">{t('reviews.empty.title')}</p>
-      <p className="text-sm text-muted-foreground mt-1 mb-4">{t('reviews.empty.body')}</p>
+      <p className="text-sm text-muted-foreground mt-1 mb-4">
+        {entityType === 'school' ? t('reviews.empty.schoolBody') : t('reviews.empty.body')}
+      </p>
       {onWrite && (
         <button
           type="button"

@@ -1,14 +1,14 @@
 /**
- * Dynamic town branding generator for ApnaLocal.
+ * Dynamic town branding generator for ApnaTown.
  * Enforces the brand specification:
- *   - Master Brand: ApnaLocal (अपनाLocal)
- *   - Dynamic Town Brand: ApnaLocal · <Town> (e.g. ApnaLocal · Muktainagar)
+ *   - Master Brand: ApnaTown (अपनाTown)
+ *   - Dynamic Town Brand: ApnaTown · <Town> (e.g. ApnaTown · Muktainagar)
  *   - Canonical Taglines:
  *       EN: "Your town. Everything local."
  *       MR: "आपलं शहर. स्थानिक सर्वकाही."
  *   - Page title format:
- *       Home: ApnaLocal · <Town> | Your town. Everything local.
- *       Subpage: <PageName> — ApnaLocal · <Town>
+ *       Home: ApnaTown · <Town> | Your town. Everything local.
+ *       Subpage: <PageName> — ApnaTown · <Town>
  */
 import type { GeoCity, TownBranding } from './types';
 
@@ -19,14 +19,15 @@ export function getTownBranding(city?: GeoCity | null): TownBranding {
   return {
     name,
     name_mr,
-    brandTitle: `ApnaLocal · ${name}`,
-    brandTitle_mr: `ApnaLocal · ${name_mr}`,
+    brandTitle: `ApnaTown · ${name}`,
+    brandTitle_mr: `ApnaTown · ${name_mr}`,
     tagline: 'Your town. Everything local.',
     tagline_mr: 'आपलं शहर. स्थानिक सर्वकाही.',
     centerCoords: {
       lat: city?.latitude ?? 21.0758,
       lng: city?.longitude ?? 75.9817,
     },
+    metaDescription: `Find local shops, services, mess, PGs, schools, and civic updates in ${name} on ApnaTown.`,
   };
 }
 

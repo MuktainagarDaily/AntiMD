@@ -71,9 +71,9 @@ export function CategoryMergeModal({ source, allCategories, onClose, onMerged }:
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 pr-8">
               <GitMerge className="w-5 h-5 text-primary shrink-0" />
-              Merge {source.icon} {source.name}
+              <span className="min-w-0 break-words">Merge {source.icon} {source.name}</span>
             </DialogTitle>
             <DialogDescription>
               Reassign shops from this category into another. The exact count will be confirmed from the live database during merge.
@@ -114,7 +114,7 @@ export function CategoryMergeModal({ source, allCategories, onClose, onMerged }:
             </label>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm font-semibold hover:bg-muted transition-colors">
               Cancel
             </button>

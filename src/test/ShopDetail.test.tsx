@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { I18nProvider } from '@/i18n';
 import { CityProvider } from '@/hooks/useCity';
@@ -116,6 +116,11 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
+function LocationMarker({ label }: { label: string }) {
+  const location = useLocation();
+  return <div data-testid="redirected-path">{`${label}:${location.pathname}`}</div>;
+}
+
 function renderShopDetail(slug = 'unique-art-gallery') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -130,6 +135,8 @@ function renderShopDetail(slug = 'unique-art-gallery') {
               <I18nProvider>
                 <Routes>
                   <Route path="/:citySlug/shop/:id" element={<ShopDetail />} />
+                  <Route path="/:citySlug/mess/:id" element={<LocationMarker label="mess" />} />
+                  <Route path="/:citySlug/pg/:id" element={<LocationMarker label="pg" />} />
                 </Routes>
               </I18nProvider>
             </CityProvider>
@@ -188,6 +195,49 @@ describe('ShopDetail Related Shops Scoping and Empty-State', () => {
       const relatedTitle = document.getElementById('related-shops-title');
       expect(relatedTitle).not.toBeNull();
       expect(screen.getByText('Shree Ganesh Kirana')).toBeDefined();
+    });
+  });
+
+  it('automatically redirects hotel/restaurant and mess /shop/:slug links to /:citySlug/mess/:slug', async () => {
+    currentShopToReturn = {
+      id: 'hotel-visawa-1',
+      slug: 'hotel-visawa-family-restaurant-parandwadi',
+      name: 'Hotel Visawa Family Restaurant',
+      city_id: MUKTAINAGAR_CITY_ID,
+      village_id: null,
+      is_active: true,
+      shop_categories: [],
+    };
+    relatedRowsToReturn = [];
+
+    renderShopDetail('hotel-visawa-family-restaurant-parandwadi');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('redirected-path').textContent).toBe(
+        'mess:/muktainagar/mess/hotel-visawa-family-restaurant-parandwadi',
+      );
+    });
+  });
+
+  it('automatically redirects PG/hostel /shop/:slug links to /:citySlug/pg/:slug', async () => {
+    currentShopToReturn = {
+      id: 'pg-sai-1',
+      slug: 'saikrupa-girls-pg',
+      name: 'Saikrupa Girls PG',
+      city_id: MUKTAINAGAR_CITY_ID,
+      village_id: null,
+      is_active: true,
+      pg_profiles: [{ shop_id: 'pg-sai-1' }],
+      shop_categories: [],
+    };
+    relatedRowsToReturn = [];
+
+    renderShopDetail('saikrupa-girls-pg');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('redirected-path').textContent).toBe(
+        'pg:/muktainagar/pg/saikrupa-girls-pg',
+      );
     });
   });
 });

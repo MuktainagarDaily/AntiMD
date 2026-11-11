@@ -10,16 +10,16 @@
 
 ## 1. Executive Summary & Vision
 
-Muktainagar Daily began as a single-town directory for Muktainagar, Maharashtra. The system has successfully transitioned into a **Multi-Region, Multi-Tier Hyperlocal Platform** that serves any village, city, taluka, and district across India, while preserving the hyperlocal speed, bilingual trust, and mobile-first offline resilience of the original design.
+Muktainagar Daily (**ApnaLocal** / `<Town> Daily`) began as a single-town directory for Muktainagar, Maharashtra. The system has transitioned into a **Multi-Region, Multi-Tier Hyperlocal Platform** serving towns, talukas, and satellite villages across Jalgaon and Pune districts (Muktainagar, Bhusawal, Varangaon, Bodwad, Jalgaon, Maval / Parandwadi) while preserving hyperlocal speed, bilingual trust, and mobile-first offline resilience.
 
 ```mermaid
 flowchart TD
     subgraph GeoTree["Administrative Hierarchy (India)"]
         Country["Country (India - Default)"]
         State["State (e.g., Maharashtra)"]
-        District["District (e.g., Jalgaon)"]
-        City["City / Taluka (e.g., Muktainagar, Bhusawal, Jalgaon)"]
-        Village["Village / Locality (e.g., Kurha, Varangaon, Changdev)"]
+        District["District (e.g., Jalgaon, Pune)"]
+        City["City / Taluka (e.g., Muktainagar, Bhusawal, Maval/Parandwadi)"]
+        Village["Village / Locality (e.g., Kurha, Changdev, Parandwadi)"]
     end
 
     Country --> State
@@ -35,12 +35,14 @@ flowchart TD
 
     subgraph ScopedFeeds["Location-Scoped Feeds & Inheritance"]
         Shops["Shops (City + Villages)"]
-        Mess["Mess & Dining (City)"]
-        PG["PG & Hostels (City)"]
-        Schools["Schools (City / Taluka)"]
-        Bus["Bus Schedules (Depot / Stand)"]
-        Banners["Geo-Targeted Ads (District / City)"]
-        NewsJobs["News & Jobs (Planned Phase 4)"]
+        Mess["Mess & Dining (City + Detail)"]
+        PG["PG & Hostels (City + Detail)"]
+        Schools["Education Portal (City + Colleges + Notices)"]
+        Bus["Bus Schedules (Depot / PMPML / MSRTC)"]
+        News["Local News & RSS Feeds (City)"]
+        Services["Essential Services & Civic Alerts (City / District)"]
+        Assistant["Sahayak AI Assistant (Town + Village Aware)"]
+        Banners["Geo-Targeted Ads (All / District / City)"]
     end
 
     GeoTree --> UserContext
@@ -52,32 +54,39 @@ flowchart TD
 ## 2. Core Architectural Implementation (Live)
 
 ### 2.1 The 5-Level Geographic Data Model
-India's administrative divisions follow a standard 5-level hierarchy in `public`:
+India's administrative divisions follow a 5-level hierarchy in `public`:
 1. **`geo_countries`:** ISO country (`IN` — India).
 2. **`geo_states`:** States + UTs (e.g., `MH` — Maharashtra).
-3. **`geo_districts`:** Administrative district (e.g., `jalgaon`, `buldhana`).
-4. **`geo_cities`:** Urban centers, municipality towns, and rural talukas (e.g., `muktainagar`, `bhusawal`, `bodwad`, `jalgaon`).
-5. **`geo_villages`:** Gram panchayats, satellite villages, and rural clusters (e.g., `kurha`, `varangaon`, `anturli`, `changdev`).
+3. **`geo_districts`:** Administrative district (e.g., `jalgaon`, `pune`).
+4. **`geo_cities`:** Towns, municipality towns, and rural talukas (e.g., `muktainagar`, `bhusawal`, `varangaon`, `bodwad`, `maval` / `parandwadi`).
+5. **`geo_villages`:** Gram panchayats, satellite villages, and rural clusters (e.g., `kurha`, `changdev`, `parandwadi`).
 
 ### 2.2 Routing Strategy: Option B (Path-Based Multi-Tenant)
-The platform adopted **Option B** for maximum SEO authority and deep-linking:
-- **Town URL prefix:** All public routes are prefixed with the active town slug: `/:citySlug` (Home), `/:citySlug/shops`, `/:citySlug/shop/:id`, `/:citySlug/mess`, `/:citySlug/pg`, `/:citySlug/schools`, `/:citySlug/bus-timetable`.
-- **Dynamic Root Redirect (`RootCityRedirect`):** Accessing `/` automatically reads `localStorage['active_city_slug']` or user profile location and redirects to `/:activeCitySlug`.
-- **Legacy Route Preservation (`LegacyCityRedirect`):** Accessing un-scoped legacy paths (`/shops`, `/schools`, `/shop/:slug`) automatically redirects to `/:activeCitySlug/...` preserving all search query parameters.
-- **Route Guard (`CityRouteGuard`):** Validates the `:citySlug` parameter against active cities via `geoService.getCities()`. Invalid slugs display an informative 404 state.
+The platform uses **Option B** for SEO clarity and deep-linking:
+- **Town URL prefix:** All public discovery routes are prefixed with the active town slug:
+  - `/:citySlug` (Home)
+  - `/:citySlug/shops` & `/:citySlug/shop/:id`
+  - `/:citySlug/mess` & `/:citySlug/mess/:id`
+  - `/:citySlug/pg` & `/:citySlug/pg/:id`
+  - `/:citySlug/schools` & `/:citySlug/schools/:id`
+  - `/:citySlug/bus-timetable`
+  - `/:citySlug/services` (Essential Services & Civic Authorities)
+  - `/:citySlug/news` (Local News feed)
+  - `/:citySlug/sections/:key` (Upcoming vertical placeholders)
+- **Dynamic Root Redirect (`RootCityRedirect`):** Accessing `/` reads persisted `localStorage` or user profile town selection, falling back to `muktainagar`, and redirects to `/:activeCitySlug`.
+- **Legacy Route Preservation (`LegacyCityRedirect`, `LegacyShopDetailRedirect`, `LegacySchoolDetailRedirect`, `LegacyLivingDetailRedirect`, `LegacyCategoryRedirect`, `LegacySectionRedirect`):** Un-prefixed URLs (`/shops`, `/schools`, `/schools/:id`, `/mess`, `/mess/:id`, `/pg`, `/pg/:id`, `/services`, `/news`, `/bus-timetable`, `/shop/:id`, `/category/:id`, `/sections/:key`) seamlessly redirect to `/:activeCitySlug/...` preserving search params and hashes.
+- **Route Guard (`CityRouteGuard`):** Validates `:citySlug` against active cities (`geoService.getCities()`); invalid slugs render `NotFound`.
 
 ### 2.3 User Location Context & Dynamic Branding
-- **Location Selector Pill (`LocationPill.tsx`):** Placed prominently in the global header, displaying the active town/village and triggering the `CityPickerModal`.
-- **Dynamic Town Branding (`townConfig.ts`):** Automatically computes town-specific branding:
-  - Brand Title: `<Town> Daily` / `<Town_mr> डेली` (e.g. `Muktainagar Daily`, `Bhusawal Daily`).
-  - Dynamic SEO metadata, OpenGraph tags, and sitemaps.
-- **Data Scoping:** Custom hooks (`useShops`, `useMess`, `usePG`, `useSchools`, `useBanners`) query data filtered by the active `city_id` and optional `village_id`.
+- **Location Selector Pill (`LocationPill.tsx`):** Rendered in headers to open `CityPickerModal` (fuzzy search, district chips, village chips, GPS nearest-town matching).
+- **Dynamic Town Branding (`townConfig.ts`):** Generates localized brand titles (`<Town> Daily` / `<Town_mr> डेली`), SEO metadata, OpenGraph tags, and sitemaps.
+- **Data Scoping:** Public feeds, **Sahayak AI (`TownAssistantDrawer`)**, and **MCP tools** (`get_local_news`, `search_schools`, `get_civic_services`) scope data by active `city_id` / `citySlug` (with Muktainagar `city_id.is.null` legacy compatibility where applicable).
 
 ---
 
 ## 3. Database Schema Status
 
-The geographic hierarchy and entity foreign keys are fully migrated and live in production:
+The geographic hierarchy and entity foreign keys are live across core, living, civic, news, and education tables:
 
 ```sql
 -- Live Geographic Subsystem Tables
@@ -92,14 +101,20 @@ public.geo_villages   -- id, city_id, slug, name, name_mr, pincode, lat, lng, is
 
 | Table | Geographic Foreign Keys | Status |
 |---|---|---|
-| `public.profiles` | `state_id`, `district_id`, `city_id`, `village_id` | **Live** |
-| `public.shops` | `district_id`, `city_id`, `village_id` | **Live** |
-| `public.mess_profiles` | `city_id`, `village_id` | **Live** |
-| `public.pg_profiles` | `city_id`, `village_id` | **Live** |
-| `public.schools` | `district_id`, `city_id`, `village_id` | **Live** |
-| `public.bus_timetable` | `source_city_id`, `dest_city_id` | **Live** |
+| `public.profiles` | `city_id`, `village_id` | **Live** |
+| `public.shops` | `state_id`, `district_id`, `city_id`, `village_id` | **Live** |
+| `public.mess_profiles` | Inherits location via `shop_id → shops` | **Live** |
+| `public.pg_profiles` | Inherits location via `shop_id → shops` | **Live** |
+| `public.schools` | `state_id`, `district_id`, `city_id`, `village_id` | **Live** |
+| `public.bus_timetable` | `city_id` | **Live** |
 | `public.bus_stand_info` | `city_id` | **Live** |
-| `public.banners` | `city_id`, `district_id` | **Live** |
+| `public.news_sources` | `city_id` | **Live** |
+| `public.local_news` | `city_id`, `village_id` | **Live** |
+| `public.authority_organizations` | `district_id`, `city_id` | **Live** |
+| `public.authority_announcements` | `city_id` | **Live** |
+| `public.announcement_locations` | `city_id`, `village_id` | **Live** |
+| `public.authority_admin_grants` | `city_id` | **Live** |
+| `public.banners` | `city_id` (legacy), `target_district_id`, `target_city_id` | **Live** |
 | `public.shop_requests` | `state_id`, `district_id`, `city_id`, `village_id` | **Live** |
 
 ---
@@ -108,16 +123,17 @@ public.geo_villages   -- id, city_id, slug, name, name_mr, pincode, lat, lng, is
 
 | Phase | Description | Status |
 |---|---|---|
-| **Phase 1: Geo Foundation** | Geographic hierarchy tables, seeds, Muktainagar backfill, indexes, RLS | **Completed & Live** |
+| **Phase 1: Geo Foundation** | Geographic hierarchy tables, seeds, Muktainagar + Pune/Maval/Parandwadi backfills, indexes, RLS | **Completed & Live** |
 | **Phase 2: Client Engine** | `CityProvider`, `useCity`, `LocationPill`, `CityPickerModal`, Profile city sync | **Completed & Live** |
-| **Phase 3: Content Scoping** | Scoped queries for Shops, Mess, PG, Schools, Bus, and Ads | **Completed & Live** |
-| **Phase 4: New Civic Verticals** | Local News engine & Local Jobs portal (`local_news`, `local_jobs`) | *Planned* |
-| **Phase 5: Multi-Tenant Branding & URLs** | Path-based routing (`/:citySlug/...`), dynamic branding, modular admin | **Completed & Live** |
+| **Phase 3: Content Scoping** | Scoped queries for Shops, Mess & Dining, PG & Hostels, Schools & Colleges, Bus Timetable, and Ads | **Completed & Live** |
+| **Phase 4a: Essential Services & Local News** | Civic Authorities (`/services`), Local News (`news_sources`, `local_news`, `/news`, RSS scraper), Sahayak AI town assistant | **Completed & Live** |
+| **Phase 4b: Additional Verticals** | Hospitals, Banks, Lost & Found, Local Jobs | *Planned / Reserved (`SectionComingSoon`)* |
+| **Phase 5: Multi-Tenant Branding & URLs** | Path-based routing (`/:citySlug/...`), dynamic branding, modular admin, town-scoped CSV exports | **Completed & Live** |
 
 ---
 
 ## 5. Architectural Invariants
 
-1. **Town Slug Stability:** Town slugs in `geo_cities` must be URL-safe lowercase strings (`muktainagar`, `bhusawal`, `jalgaon`, `bodwad`).
-2. **Default Town Fallback:** If geolocation is unavailable and localStorage is clean, the platform falls back to `muktainagar` as the canonical seed town.
-3. **Legacy URL Support:** Old non-scoped bookmarks must never 404; `LegacyCityRedirect` in `App.tsx` guarantees persistent backward compatibility.
+1. **Town Slug Stability:** Town slugs in `geo_cities` must remain URL-safe lowercase strings (`muktainagar`, `bhusawal`, `bodwad`, `varangaon`, `parandwadi` / `maval`).
+2. **Default Town Fallback:** When geolocation is absent and localStorage has no saved selection, the platform resolves `muktainagar` as the seed default.
+3. **Legacy URL Support:** Un-scoped bookmarks must never 404; redirect helpers in `src/App.tsx` preserve all route parameters, search queries, and hash fragments.

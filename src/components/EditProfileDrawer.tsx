@@ -384,15 +384,15 @@ export function EditProfileDrawer({
 
               {/* Birth date + age */}
               <Field icon={<Cake className="w-4 h-4" />} label="Date of birth">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap gap-2">
                   <Input
                     type="date"
                     value={birthDate}
                     max={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setBirthDate(e.target.value)}
-                    className="flex-1"
+                    className="flex-1 min-w-[140px]"
                   />
-                  <div className="w-20 shrink-0 flex items-center justify-center rounded-md border border-input bg-muted/40 text-sm text-muted-foreground">
+                  <div className="w-20 shrink-0 flex items-center justify-center rounded-md border border-input bg-muted/40 text-sm text-muted-foreground py-2">
                     {age !== null ? `${age} yrs` : '—'}
                   </div>
                 </div>
@@ -400,7 +400,7 @@ export function EditProfileDrawer({
 
               {/* Gender */}
               <Field icon={<Users2 className="w-4 h-4" />} label="Gender">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {(['male', 'female', 'other', 'prefer_not_to_say'] as const).map((g) => {
                     const labels: Record<typeof g, string> = {
                       male: 'Male',

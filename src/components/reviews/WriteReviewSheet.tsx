@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { X, Sparkles, Trash2 } from 'lucide-react';
 import { RatingInput } from '@/components/shared/rating/RatingInput';
-import { useUpsertReview, useDeleteReview, type ShopReview } from '@/lib/reviewsApi';
+import {
+  useUpsertReview,
+  useDeleteReview,
+  type ShopReview,
+  type ReviewEntityType,
+} from '@/lib/reviewsApi';
 import { useT } from '@/i18n';
 import { toast } from 'sonner';
 
@@ -11,14 +16,22 @@ interface Props {
   shopId: string;
   shopName: string;
   existing?: ShopReview;
+  entityType?: ReviewEntityType;
 }
 
-export function WriteReviewSheet({ open, onClose, shopId, shopName, existing }: Props) {
+export function WriteReviewSheet({
+  open,
+  onClose,
+  shopId,
+  shopName,
+  existing,
+  entityType = 'shop',
+}: Props) {
   const { t } = useT();
   const [rating, setRating] = useState(0);
   const [body, setBody] = useState('');
-  const upsert = useUpsertReview(shopId);
-  const del = useDeleteReview(shopId);
+  const upsert = useUpsertReview(shopId, entityType);
+  const del = useDeleteReview(shopId, entityType);
 
   useEffect(() => {
     if (open) {
@@ -89,8 +102,8 @@ export function WriteReviewSheet({ open, onClose, shopId, shopName, existing }: 
         aria-labelledby="write-review-title"
         className="relative w-full sm:max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom-4 sm:zoom-in-95"
       >
-        <div className="flex items-center justify-between px-5 pt-5">
-          <div className="min-w-0">
+        <div className="flex items-center justify-between gap-2 px-5 pt-5">
+          <div className="min-w-0 flex-1">
             <h2 id="write-review-title" className="font-bold text-foreground text-lg leading-tight">
               {isEdit ? t('reviews.editYours') : t('reviews.writeCta')}
             </h2>
@@ -100,7 +113,7 @@ export function WriteReviewSheet({ open, onClose, shopId, shopName, existing }: 
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="p-2 -mr-2 rounded-full hover:bg-muted text-muted-foreground"
+            className="shrink-0 p-2 -mr-2 rounded-full hover:bg-muted text-muted-foreground"
           >
             <X className="w-5 h-5" />
           </button>
@@ -125,7 +138,9 @@ export function WriteReviewSheet({ open, onClose, shopId, shopName, existing }: 
             value={body}
             onChange={(e) => setBody(e.target.value.slice(0, 2000))}
             rows={4}
-            placeholder={t('reviews.placeholder')}
+            placeholder={
+              entityType === 'school' ? t('reviews.schoolPlaceholder') : t('reviews.placeholder')
+            }
             className="w-full rounded-xl border border-border bg-background text-sm p-3 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
           <div className="text-[11px] text-muted-foreground text-right mt-1 tabular-nums">
@@ -138,7 +153,10 @@ export function WriteReviewSheet({ open, onClose, shopId, shopName, existing }: 
           <p>{t('reviews.tip')}</p>
         </div>
 
-        <div className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex items-center gap-2">
+        <div
+          className="sticky bottom-0 bg-card border-t border-border px-5 py-3 flex items-center gap-2"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+        >
           {isEdit && (
             <button
               type="button"

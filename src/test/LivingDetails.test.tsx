@@ -106,6 +106,9 @@ describe("MessDetail & PGDetail Pages", () => {
 
     expect(screen.getAllByText(/Pure Veg/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/WhatsApp/i).length).toBeGreaterThan(0);
+    const header = document.querySelector("header");
+    expect(header?.className).toContain("bg-primary");
+    expect(header?.className).toContain("text-primary-foreground");
   });
 
   it("renders PGDetail without throwing runtime errors", async () => {
@@ -122,5 +125,8 @@ describe("MessDetail & PGDetail Pages", () => {
 
     expect(screen.getAllByText(/Boys/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/WhatsApp/i).length).toBeGreaterThan(0);
+    const header = document.querySelector("header");
+    expect(header?.className).toContain("bg-primary");
+    expect(header?.className).toContain("text-primary-foreground");
   });
 });

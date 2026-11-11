@@ -4,7 +4,7 @@ import { SITE_NAME } from '@/components/seo/PageSeo';
 import en from '@/i18n/en.json';
 import mr from '@/i18n/mr.json';
 
-describe('ApnaLocal Identity & Branding Specification', () => {
+describe('ApnaTown Identity & Branding Specification', () => {
   it('formats master brand and dynamic town brand correctly for Muktainagar', () => {
     const branding = getTownBranding({
       id: 'city-1',
@@ -19,8 +19,8 @@ describe('ApnaLocal Identity & Branding Specification', () => {
       sort_order: 1,
     });
 
-    expect(branding.brandTitle).toBe('ApnaLocal · Muktainagar');
-    expect(branding.brandTitle_mr).toBe('ApnaLocal · मुक्ताईनगर');
+    expect(branding.brandTitle).toBe('ApnaTown · Muktainagar');
+    expect(branding.brandTitle_mr).toBe('ApnaTown · मुक्ताईनगर');
     expect(branding.tagline).toBe('Your town. Everything local.');
     expect(branding.tagline_mr).toBe('आपलं शहर. स्थानिक सर्वकाही.');
   });
@@ -39,8 +39,8 @@ describe('ApnaLocal Identity & Branding Specification', () => {
       sort_order: 2,
     });
 
-    expect(bhusawal.brandTitle).toBe('ApnaLocal · Bhusawal');
-    expect(bhusawal.brandTitle_mr).toBe('ApnaLocal · भुसावळ');
+    expect(bhusawal.brandTitle).toBe('ApnaTown · Bhusawal');
+    expect(bhusawal.brandTitle_mr).toBe('ApnaTown · भुसावळ');
   });
 
   it('generates dynamic SEO page titles adhering to the canonical specification', () => {
@@ -59,21 +59,21 @@ describe('ApnaLocal Identity & Branding Specification', () => {
 
     // Home page titles
     const homeEn = formatTownPageTitle('Home', city, 'en');
-    expect(homeEn).toBe('ApnaLocal · Muktainagar | Your town. Everything local.');
+    expect(homeEn).toBe('ApnaTown · Muktainagar | Your town. Everything local.');
 
     const homeMr = formatTownPageTitle('Home', city, 'mr');
-    expect(homeMr).toBe('ApnaLocal · मुक्ताईनगर | आपलं शहर. स्थानिक सर्वकाही.');
+    expect(homeMr).toBe('ApnaTown · मुक्ताईनगर | आपलं शहर. स्थानिक सर्वकाही.');
 
     // Subpage titles
     const shopsEn = formatTownPageTitle('Shops', city, 'en');
-    expect(shopsEn).toBe('Shops — ApnaLocal · Muktainagar');
+    expect(shopsEn).toBe('Shops — ApnaTown · Muktainagar');
 
     const messMr = formatTownPageTitle('मेस व खाद्य', city, 'mr');
-    expect(messMr).toBe('मेस व खाद्य — ApnaLocal · मुक्ताईनगर');
+    expect(messMr).toBe('मेस व खाद्य — ApnaTown · मुक्ताईनगर');
   });
 
-  it('verifies SEO site name is ApnaLocal', () => {
-    expect(SITE_NAME).toBe('ApnaLocal');
+  it('verifies SEO site name is ApnaTown', () => {
+    expect(SITE_NAME).toBe('ApnaTown');
   });
 
   it('verifies bilingual i18n dictionaries reflect canonical taglines, locality exploration, and trust claims', () => {

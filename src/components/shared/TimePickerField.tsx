@@ -37,7 +37,7 @@ function to24h(hour: string, minute: string, ampm: 'AM' | 'PM'): string {
 }
 
 const selectCls =
-  'flex-1 px-2 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer appearance-none text-center';
+  'flex-1 min-w-0 px-2 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer appearance-none text-center';
 
 export function TimePickerField({ value, onChange, label, optional, error }: TimePickerFieldProps) {
   const { t } = useT();

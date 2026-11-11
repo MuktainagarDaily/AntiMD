@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Bookmark, MapPin, Bell, Settings, HelpCircle, LogOut, LogIn, UserPlus,
   ChevronRight, Sparkles, ShieldCheck, Store, PlusCircle, Languages, ChevronLeft,
-  Moon, Info, Trash2, Heart, Briefcase, Wrench, Phone, Newspaper, School,
+  Moon, Info, Trash2, Heart, Briefcase, Wrench, Phone, Newspaper, School, GraduationCap,
   Building2, Landmark, Stethoscope, Truck, Search, Users, Award, Coins,
   ClipboardCheck, Zap, MapPinned, Megaphone, Pencil, UserCog /*, ExternalLink */
 } from 'lucide-react';
+import { schoolsRepo } from '@/lib/repos/schoolsRepo';
 import { EditProfileDrawer } from '@/components/EditProfileDrawer';
 import { CityPickerModal } from '@/components/shared/CityPickerModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,7 +26,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { useT } from '@/i18n';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 
 /* ─── Access tier badge ──────────────────────────────────────────────── */
@@ -106,7 +107,11 @@ function MenuDivider() {
 }
 
 /* ─── Main component ─────────────────────────────────────────────────── */
-export function UserMenuDrawer() {
+interface UserMenuDrawerProps {
+  tone?: 'onPrimary' | 'onSurface';
+}
+
+export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {}) {
   const { t, locale } = useT();
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -164,6 +169,13 @@ export function UserMenuDrawer() {
   const displayEmail = user?.email || null;
   const initials     = displayName.slice(0, 2).toUpperCase();
   const tier: 'guest' | 'member' | 'admin' = !user ? 'guest' : isAdmin ? 'admin' : 'member';
+
+  const { data: ownedSchools = [] } = useQuery({
+    queryKey: ['my-schools-owned', user?.id],
+    enabled: !!user && open,
+    queryFn: () => schoolsRepo.listByOwner(user!.id),
+    staleTime: 60_000,
+  });
 
   const handleSignOut = async () => {
     setSettingsOpen(false);
@@ -262,20 +274,28 @@ export function UserMenuDrawer() {
       <button
         onClick={() => setOpen(true)}
         aria-label={t('user.menu.openMenu')}
-        className="relative flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-all active:scale-90 hover:ring-2 hover:ring-primary-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/50"
-        style={{ background: 'hsl(var(--primary-foreground) / 0.15)', border: '2px solid hsl(var(--primary-foreground) / 0.25)' }}
+        className={`relative flex items-center justify-center w-9 h-9 rounded-full shrink-0 transition-all active:scale-90 ${
+          tone === 'onSurface'
+            ? 'bg-muted hover:bg-muted/80 text-foreground border border-border hover:ring-2 hover:ring-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+            : 'hover:ring-2 hover:ring-primary-foreground/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/50'
+        }`}
+        style={
+          tone === 'onSurface'
+            ? undefined
+            : { background: 'hsl(var(--primary-foreground) / 0.15)', border: '2px solid hsl(var(--primary-foreground) / 0.25)' }
+        }
       >
         {user ? (
-          <span className="text-xs font-bold text-primary-foreground leading-none">{initials}</span>
+          <span className={`text-xs font-bold leading-none ${tone === 'onSurface' ? 'text-foreground' : 'text-primary-foreground'}`}>{initials}</span>
         ) : (
-          <User className="w-4 h-4 text-primary-foreground" />
+          <User className={`w-4 h-4 ${tone === 'onSurface' ? 'text-foreground' : 'text-primary-foreground'}`} />
         )}
         {user && (
           <span
             className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
             style={{
               background: 'hsl(var(--success))',
-              borderColor: 'hsl(var(--primary))',
+              borderColor: tone === 'onSurface' ? 'hsl(var(--background))' : 'hsl(var(--primary))',
             }}
           />
         )}
@@ -437,6 +457,22 @@ export function UserMenuDrawer() {
                 label={t('user.menu.myShop')}
                 desc={isShopkeeper || isAdmin ? t('user.menu.myShopDesc.manage') : t('user.menu.myShopDesc.track')}
                 onClick={() => { setOpen(false); navigate('/my-shop'); }}
+              />
+            )}
+            {user && (ownedSchools.length > 0 || isAdmin) && (
+              <MenuRow
+                icon={<GraduationCap className="w-4 h-4" />}
+                label={t('myInstitute.title')}
+                desc={
+                  ownedSchools.length > 0
+                    ? locale === 'mr'
+                      ? `${ownedSchools.length} शिक्षण संस्था — प्रवेश व सूचना हब`
+                      : `${ownedSchools.length} institute(s) — Admissions & Notices`
+                    : locale === 'mr'
+                      ? 'शिक्षण संस्था पोर्टल उघडा'
+                      : 'Manage Educational Institutes'
+                }
+                onClick={() => { setOpen(false); navigate('/my-institute'); }}
               />
             )}
             {user && isAdmin && (

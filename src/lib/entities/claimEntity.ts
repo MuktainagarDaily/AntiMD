@@ -9,12 +9,14 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { createElement } from 'react';
-import { ShieldCheck, FileText } from 'lucide-react';
+import { ShieldCheck, FileText, GraduationCap, Store } from 'lucide-react';
 import type { EntityDef, EntityColumn } from './types';
 
 export interface ClaimRow {
   id: string;
-  shop_id: string;
+  shop_id: string | null;
+  school_id?: string | null;
+  entity_kind?: 'shop' | 'school';
   user_id: string;
   contact_phone: string | null;
   note: string | null;
@@ -23,8 +25,30 @@ export interface ClaimRow {
   proof_image_path: string | null;
   proof_type: string | null;
   admin_notes: string | null;
+  role_claimed?: string | null;
+  udise_or_id?: string | null;
   profiles: { full_name: string | null; phone?: string | null } | null;
   shops: { name: string | null; phone?: string | null; area?: string | null; is_verified?: boolean } | null;
+  schools?: {
+    name: string | null;
+    phone?: string | null;
+    area?: string | null;
+    is_verified?: boolean;
+    udise_aishe_code?: string | null;
+  } | null;
+}
+
+export function isMissingRelationErr(error: any): boolean {
+  if (!error) return false;
+  const code = String(error.code ?? '');
+  const msg = String(error.message ?? '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find the table') ||
+    msg.includes('schema cache')
+  );
 }
 
 function proofBadge(row: ClaimRow) {
@@ -53,37 +77,64 @@ function proofBadge(row: ClaimRow) {
 const columns: EntityColumn<ClaimRow>[] = [
   {
     key: 'shop',
-    header: 'Shop',
-    render: (row) =>
-      createElement(
+    header: 'Listing',
+    render: (row) => {
+      const isSchool = row.entity_kind === 'school' || !!row.school_id;
+      const targetName = isSchool ? row.schools?.name : row.shops?.name;
+      const targetArea = isSchool ? row.schools?.area : row.shops?.area;
+
+      return createElement(
         'div',
-        null,
+        { className: 'space-y-0.5' },
+        createElement(
+          'span',
+          {
+            className: `inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+              isSchool
+                ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30'
+                : 'bg-primary/10 text-primary border-primary/20'
+            }`,
+          },
+          createElement(isSchool ? GraduationCap : Store, { className: 'w-2.5 h-2.5' }),
+          isSchool ? 'Institute' : 'Shop',
+        ),
         createElement(
           'div',
           { className: 'font-semibold text-foreground' },
-          row.shops?.name ?? '—',
+          targetName ?? '—',
         ),
-        row.shops?.area &&
-          createElement('div', { className: 'text-xs text-muted-foreground' }, row.shops.area),
-      ),
+        targetArea &&
+          createElement('div', { className: 'text-xs text-muted-foreground' }, targetArea),
+      );
+    },
   },
   {
     key: 'claimant',
     header: 'Claimant',
-    render: (row) =>
-      createElement(
+    render: (row) => {
+      const isSchool = row.entity_kind === 'school' || !!row.school_id;
+      const targetPhone = isSchool ? row.schools?.phone : row.shops?.phone;
+
+      return createElement(
         'div',
         null,
         createElement(
           'div',
-          { className: 'text-sm text-foreground' },
+          { className: 'text-sm text-foreground flex items-center gap-1.5 flex-wrap' },
           row.profiles?.full_name || `User ${row.user_id.slice(0, 8)}`,
+          row.role_claimed
+            ? createElement(
+                'span',
+                { className: 'text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-medium' },
+                row.role_claimed,
+              )
+            : null,
         ),
         createElement(
           'div',
           { className: 'text-xs text-muted-foreground tabular-nums' },
           row.contact_phone || '—',
-          row.shops?.phone && row.contact_phone === row.shops.phone
+          targetPhone && row.contact_phone === targetPhone
             ? createElement(
                 'span',
                 { className: 'ml-1 text-success font-semibold' },
@@ -91,7 +142,8 @@ const columns: EntityColumn<ClaimRow>[] = [
               )
             : null,
         ),
-      ),
+      );
+    },
   },
   {
     key: 'proof',

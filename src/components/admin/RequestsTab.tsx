@@ -3,7 +3,7 @@
  * Upgraded to handle multi-image listings and specialized entity types
  * (Shops, Mess & Dining, PG & Hostels, Schools).
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Inbox, X, MapPin, Download, UtensilsCrossed, BedDouble, GraduationCap, Store, ImageIcon } from 'lucide-react';
@@ -12,8 +12,21 @@ import { formatTime, normalizePhone } from '@/lib/shopUtils';
 import { extractStoragePath } from './adminHelpers';
 import { renameShopImage, removeShopImages } from '@/lib/storageNaming';
 import { optimizedImage, optimizedSrcSet } from '@/lib/uxUtils';
-import { downloadCsv } from '@/lib/csvUtils';
+import { downloadCsv, fetchAllPaged, townCsvFilename } from '@/lib/csvUtils';
 import { isSafeHttpUrl } from '@/lib/utils';
+import { schoolsRepo } from '@/lib/repos/schoolsRepo';
+import { useCity } from '@/hooks/useCity';
+import { fetchAllActiveVillages } from '@/lib/geo/geoService';
+import {
+  toDbSchoolType,
+  serializeSchoolDescription,
+  SCHOOL_TYPE_CONFIG,
+  ADMISSION_STATUS_CONFIG,
+  MANAGEMENT_TYPE_CONFIG,
+  type SchoolType,
+  type AdmissionStatus,
+  type ManagementType,
+} from '@/lib/schools/schoolHelpers';
 import { ModerationQueue } from './_shared/ModerationQueue';
 import { RequestEntity, statusBadge, entityBadge, type RequestRow, type RequestStatus } from '@/lib/entities/requestEntity';
 
@@ -25,18 +38,41 @@ interface RequestsTabProps {
 
 export function RequestsTab({ onShopCreated }: RequestsTabProps) {
   const qc = useQueryClient();
+  const { allCities } = useCity();
   const [statusFilter, setStatusFilter] = useState<RequestStatus | 'all'>('pending');
   const [viewRequest, setViewRequest] = useState<ShopRequest | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
+  const cityNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    allCities.forEach((c) => map.set(c.id, c.name));
+    return map;
+  }, [allCities]);
+
+  const { data: allVillages = [] } = useQuery({
+    queryKey: ['geo-villages-all'],
+    queryFn: fetchAllActiveVillages,
+    staleTime: 5 * 60_000,
+  });
+
+  const villageNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    allVillages.forEach((v) => map.set(v.id, v.name));
+    return map;
+  }, [allVillages]);
+
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ['admin-requests', statusFilter],
     queryFn: async () => {
-      let query = supabase.from('shop_requests').select('*').order('created_at', { ascending: false });
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as ShopRequest[];
+      return fetchAllPaged<ShopRequest>((from, to) => {
+        let query = supabase
+          .from('shop_requests')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, to);
+        if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+        return query as any;
+      });
     },
   });
 
@@ -55,21 +91,34 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
   const handleApprove = async (req: ShopRequest) => {
     setActionLoadingId(req.id);
 
+    const entityType = req.entity_type || 'shop';
     const normPhone = normalizePhone(req.phone);
     if (normPhone) {
-      const [{ data: byPhone }, { data: byWa }] = await Promise.all([
-        supabase.from('shops').select('id, name').eq('phone', normPhone).limit(1),
-        supabase.from('shops').select('id, name').eq('whatsapp', normPhone).limit(1),
-      ]);
-      const dupeShop = byPhone?.[0] || byWa?.[0];
-      if (dupeShop) {
-        toast.error(`Phone ${req.phone} is already registered to "${dupeShop.name}". Resolve before approving.`);
-        setActionLoadingId(null);
-        return;
+      if (entityType === 'school') {
+        const [{ data: byPhone }, { data: byWa }] = await Promise.all([
+          (supabase.from('schools') as any).select('id, name').eq('phone', normPhone).limit(1),
+          (supabase.from('schools') as any).select('id, name').eq('whatsapp', normPhone).limit(1),
+        ]);
+        const dupeSchool = byPhone?.[0] || byWa?.[0];
+        if (dupeSchool) {
+          toast.error(`Phone ${req.phone} is already registered to institute "${dupeSchool.name}". Resolve before approving.`);
+          setActionLoadingId(null);
+          return;
+        }
+      } else {
+        const [{ data: byPhone }, { data: byWa }] = await Promise.all([
+          supabase.from('shops').select('id, name').eq('phone', normPhone).limit(1),
+          supabase.from('shops').select('id, name').eq('whatsapp', normPhone).limit(1),
+        ]);
+        const dupeShop = byPhone?.[0] || byWa?.[0];
+        if (dupeShop) {
+          toast.error(`Phone ${req.phone} is already registered to "${dupeShop.name}". Resolve before approving.`);
+          setActionLoadingId(null);
+          return;
+        }
       }
     }
 
-    const entityType = req.entity_type || 'shop';
     const normalizeArea = (s: string) =>
       s.trim().replace(/(^|[\s,])([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
 
@@ -79,39 +128,88 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
 
     // ── Entity Routing 1: SCHOOL ──────────────────────────────────
     if (entityType === 'school') {
-      const { data: insertedSchool, error: schoolErr } = await (supabase.from('schools') as any)
-        .insert([{
-          name: req.name.trim(),
-          phone: normPhone,
-          address: req.address?.trim() || null,
-          area: req.area?.trim() ? normalizeArea(req.area) : null,
-          sub_area: (req as any).sub_area?.trim() || null,
-          image_url: photoList[0] || null,
-          photos: photoList,
-          latitude: req.latitude || null,
-          longitude: req.longitude || null,
-          is_active: true,
-          school_type: req.meta?.school_type || 'secondary',
-          medium: req.meta?.medium || 'marathi',
-          description: req.description || null,
-          city_id: (req as any).city_id || null,
-          village_id: (req as any).village_id || null,
-        }])
-        .select('id')
-        .single();
+      const requestedType = (req.meta?.school_type || 'secondary') as SchoolType;
+      const dbType = toDbSchoolType(requestedType);
+      const streamsList: string[] = Array.isArray(req.meta?.streams)
+        ? req.meta.streams.map((s: any) => String(s).trim()).filter(Boolean)
+        : typeof req.meta?.streams === 'string'
+          ? req.meta.streams.split(',').map((s: string) => s.trim()).filter(Boolean)
+          : [];
 
-      if (schoolErr || !insertedSchool) {
-        toast.error('Failed to create school listing: ' + (schoolErr?.message || ''));
+      const safeWebsite = req.meta?.website && isSafeHttpUrl(req.meta.website)
+        ? String(req.meta.website).trim()
+        : null;
+
+      const serializedDesc = serializeSchoolDescription({
+        type_override: requestedType !== dbType ? requestedType : undefined,
+        board: req.meta?.board || undefined,
+        streams: streamsList.length > 0 ? streamsList : undefined,
+        facilities: Array.isArray(req.amenities) && req.amenities.length > 0 ? req.amenities : undefined,
+        raw_description: req.description || '',
+      });
+
+      const schoolRes = await schoolsRepo.insert({
+        name: req.name.trim(),
+        name_mr: req.meta?.name_mr || null,
+        phone: normPhone,
+        whatsapp: req.whatsapp?.trim() || null,
+        email: req.meta?.email || null,
+        website: safeWebsite,
+        address: req.address?.trim() || null,
+        address_mr: req.meta?.address_mr || null,
+        area: req.area?.trim() ? normalizeArea(req.area) : null,
+        sub_area: (req as any).sub_area?.trim() || null,
+        image_url: photoList[0] || null,
+        photos: photoList,
+        latitude: req.latitude || null,
+        longitude: req.longitude || null,
+        is_active: true,
+        school_type: dbType,
+        medium: req.meta?.medium || 'marathi',
+        mediums: req.meta?.medium ? [req.meta.medium] : [],
+        board: req.meta?.board || null,
+        management_type: req.meta?.management_type || null,
+        admission_status: (req.meta?.admission_status as AdmissionStatus) || 'open',
+        streams: streamsList,
+        facilities: Array.isArray(req.amenities) ? req.amenities : [],
+        description: serializedDesc || null,
+        city_id: (req as any).city_id || null,
+        village_id: (req as any).village_id || null,
+        district_id: (req as any).district_id || null,
+        state_id: (req as any).state_id || null,
+      });
+
+      if (schoolRes.ok === false) {
+        toast.error('Failed to create institute listing: ' + schoolRes.error);
         setActionLoadingId(null);
         return;
       }
 
+      let ownerAssigned = false;
+      const submitterUserId = (req as any).submitter_user_id as string | null | undefined;
+      if (req.meta?.is_owner && submitterUserId && schoolRes.row?.id) {
+        const { error: ownerErr } = await supabase.rpc('assign_school_owner' as any, {
+          _school_id: schoolRes.row.id,
+          _user_id: submitterUserId,
+          _role_title: 'Principal / Owner',
+        });
+        if (!ownerErr) ownerAssigned = true;
+      }
+
       await supabase.from('shop_requests').update({ status: 'approved' }).eq('id', req.id);
-      toast.success(`School "${req.name}" approved and added to directory!`);
+      toast.success(
+        ownerAssigned
+          ? `Institute "${req.name}" approved & owner portal access granted!`
+          : `Institute "${req.name}" approved and added to directory!`
+      );
       qc.invalidateQueries({ queryKey: ['admin-requests'] });
       qc.invalidateQueries({ queryKey: ['admin-requests-pending-count'] });
+      qc.invalidateQueries({ queryKey: ['admin-inbox-counts'] });
       qc.invalidateQueries({ queryKey: ['admin-schools'] });
       qc.invalidateQueries({ queryKey: ['schools'] });
+      qc.invalidateQueries({ queryKey: ['admin-stats'] });
+      qc.invalidateQueries({ queryKey: ['admin-owners-grouped'] });
+      onShopCreated();
       setViewRequest(null);
       setActionLoadingId(null);
       return;
@@ -312,15 +410,72 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
         toolbarExtras={
           <button
             onClick={() => {
-              const headers = ['Entity', 'Name', 'Phone', 'WhatsApp', 'Area', 'Address', 'Category', 'Status', 'Submitter', 'Photos Count', 'Submitted At'];
-              const rows = requests.map((req) => [
-                req.entity_type || 'shop',
-                req.name, req.phone, req.whatsapp ?? '', req.area ?? '', req.address ?? '',
-                req.category_text ?? '', req.status, req.submitter_name ?? '',
-                req.photos?.length || (req.image_url ? 1 : 0),
-                new Date(req.created_at).toLocaleDateString('en-IN'),
-              ]);
-              downloadCsv('muktainagar-requests', headers, rows);
+              const headers = [
+                'Entity',
+                'Name',
+                'Phone',
+                'WhatsApp',
+                'Town / City',
+                'Village',
+                'Area',
+                'Sub Area',
+                'Address',
+                'Category',
+                'Status',
+                'Submitter',
+                'Latitude',
+                'Longitude',
+                'Amenities',
+                'Photos URLs',
+                'Description',
+                'School Type',
+                'School Board',
+                'School Medium',
+                'Is Owner Request',
+                'Mess Type',
+                'Monthly Rate',
+                'PG Gender',
+                'Available Beds',
+                'Meta JSON',
+                'Submitted At',
+              ];
+              const rows = requests.map((req) => {
+                const photoList = req.photos && req.photos.length > 0
+                  ? req.photos
+                  : (req.image_url ? [req.image_url] : []);
+                const meta = req.meta || {};
+                const entityType = req.entity_type || 'shop';
+                return [
+                  entityType,
+                  req.name,
+                  req.phone,
+                  req.whatsapp ?? '',
+                  req.city_id ? (cityNameById.get(req.city_id) ?? '') : '',
+                  req.village_id ? (villageNameById.get(req.village_id) ?? '') : '',
+                  req.area ?? '',
+                  req.sub_area ?? '',
+                  req.address ?? '',
+                  req.category_text ?? '',
+                  req.status,
+                  req.submitter_name ?? '',
+                  req.latitude ?? '',
+                  req.longitude ?? '',
+                  Array.isArray(req.amenities) ? req.amenities.join('|') : '',
+                  photoList.join('|'),
+                  req.description ?? '',
+                  entityType === 'school' ? (meta.school_type ?? '') : '',
+                  entityType === 'school' ? (meta.board ?? '') : '',
+                  entityType === 'school' ? (meta.medium ?? '') : '',
+                  entityType === 'school' ? (meta.is_owner ? 'Yes' : 'No') : '',
+                  entityType === 'mess' ? (meta.mess_type ?? '') : '',
+                  entityType === 'mess' ? (meta.monthly_rate ?? '') : '',
+                  entityType === 'pg' ? (meta.gender ?? '') : '',
+                  entityType === 'pg' ? (meta.available_beds ?? '') : '',
+                  req.meta ? JSON.stringify(req.meta) : '',
+                  req.created_at,
+                ];
+              });
+              downloadCsv(townCsvFilename(null, 'requests'), headers, rows);
             }}
             className="flex items-center gap-2 bg-card border border-border text-foreground px-4 py-2 rounded-lg font-semibold text-sm hover:bg-muted transition-colors shrink-0"
           >
@@ -329,7 +484,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
           </button>
         }
         filters={
-          <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 w-fit">
+          <div className="flex flex-wrap items-center gap-1 bg-card border border-border rounded-lg p-1 w-fit max-w-full">
             {(['pending', 'approved', 'rejected', 'all'] as (RequestStatus | 'all')[]).map((opt) => (
               <button
                 key={opt}
@@ -359,22 +514,28 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
 
       {/* Detail Modal */}
       {viewRequest && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-4">
-          <div className="bg-card rounded-2xl border border-border w-full max-w-lg shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <div className="flex items-center gap-2">
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center overflow-y-auto overscroll-contain py-4 px-3 sm:px-4"
+          onClick={() => setViewRequest(null)}
+        >
+          <div
+            className="bg-card rounded-2xl border border-border w-full max-w-lg shadow-2xl my-4 max-h-[calc(100dvh-2rem)] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-4 border-b border-border">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
                 {entityBadge(viewRequest.entity_type)}
-                <div>
-                  <h3 className="font-bold text-lg text-foreground leading-tight">{viewRequest.name}</h3>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg text-foreground leading-tight break-words">{viewRequest.name}</h3>
                   <div className="mt-1">{statusBadge(viewRequest.status)}</div>
                 </div>
               </div>
-              <button onClick={() => setViewRequest(null)} className="p-1 hover:bg-muted rounded-lg">
+              <button onClick={() => setViewRequest(null)} aria-label="Close" className="p-1.5 hover:bg-muted rounded-lg shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-4 overflow-y-auto flex-1">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {/* Photos Gallery */}
               {viewRequest.photos && viewRequest.photos.length > 0 ? (
                 <div>
@@ -382,7 +543,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                     <ImageIcon className="w-3.5 h-3.5 text-primary" />
                     <span>Uploaded Photos ({viewRequest.photos.length})</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {viewRequest.photos.map((p, i) => (
                       <div key={i} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-muted">
                         <img src={p} alt={`Photo ${i+1}`} className="w-full h-full object-cover" />
@@ -412,7 +573,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                   <div className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1 mb-1">
                     <UtensilsCrossed className="w-3.5 h-3.5" /> Mess Profile Details
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>Type: <strong className="text-foreground">{viewRequest.meta.mess_type}</strong></div>
                     <div>Monthly Pass: <strong className="text-foreground">{viewRequest.meta.monthly_rate ? `₹${viewRequest.meta.monthly_rate}` : '—'}</strong></div>
                     <div>Single Thali: <strong className="text-foreground">{viewRequest.meta.single_thali_rate ? `₹${viewRequest.meta.single_thali_rate}` : '—'}</strong></div>
@@ -426,7 +587,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
                   <div className="font-bold text-blue-700 dark:text-blue-400 flex items-center gap-1 mb-1">
                     <BedDouble className="w-3.5 h-3.5" /> PG / Hostel Details
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>For: <strong className="text-foreground">{viewRequest.meta.gender}</strong></div>
                     <div>Vacant Beds: <strong className="text-foreground">{viewRequest.meta.available_beds || 0} / {viewRequest.meta.total_beds || 0}</strong></div>
                     <div>Deposit: <strong className="text-foreground">{viewRequest.meta.deposit_amount ? `₹${viewRequest.meta.deposit_amount}` : '—'}</strong></div>
@@ -436,14 +597,55 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
               )}
 
               {viewRequest.entity_type === 'school' && viewRequest.meta && (
-                <div className="p-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-1.5 text-xs">
-                  <div className="font-bold text-purple-700 dark:text-purple-400 flex items-center gap-1 mb-1">
-                    <GraduationCap className="w-3.5 h-3.5" /> School Details
+                <div className="p-3.5 rounded-xl border border-purple-500/20 bg-purple-500/5 space-y-2 text-xs">
+                  <div className="font-bold text-purple-700 dark:text-purple-400 flex flex-wrap items-center justify-between gap-2">
+                    <span className="flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5" /> Institute Details
+                    </span>
+                    {viewRequest.meta.is_owner && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-600/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                        Principal / Owner Portal Requested
+                      </span>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>Level: <strong className="text-foreground">{viewRequest.meta.school_type}</strong></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      Level:{' '}
+                      <strong className="text-foreground">
+                        {SCHOOL_TYPE_CONFIG[viewRequest.meta.school_type as SchoolType]?.labelEn || viewRequest.meta.school_type}
+                      </strong>
+                    </div>
                     <div>Medium: <strong className="text-foreground">{viewRequest.meta.medium}</strong></div>
                     <div>Board: <strong className="text-foreground">{viewRequest.meta.board || 'State Board'}</strong></div>
+                    <div>
+                      Management:{' '}
+                      <strong className="text-foreground">
+                        {viewRequest.meta.management_type
+                          ? MANAGEMENT_TYPE_CONFIG[viewRequest.meta.management_type as ManagementType]?.labelEn || viewRequest.meta.management_type
+                          : '—'}
+                      </strong>
+                    </div>
+                    <div>
+                      Admissions:{' '}
+                      <strong className="text-foreground">
+                        {viewRequest.meta.admission_status
+                          ? ADMISSION_STATUS_CONFIG[viewRequest.meta.admission_status as AdmissionStatus]?.labelEn || viewRequest.meta.admission_status
+                          : '—'}
+                      </strong>
+                    </div>
+                    {viewRequest.meta.email && (
+                      <div className="truncate">Email: <strong className="text-foreground">{viewRequest.meta.email}</strong></div>
+                    )}
+                    {Array.isArray(viewRequest.meta.streams) && viewRequest.meta.streams.length > 0 && (
+                      <div className="col-span-2">
+                        Streams: <strong className="text-foreground">{viewRequest.meta.streams.join(', ')}</strong>
+                      </div>
+                    )}
+                    {viewRequest.meta.website && (
+                      <div className="col-span-2 truncate">
+                        Website: <strong className="text-foreground">{viewRequest.meta.website}</strong>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -504,7 +706,7 @@ export function RequestsTab({ onShopCreated }: RequestsTabProps) {
             </div>
 
             {viewRequest.status === 'pending' && (
-              <div className="px-6 pb-6 flex gap-3 border-t border-border pt-4">
+              <div className="px-4 sm:px-6 pb-[max(1rem,env(safe-area-inset-bottom,0px))] sm:pb-6 flex flex-wrap gap-2 sm:gap-3 border-t border-border pt-4">
                 <button
                   onClick={() => handleReject(viewRequest)}
                   disabled={!!actionLoadingId}

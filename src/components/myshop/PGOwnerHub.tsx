@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useT } from '@/i18n';
+import { useCity } from '@/hooks/useCity';
 import { supabase } from '@/integrations/supabase/client';
 import { updateShopWithConcurrency } from '@/lib/shopConcurrency';
 import {
@@ -71,6 +72,7 @@ const PG_AMENITIES_OPTIONS = [
 
 export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
   const { locale } = useT();
+  const { currentCity } = useCity();
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<PGTab>('vacancies');
 
@@ -291,7 +293,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
 
   const copyPublicLink = () => {
     const slug = shop.slug || shop.id;
-    const url = `${window.location.origin}/shop/${slug}`;
+    const url = `${window.location.origin}/${currentCity.slug}/pg/${slug}`;
     navigator.clipboard.writeText(url).then(
       () => toast.success(locale === 'mr' ? 'पीजी लिंक कॉपी झाली!' : 'PG link copied!'),
       () => toast.error('Failed to copy link')
@@ -408,9 +410,9 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-2 self-stretch sm:self-auto shrink-0">
             <Link
-              to="/pg"
+              to={`/${currentCity.slug}/pg`}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-border bg-background hover:bg-muted text-foreground transition-all shadow-2xs"
@@ -437,7 +439,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('vacancies')}
           className={cn(
-            'flex-1 min-w-[125px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[125px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'vacancies'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -452,7 +454,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('rules')}
           className={cn(
-            'flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'rules'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -466,7 +468,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('amenities_photos')}
           className={cn(
-            'flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'amenities_photos'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -480,7 +482,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
           type="button"
           onClick={() => setActiveTab('preview')}
           className={cn(
-            'flex-1 min-w-[105px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
+            'shrink-0 flex-1 min-w-[105px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap',
             activeTab === 'preview'
               ? 'bg-primary text-primary-foreground shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/40'
@@ -525,31 +527,31 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
 
             {/* Mode Selector: Simple vs Advance (Room-by-Room) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2 rounded-xl bg-muted/30 border border-border">
-              <div className="flex items-center gap-1 bg-card p-1 rounded-lg border border-border shadow-2xs">
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 bg-card p-1 rounded-lg border border-border shadow-2xs">
                 <button
                   type="button"
                   onClick={() => setVacancyMode('simple')}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+                    'flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
                     vacancyMode === 'simple'
                       ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <List className="w-3.5 h-3.5" />
+                  <List className="w-3.5 h-3.5 shrink-0" />
                   <span>{locale === 'mr' ? '⚡ सोपी पद्धत (एकूण बेड)' : '⚡ Simple (Total Beds)'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setVacancyMode('advance')}
                   className={cn(
-                    'px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
+                    'flex-1 sm:flex-initial justify-center px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all',
                     vacancyMode === 'advance'
                       ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Layers className="w-3.5 h-3.5" />
+                  <Layers className="w-3.5 h-3.5 shrink-0" />
                   <span>{locale === 'mr' ? '🏢 प्रगत पद्धत (खोल्यांनुसार)' : '🏢 Advance (Room-by-Room)'}</span>
                 </button>
               </div>
@@ -597,8 +599,8 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
                 </div>
 
                 {/* 1-Tap Quick Actions */}
-                <div className="flex items-center gap-2 pt-2 border-t border-border/60">
-                  <span className="text-xs font-semibold text-muted-foreground">{locale === 'mr' ? 'एका क्लिकवर बदला:' : '1-Tap Status:'}</span>
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/60">
+                  <span className="w-full sm:w-auto text-xs font-semibold text-muted-foreground">{locale === 'mr' ? 'एका क्लिकवर बदला:' : '1-Tap Status:'}</span>
                   <button
                     type="button"
                     onClick={handleMarkFull}
@@ -618,8 +620,8 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
             ) : (
               /* Advance Mode: Room-by-Room Breakdown */
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <h4 className="text-xs font-bold text-foreground">
                       {locale === 'mr' ? 'खोलीनिहाय बेड व्यवस्थापन' : 'Individual Rooms List'}
                     </h4>
@@ -655,19 +657,19 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
                   <div className="divide-y divide-border rounded-xl border border-border bg-card overflow-hidden">
                     {rooms.map((room, idx) => (
                       <div key={room.id} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-mono font-bold text-muted-foreground w-5">{idx + 1}.</span>
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
+                          <span className="text-xs font-mono font-bold text-muted-foreground w-5 shrink-0">{idx + 1}.</span>
                           <input
                             type="text"
                             value={room.room_number}
                             onChange={(e) => handleUpdateRoom(room.id, 'room_number', e.target.value)}
                             placeholder="Room Number"
-                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-input bg-background w-32 focus:outline-none focus:ring-1 focus:ring-primary"
+                            className="px-2.5 py-1 text-xs font-bold rounded-lg border border-input bg-background min-w-0 flex-1 sm:w-32 sm:flex-none focus:outline-none focus:ring-1 focus:ring-primary"
                           />
                           <select
                             value={room.sharing_type || '2_sharing'}
                             onChange={(e) => handleUpdateRoom(room.id, 'sharing_type', e.target.value)}
-                            className="px-2 py-1 text-xs rounded-lg border border-input bg-background text-foreground"
+                            className="px-2 py-1 text-xs rounded-lg border border-input bg-background text-foreground max-w-full min-w-0"
                           >
                             <option value="1_sharing">Single (1)</option>
                             <option value="2_sharing">Double (2)</option>
@@ -747,7 +749,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
               <label className="text-xs font-bold text-foreground block">
                 💵 {locale === 'mr' ? 'खोली शेअरिंगनुसार मासिक भाडे (₹ / महिना)' : 'Room Sharing Rates (₹ / Month per Bed)'}
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                 <div className="p-2.5 rounded-xl border border-border bg-card">
                   <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Single (1-Sharing)</span>
                   <div className="relative">
@@ -852,7 +854,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
               <label className="text-xs font-bold text-foreground block">
                 {locale === 'mr' ? 'हॉस्टेल प्रकार (Gender Eligibility)' : 'Gender Category'}
               </label>
-              <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => setGender('boys')}
@@ -902,7 +904,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
               <label className="text-xs font-bold text-foreground block">
                 {locale === 'mr' ? 'प्राधान्य (Target Residents)' : 'Preferred Occupants'}
               </label>
-              <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
                   onClick={() => setOccupancyTarget('students')}
@@ -972,10 +974,10 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
             </div>
 
             {/* Food Included Toggle */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 border border-border">
-              <div className="text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-border">
+              <div className="text-xs min-w-0 flex-1">
                 <p className="font-bold text-foreground flex items-center gap-1.5">
-                  <Utensils className="w-4 h-4 text-emerald-600" />
+                  <Utensils className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>{locale === 'mr' ? 'जेवण / मेस भाड्यात समाविष्ट आहे का?' : 'Food / Mess Included in Rent?'}</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -986,7 +988,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
                 type="button"
                 onClick={() => setFoodIncluded(!foodIncluded)}
                 className={cn(
-                  'px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs',
+                  'shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs',
                   foodIncluded
                     ? 'bg-emerald-600 text-white'
                     : 'bg-muted text-muted-foreground border border-border'
@@ -1062,12 +1064,11 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
                 📸 {locale === 'mr' ? 'खोल्या आणि परिसराचे फोटो (Hostel Photos)' : 'Hostel & Room Photos'}
               </label>
               <MultiImageCropPicker
-                images={photos}
-                onImagesChange={setPhotos}
-                onUploadImage={handleUploadPhoto}
-                maxImages={6}
-                aspectRatio={16 / 9}
-                entityName={shop.name || 'pg'}
+                photos={photos}
+                onChange={setPhotos}
+                onUploadFile={handleUploadPhoto}
+                maxPhotos={6}
+                uploading={uploading}
               />
             </div>
 
@@ -1088,14 +1089,14 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
         {/* TAB 4: CUSTOMER VIEW PREVIEW */}
         {activeTab === 'preview' && (
           <div className="space-y-4">
-            <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground min-w-0 flex-1">
                 {locale === 'mr'
                   ? 'खालील कार्ड तुमच्या विद्यार्थ्यांना "पीजी व वसतिगृह" पानावर असे दिसेल:'
                   : 'This is how your PG listing appears to students on the PG Directory:'}
               </p>
               <Link
-                to={`/shop/${shop.slug || shop.id}`}
+                to={`/${currentCity.slug}/pg/${shop.slug || shop.id}`}
                 target="_blank"
                 className="text-xs font-bold text-primary hover:underline flex items-center gap-1 shrink-0"
               >
@@ -1110,7 +1111,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
                 <div className="relative h-44 w-full overflow-hidden bg-muted">
                   <img src={photos[0]} alt={displayName} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent pointer-events-none" />
-                  <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white">
+                  <div className="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-1.5 text-white">
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs border border-white/20">
                       {gender === 'girls' ? '👧 Girls PG' : gender === 'boys' ? '👦 Boys PG' : '👫 Co-ed / Separate'}
                     </span>
@@ -1184,7 +1185,7 @@ export function PGOwnerHub({ shop, onSaved }: PGOwnerHubProps) {
               </div>
 
               {/* Inquiry Action Bar */}
-              <div className="p-3 bg-muted/20 flex items-center justify-between gap-2">
+              <div className="p-3 bg-muted/20 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold text-foreground">
                   {availableBeds > 0 ? (
                     <span className="text-emerald-600">● {locale === 'mr' ? 'प्रवेश सुरू' : 'Admissions Open'}</span>

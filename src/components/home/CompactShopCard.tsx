@@ -53,9 +53,17 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
   const primaryCatName = allCats[0]?.name as string | undefined;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => navigate(shopPath)}
-      className="flex flex-col bg-card rounded-xl border border-border hover:border-primary/60 shadow-sm hover:shadow-lg transition-all duration-200 active:scale-[0.97] w-[185px] h-[260px] shrink-0 text-left overflow-hidden group"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate(shopPath);
+        }
+      }}
+      className="flex flex-col bg-card rounded-xl border border-border hover:border-primary/60 shadow-sm hover:shadow-lg transition-all duration-200 active:scale-[0.97] w-[185px] min-h-[260px] shrink-0 text-left overflow-hidden group cursor-pointer"
     >
       {shop.image_url && !imgError ? (
         <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
@@ -135,10 +143,11 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
             <a
               href={`tel:${shop.phone}`}
               onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
-              className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
               style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             >
-              <Phone className="w-3 h-3" /> Call
+              <Phone className="w-3 h-3 shrink-0" />
+              <span className="truncate">Call</span>
             </a>
           )}
           {(shop.whatsapp || shop.phone) && (
@@ -147,15 +156,16 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => { e.stopPropagation(); logEngagement('whatsapp'); }}
-              className="flex-1 inline-flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
+              className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
               style={{ background: 'hsl(var(--whatsapp-soft))', color: 'hsl(var(--whatsapp))' }}
             >
-              <MessageCircle className="w-3 h-3" /> WhatsApp
+              <MessageCircle className="w-3 h-3 shrink-0" />
+              <span className="truncate">WhatsApp</span>
             </a>
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

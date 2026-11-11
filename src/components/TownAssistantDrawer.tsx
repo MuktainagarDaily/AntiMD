@@ -4,13 +4,17 @@ import {
   BedDouble,
   Bus,
   ChevronRight,
+  ExternalLink,
   GraduationCap,
   Loader2,
   MapPin,
   Mic,
   MicOff,
+  Newspaper,
+  Phone,
   RotateCcw,
   Send,
+  ShieldAlert,
   Sparkles,
   Store,
   Utensils,
@@ -30,6 +34,7 @@ import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { useT } from '@/i18n';
 import {
   askTownAssistant,
+  resolveRecommendationEntityType,
   type AssistantRecommendation,
   type AssistantResponsePayload,
   type EntityType,
@@ -74,6 +79,10 @@ function getEntityIcon(entityType: EntityType) {
       return Bus;
     case 'school':
       return GraduationCap;
+    case 'news':
+      return Newspaper;
+    case 'service':
+      return ShieldAlert;
     case 'shop':
     default:
       return Store;
@@ -94,7 +103,8 @@ export function TownAssistantDrawer() {
   const [isListening, setIsListening] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const msgCounterRef = useRef(0);
 
   const { ref: swipeRef } = useSwipeDownToClose({
     isOpen,
@@ -102,7 +112,16 @@ export function TownAssistantDrawer() {
   });
 
   const hiddenRoute = /^\/(admin|auth|reset-password|oauth)(\/|$)/i.test(location.pathname);
-  const isDetailRoute = /\/(shop|mess|pg)\/[^/]+/i.test(location.pathname);
+  const isShopsRoute = /\/shops(\/|$)/i.test(location.pathname);
+  const isDetailRoute =
+    /\/(shop|mess|pg|schools)\/[^/]+/i.test(location.pathname) ||
+    /\/(saved-shops|my-shop|my-institute)(\/|$)/i.test(location.pathname);
+
+  const fabPositionClass = isDetailRoute
+    ? 'bottom-24 right-4'
+    : isShopsRoute
+      ? 'bottom-20 right-4 sm:right-6 lg:right-10'
+      : 'bottom-5 right-4';
 
   const locationLabel = useMemo(() => {
     const cityLabel = isMr && currentCity.name_mr ? currentCity.name_mr : currentCity.name;
@@ -122,12 +141,18 @@ export function TownAssistantDrawer() {
             'आज मेसमध्ये स्पेशल काय आहे?',
             'पुढची बस कधी आहे?',
             'मुलांचे/मुलींचे PG उपलब्ध आहे का?',
+            'आजच्या ताज्या बातम्या',
+            'प्रवेश सुरू असलेली कॉलेजेस?',
+            'वीज / पाणी बंद सूचना व हेल्पलाईन',
           ]
         : [
             'Affordable meals near me',
             "What's special cooked today?",
             'Next bus departing soon',
             'Boys/Girls PG availability',
+            "Today's local news",
+            'College admissions open?',
+            'Power / water helpline',
           ],
     [isMr],
   );
@@ -140,11 +165,27 @@ export function TownAssistantDrawer() {
     setInput('');
   }, [currentCity.id, currentVillage?.id]);
 
-  // Auto-scroll to latest message
+  // Auto-scroll only the internal message container so Vaul's fixed drawer never shifts
   useEffect(() => {
-    if (isOpen && typeof messagesEndRef.current?.scrollIntoView === 'function') {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (!isOpen) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight;
+    };
+
+    scrollToBottom();
+    const rafId =
+      typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame(scrollToBottom)
+        : 0;
+
+    return () => {
+      if (rafId && typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(rafId);
+      }
+    };
   }, [messages, isLoading, isOpen]);
 
   // Stop speech recognition if drawer closes or unmounts
@@ -179,8 +220,9 @@ export function TownAssistantDrawer() {
     const query = rawText.trim();
     if (!query || isLoading) return;
 
+    msgCounterRef.current += 1;
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${Date.now()}-${msgCounterRef.current}`,
       role: 'user',
       text: query,
     };
@@ -195,19 +237,26 @@ export function TownAssistantDrawer() {
         cityId: currentCity.id,
         citySlug: currentCity.slug,
         villageId: currentVillage?.id || null,
+        villageName: currentVillage?.name || null,
         locationLabel,
+        history: messages.slice(-6).map((m) => ({
+          role: m.role,
+          text: m.text,
+        })),
       });
 
+      msgCounterRef.current += 1;
       const assistantMsg: ChatMessage = {
-        id: `assistant-${Date.now()}`,
+        id: `assistant-${Date.now()}-${msgCounterRef.current}`,
         role: 'assistant',
         text: payload.replyText,
         payload,
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
+      msgCounterRef.current += 1;
       const errorMsg: ChatMessage = {
-        id: `assistant-err-${Date.now()}`,
+        id: `assistant-err-${Date.now()}-${msgCounterRef.current}`,
         role: 'assistant',
         text: isMr
           ? 'माफ करा, माहिती शोधताना अडचण आली. कृपया पुन्हा प्रयत्न करा.'
@@ -225,10 +274,11 @@ export function TownAssistantDrawer() {
   };
 
   const handleRecommendationClick = (rec: AssistantRecommendation) => {
+    const effectiveEntityType = resolveRecommendationEntityType(rec);
     const slugOrId = rec.slug || rec.id;
     let targetPath = `/${currentCity.slug}`;
 
-    switch (rec.entityType) {
+    switch (effectiveEntityType) {
       case 'mess':
         targetPath = `/${currentCity.slug}/mess/${slugOrId}`;
         break;
@@ -242,7 +292,15 @@ export function TownAssistantDrawer() {
         targetPath = `/${currentCity.slug}/bus-timetable`;
         break;
       case 'school':
-        targetPath = `/${currentCity.slug}/schools`;
+        targetPath = slugOrId
+          ? `/${currentCity.slug}/schools/${slugOrId}`
+          : `/${currentCity.slug}/schools`;
+        break;
+      case 'news':
+        targetPath = `/${currentCity.slug}/news`;
+        break;
+      case 'service':
+        targetPath = `/${currentCity.slug}/services`;
         break;
     }
 
@@ -304,11 +362,9 @@ export function TownAssistantDrawer() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        aria-label={isMr ? 'आपला स्थानिक सहाय्यक उघडा' : 'Open ApnaLocal Sahayak'}
+        aria-label={isMr ? 'आपला स्थानिक सहाय्यक उघडा' : 'Open ApnaTown Sahayak'}
         data-testid="town-assistant-fab"
-        className={`fixed ${
-          isDetailRoute ? 'bottom-24' : 'bottom-5'
-        } right-4 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg ring-2 ring-background/80 transition-transform hover:scale-105 active:scale-95`}
+        className={`fixed ${fabPositionClass} z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg ring-2 ring-background/80 transition-transform hover:scale-105 active:scale-95`}
       >
         <Sparkles className="h-5 w-5 shrink-0" />
         <span className="text-sm font-semibold tracking-tight">
@@ -316,29 +372,29 @@ export function TownAssistantDrawer() {
         </span>
       </button>
 
-      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+      <Drawer open={isOpen} onOpenChange={setIsOpen} repositionInputs={false}>
         <DrawerContent
           ref={swipeRef}
-          className="mx-auto flex max-h-[85vh] max-w-2xl flex-col overflow-hidden"
+          className="mt-0 mx-auto flex h-[78vh] supports-[height:78dvh]:h-[78dvh] max-h-[85vh] supports-[height:85dvh]:max-h-[85dvh] w-full max-w-2xl flex-col overflow-hidden"
         >
-          <DrawerHeader className="border-b px-4 pb-3 pt-2 text-left">
+          <DrawerHeader className="shrink-0 border-b px-4 pb-3 pt-2 text-left">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Sparkles className="h-4 w-4" />
                 </div>
-                <div>
-                  <DrawerTitle className="text-base font-bold">
-                    {isMr ? 'अपनालोकल सहाय्यक' : 'ApnaLocal Sahayak'}
+                <div className="min-w-0">
+                  <DrawerTitle className="text-base font-bold truncate">
+                    {isMr ? 'अपनाटाऊन सहाय्यक' : 'ApnaTown Sahayak'}
                   </DrawerTitle>
-                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3 text-primary" />
-                    <span data-testid="assistant-location-badge">{locationLabel}</span>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                    <MapPin className="h-3 w-3 text-primary shrink-0" />
+                    <span data-testid="assistant-location-badge" className="truncate">{locationLabel}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 {messages.length > 0 && (
                   <Button
                     type="button"
@@ -365,12 +421,17 @@ export function TownAssistantDrawer() {
             </div>
             <DrawerDescription className="sr-only">
               {isMr
-                ? 'तुमच्या शहरातील मेस, जेवण, पीजी, बस आणि दुकाने शोधण्यासाठी सहाय्यक'
-                : 'Hyper-local assistant to search affordable meals, daily specials, PGs, buses, and shops in your town'}
+                ? 'तुमच्या शहरातील मेस, जेवण, पीजी, बस, शाळा-कॉलेज, ताज्या बातम्या, नागरी सेवा आणि दुकाने शोधण्यासाठी सहाय्यक'
+                : 'Hyper-local assistant to search affordable meals, daily specials, PGs, buses, colleges, local news, civic alerts, and shops in your town'}
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <div
+            ref={scrollContainerRef}
+            data-vaul-no-drag=""
+            data-testid="assistant-messages-scroll"
+            className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4"
+          >
             {messages.length === 0 ? (
               <div className="space-y-4">
                 <div className="rounded-xl border bg-muted/40 p-3.5 text-sm text-foreground">
@@ -381,8 +442,8 @@ export function TownAssistantDrawer() {
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {isMr
-                      ? 'स्वस्त जेवण, आजचा मेस स्पेशल मेनू, बस वेळ, पीजी किंवा दुकाने एका टॅपवर शोधा.'
-                      : 'Find affordable meals, today’s mess specials, PGs, bus timings, schools, or local shops.'}
+                      ? 'स्वस्त जेवण, मेस स्पेशल मेनू, बस वेळ, पीजी, शाळा-कॉलेज प्रवेश, ताज्या बातम्या व वीज/पाणी हेल्पलाईन एका टॅपवर शोधा.'
+                      : 'Find meals, daily mess specials, PGs, buses, college admissions, local news, or water/power helplines.'}
                   </p>
                 </div>
 
@@ -440,34 +501,77 @@ export function TownAssistantDrawer() {
                       msg.payload.recommendations.length > 0 && (
                         <div className="mt-2.5 grid w-full gap-2">
                           {msg.payload.recommendations.map((rec) => {
-                            const Icon = getEntityIcon(rec.entityType);
+                            const effectiveEntityType = resolveRecommendationEntityType(rec);
+                            const Icon = getEntityIcon(effectiveEntityType);
+                            const safePhone =
+                              rec.phone && /^[+\d][\d\s-]{2,18}$/.test(rec.phone.trim())
+                                ? rec.phone.trim().replace(/\s+/g, '')
+                                : null;
+                            const safeExternal =
+                              rec.externalUrl && /^https?:\/\//i.test(rec.externalUrl)
+                                ? rec.externalUrl
+                                : null;
+                            const isUrgent =
+                              rec.priority === 'critical' || rec.priority === 'high';
                             return (
-                              <button
-                                key={`${rec.entityType}-${rec.id}`}
-                                type="button"
-                                onClick={() => handleRecommendationClick(rec)}
-                                className="flex w-full items-start justify-between gap-3 rounded-xl border bg-card p-3 text-left shadow-sm transition-all hover:border-primary/60 hover:bg-accent/30"
+                              <div
+                                key={`${effectiveEntityType}-${rec.id}`}
+                                className={`flex w-full items-stretch overflow-hidden rounded-xl border bg-card shadow-sm transition-all ${
+                                  isUrgent ? 'border-rose-500/40' : ''
+                                }`}
                               >
-                                <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                    <Icon className="h-4 w-4" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                      <span className="truncate text-sm font-semibold text-foreground">
-                                        {rec.title}
-                                      </span>
-                                      <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {rec.highlightBadge}
-                                      </Badge>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRecommendationClick(rec)}
+                                  className="flex min-w-0 flex-1 items-start justify-between gap-2 p-3 text-left transition-colors hover:bg-accent/30"
+                                >
+                                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                                    <div
+                                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                                        isUrgent
+                                          ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                          : 'bg-primary/10 text-primary'
+                                      }`}
+                                    >
+                                      <Icon className="h-4 w-4" />
                                     </div>
-                                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                                      {rec.reason}
-                                    </p>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="truncate text-sm font-semibold text-foreground">
+                                          {rec.title}
+                                        </span>
+                                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                                          {rec.highlightBadge}
+                                        </Badge>
+                                      </div>
+                                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                        {rec.reason}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
-                              </button>
+                                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                                </button>
+                                {safePhone && (
+                                  <a
+                                    href={`tel:${safePhone}`}
+                                    aria-label={isMr ? `${rec.title} ला कॉल करा` : `Call ${rec.title}`}
+                                    className="flex shrink-0 items-center justify-center border-l px-2.5 text-primary transition-colors hover:bg-primary/10"
+                                  >
+                                    <Phone className="h-4 w-4" />
+                                  </a>
+                                )}
+                                {!safePhone && effectiveEntityType === 'news' && safeExternal && (
+                                  <a
+                                    href={safeExternal}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    aria-label={isMr ? 'मूळ बातमी वाचा' : `Read source for ${rec.title}`}
+                                    className="flex shrink-0 items-center justify-center border-l px-2.5 text-primary transition-colors hover:bg-primary/10"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -498,12 +602,12 @@ export function TownAssistantDrawer() {
                 )}
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           <form
             onSubmit={handleFormSubmit}
-            className="flex items-center gap-2 border-t bg-background px-4 py-3"
+            data-vaul-no-drag=""
+            className="flex shrink-0 items-center gap-2 border-t bg-background px-3 sm:px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
           >
             <input
               type="text"
@@ -515,7 +619,7 @@ export function TownAssistantDrawer() {
                   : `Ask about meals, buses, PGs in ${locationLabel}...`
               }
               aria-label={isMr ? 'तुमचा प्रश्न टाइप करा' : 'Ask a question'}
-              className="flex-1 rounded-full border bg-muted/40 px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              className="min-w-0 flex-1 rounded-full border bg-muted/40 px-3.5 sm:px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
             />
             {speechSupported && (
               <Button

@@ -105,7 +105,7 @@ describe('PG Owner Features & Logic', () => {
     it('gracefully handles missing rates', () => {
       const msg = formatPGWhatsAppBroadcast({
         shopName: 'Shree PG',
-        gender: 'coed',
+        gender: 'both',
         availableBeds: 0,
         rates: {},
         isMr: true,

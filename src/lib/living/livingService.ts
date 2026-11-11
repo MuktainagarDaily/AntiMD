@@ -29,7 +29,7 @@ export async function fetchMessBySlugOrId(
 
   try {
     const isUuid = UUID_RE.test(slugOrId);
-    let q = supabase.from('shops').select('*').eq('is_active', true);
+    let q = (supabase as any).from('shops').select('*').eq('is_active', true);
     if (isUuid) {
       q = q.or(`id.eq.${slugOrId},slug.eq.${slugOrId}`);
     } else {
@@ -85,27 +85,29 @@ export async function fetchMessBySlugOrId(
       };
 
       return {
-        ...shop,
+        ...(shop as any),
         mess_profile: resolvedProfile,
         menu_items: menuItems,
         today_menu: todayMenu,
         latest_menu: latestMenu,
-      };
+      } as MessWithDetails;
     }
   } catch (err) {
-    console.warn('[fetchMessBySlugOrId] Query error, falling back to demo data:', err);
+    console.warn('[fetchMessBySlugOrId] Query error:', err);
   }
 
-  // Fallback to demo messes
-  const demoMatch = DEMO_MESSES.find(
-    (m) => m.slug === slugOrId || m.id === slugOrId
-  );
-  return demoMatch || null;
+  if (import.meta.env.DEV) {
+    const demoMatch = DEMO_MESSES.find(
+      (m) => m.slug === slugOrId || m.id === slugOrId
+    );
+    if (demoMatch) return demoMatch;
+  }
+
+  return null;
 }
 
 /**
  * Fetch a single Paying Guest or Hostel by its slug or UUID.
- * Checks the Supabase database first and falls back to rich demo data.
  */
 export async function fetchPGBySlugOrId(
   slugOrId: string,
@@ -115,7 +117,7 @@ export async function fetchPGBySlugOrId(
 
   try {
     const isUuid = UUID_RE.test(slugOrId);
-    let q = supabase.from('shops').select('*').eq('is_active', true);
+    let q = (supabase as any).from('shops').select('*').eq('is_active', true);
     if (isUuid) {
       q = q.or(`id.eq.${slugOrId},slug.eq.${slugOrId}`);
     } else {
@@ -135,19 +137,22 @@ export async function fetchPGBySlugOrId(
         .maybeSingle();
 
       return {
-        ...shop,
+        ...(shop as any),
         pg_profile: (profile as PGProfile) || null,
-      };
+      } as PGWithDetails;
     }
   } catch (err) {
-    console.warn('[fetchPGBySlugOrId] Query error, falling back to demo data:', err);
+    console.warn('[fetchPGBySlugOrId] Query error:', err);
   }
 
-  // Fallback to demo PGs
-  const demoMatch = DEMO_PGS.find(
-    (p) => p.slug === slugOrId || p.id === slugOrId
-  );
-  return demoMatch || null;
+  if (import.meta.env.DEV) {
+    const demoMatch = DEMO_PGS.find(
+      (p) => p.slug === slugOrId || p.id === slugOrId
+    );
+    if (demoMatch) return demoMatch;
+  }
+
+  return null;
 }
 
 /**
@@ -169,7 +174,7 @@ export async function fetchMessesForCity(
     const foodCatIds = (catData || []).map((c: any) => c.id);
 
     // 2. Fetch shops in this location using all columns (including updated_at, photos, etc.)
-    let query = supabase
+    let query = (supabase as any)
       .from('shops')
       .select('*')
       .eq('is_active', true)
@@ -181,8 +186,7 @@ export async function fetchMessesForCity(
 
     const { data: shops, error: shopsErr } = await query;
     if (shopsErr || !shops || shops.length === 0) {
-      // Fallback to rich demo data for seamless presentation
-      return DEMO_MESSES.filter((m) => !cityId || m.city_id === cityId || m.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+      return [];
     }
 
     const shopIds = shops.map((s: any) => s.id);
@@ -231,8 +235,7 @@ export async function fetchMessesForCity(
 
     const targetShops = shops.filter((s: any) => messShopIds.has(s.id));
     if (targetShops.length === 0) {
-      // Fallback to rich demo data
-      return DEMO_MESSES.filter((m) => !cityId || m.city_id === cityId || m.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+      return [];
     }
 
     // 4. Fetch daily menus for these messes
@@ -290,8 +293,8 @@ export async function fetchMessesForCity(
       };
     });
   } catch (err) {
-    console.warn('Error fetching messes, returning demo fallbacks:', err);
-    return DEMO_MESSES.filter((m) => !cityId || m.city_id === cityId || m.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+    console.warn('Error fetching messes:', err);
+    return [];
   }
 }
 
@@ -311,7 +314,7 @@ export async function fetchPGsForCity(
 
     const pgCatId = catData?.id;
 
-    let query = supabase
+    let query = (supabase as any)
       .from('shops')
       .select('*')
       .eq('is_active', true)
@@ -323,7 +326,7 @@ export async function fetchPGsForCity(
 
     const { data: shops, error: shopsErr } = await query;
     if (shopsErr || !shops || shops.length === 0) {
-      return DEMO_PGS.filter((p) => !cityId || p.city_id === cityId || p.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+      return [];
     }
 
     const shopIds = shops.map((s: any) => s.id);
@@ -361,7 +364,7 @@ export async function fetchPGsForCity(
 
     const targetShops = shops.filter((s: any) => pgShopIds.has(s.id));
     if (targetShops.length === 0) {
-      return DEMO_PGS.filter((p) => !cityId || p.city_id === cityId || p.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+      return [];
     }
 
     const profileMap = new Map<string, PGProfile>();
@@ -372,8 +375,8 @@ export async function fetchPGsForCity(
       pg_profile: profileMap.get(shop.id) || null,
     }));
   } catch (err) {
-    console.warn('Error fetching PGs, returning demo fallbacks:', err);
-    return DEMO_PGS.filter((p) => !cityId || p.city_id === cityId || p.city_id === '644b68eb-472c-40d3-9f83-c7d26e121498');
+    console.warn('Error fetching PGs:', err);
+    return [];
   }
 }
 

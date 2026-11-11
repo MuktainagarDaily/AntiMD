@@ -14,8 +14,8 @@ interface Props {
 export function RatingBreakdown({ average, count, distribution, className = '' }: Props) {
   const max = Math.max(1, ...distribution);
   return (
-    <div className={`flex gap-5 items-center ${className}`}>
-      <div className="flex flex-col items-center shrink-0 min-w-[88px]">
+    <div className={`flex gap-3 sm:gap-5 items-center ${className}`}>
+      <div className="flex flex-col items-center shrink-0 min-w-[76px] sm:min-w-[88px]">
         <div className="text-4xl font-extrabold text-foreground leading-none tabular-nums">
           {average.toFixed(1)}
         </div>

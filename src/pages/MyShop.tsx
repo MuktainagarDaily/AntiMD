@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { PageSeo } from '@/components/seo/PageSeo';
 
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Store, ArrowLeft, Loader2, Phone, MessageCircle, Save, ChevronDown, ShieldCheck, Power, Inbox, PlusCircle, Clock, CheckCircle2, XCircle, CloudOff, RefreshCw, CheckCircle, CloudUpload, Eye, ImageIcon, Trash2, Link2, ExternalLink, MapPin } from 'lucide-react';
+import { Store, GraduationCap, ArrowLeft, Loader2, Phone, MessageCircle, Save, ChevronDown, ShieldCheck, Power, Inbox, PlusCircle, Clock, CheckCircle2, XCircle, CloudOff, RefreshCw, CheckCircle, CloudUpload, Eye, ImageIcon, Trash2, Link2, ExternalLink, MapPin } from 'lucide-react';
+import { schoolsRepo, type SchoolOwnerRecord, type SchoolRow } from '@/lib/repos/schoolsRepo';
+import { SchoolOwnerHub } from '@/components/myshop/SchoolOwnerHub';
 import { toast } from 'sonner';
 import { TimePickerField } from '@/components/shared/TimePickerField';
 import { ClaimedBadge } from '@/components/shared/ClaimedBadge';
@@ -17,6 +19,7 @@ import { uploadShopImage, removeShopImageQuiet } from '@/lib/storageNaming';
 import { extractStoragePath } from '@/components/admin/adminHelpers';
 import { isValidIndianPhone } from '@/lib/utils';
 import { updateShopWithConcurrency, pickOwnerEditable } from '@/lib/shopConcurrency';
+import { getEntityDetailPath } from '@/lib/shopUtils';
 import { useRealtimeChannel } from '@/hooks/useRealtime';
 import { AmenitiesPicker, parseAmenities } from '@/components/shared/AmenitiesPicker';
 import { LocationMapPicker, MUKTAINAGAR_CENTER } from '@/components/shared/LocationMapPicker';
@@ -34,9 +37,12 @@ export default function MyShop() {
   const { user, isShopkeeper, isAdmin, loading } = useAuth();
   const { currentCity, townBrand } = useCity();
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const { t } = useT();
+  const { t, locale } = useT();
+  const isMr = locale === 'mr';
+  const isInstituteRoute = location.pathname === '/my-institute';
 
   // Load shops the user owns
   const { data: ownedShops, isLoading } = useQuery({
@@ -50,6 +56,13 @@ export default function MyShop() {
       if (error) throw error;
       return (data || []).map((r: any) => r.shops).filter(Boolean);
     },
+  });
+
+  // Load educational institutes the user owns
+  const { data: ownedSchools = [], isLoading: schoolsLoading } = useQuery<SchoolOwnerRecord[]>({
+    queryKey: ['my-schools-owned', user?.id],
+    enabled: !!user,
+    queryFn: () => schoolsRepo.listByOwner(user!.id),
   });
 
   // Load this user's submitted listing requests (any status)
@@ -67,8 +80,84 @@ export default function MyShop() {
     },
   });
 
-  const selectedId = params.get('id') || ownedShops?.[0]?.id || null;
-  const shop = useMemo(() => ownedShops?.find((s: any) => s.id === selectedId), [ownedShops, selectedId]);
+  const paramType = params.get('type');
+  const paramId = params.get('id');
+
+  const { activeKind, activeId, shop, schoolRec } = useMemo(() => {
+    const shops = ownedShops || [];
+    const schools = ownedSchools || [];
+
+    if (paramId) {
+      if (paramType === 'school') {
+        const matchSchool = schools.find((r) => r.school_id === paramId || r.school?.id === paramId);
+        if (matchSchool) {
+          return {
+            activeKind: 'school' as const,
+            activeId: matchSchool.school_id,
+            shop: undefined,
+            schoolRec: matchSchool,
+          };
+        }
+      }
+      const matchShop = shops.find((s: any) => s.id === paramId);
+      if (matchShop && paramType !== 'school') {
+        return {
+          activeKind: 'shop' as const,
+          activeId: matchShop.id as string,
+          shop: matchShop,
+          schoolRec: undefined,
+        };
+      }
+      const fallbackSchool = schools.find((r) => r.school_id === paramId || r.school?.id === paramId);
+      if (fallbackSchool) {
+        return {
+          activeKind: 'school' as const,
+          activeId: fallbackSchool.school_id,
+          shop: undefined,
+          schoolRec: fallbackSchool,
+        };
+      }
+    }
+
+    if (paramType === 'school' || (isInstituteRoute && paramType !== 'shop')) {
+      if (schools.length > 0) {
+        return {
+          activeKind: 'school' as const,
+          activeId: schools[0].school_id,
+          shop: undefined,
+          schoolRec: schools[0],
+        };
+      }
+    }
+
+    if (shops.length > 0 && paramType !== 'school') {
+      return {
+        activeKind: 'shop' as const,
+        activeId: shops[0].id as string,
+        shop: shops[0],
+        schoolRec: undefined,
+      };
+    }
+
+    if (schools.length > 0) {
+      return {
+        activeKind: 'school' as const,
+        activeId: schools[0].school_id,
+        shop: undefined,
+        schoolRec: schools[0],
+      };
+    }
+
+    return {
+      activeKind: 'shop' as const,
+      activeId: null as string | null,
+      shop: undefined,
+      schoolRec: undefined,
+    };
+  }, [ownedShops, ownedSchools, paramType, paramId, isInstituteRoute]);
+
+  const selectedShopId = activeKind === 'shop' ? activeId : null;
+  const selectedSchoolId = activeKind === 'school' ? activeId : null;
 
   const isMessShop = useMemo(() => {
     if (!shop) return false;
@@ -104,27 +193,81 @@ export default function MyShop() {
     );
   }, [shop]);
 
-  // MPULSE Phase 2 #10 — collapse all three postgres_changes subscriptions
-  // (shops UPDATE, shop_requests INSERT/UPDATE, shop_owners INSERT/DELETE)
-  // onto ONE multiplexed channel per user. Cuts realtime socket cost 3× on
-  // this page and removes the ordering ambiguity of three separate channel
-  // lifecycles fighting during route changes.
-  //
-  // Sentinel note: shop_owners still requires REPLICA IDENTITY FULL for the
-  // ownership-revoke toast filter to see `user_id`. Payload shape is unchanged.
+  const hasUnsavedEditsRef = useRef(false);
+
+  // MPULSE Phase 2 #10 — collapse postgres_changes subscriptions onto ONE
+  // multiplexed channel per user (covering both shops and educational institutes).
   useRealtimeChannel(
-    `my-shop-multiplex-${user?.id}-${selectedId ?? 'none'}`,
+    `my-shop-multiplex-${user?.id}-${activeKind}-${activeId ?? 'none'}`,
     user?.id
       ? [
           {
             table: 'shops',
             event: 'UPDATE',
-            filter: selectedId ? `id=eq.${selectedId}` : undefined,
+            filter: selectedShopId ? `id=eq.${selectedShopId}` : undefined,
             onChange: (payload) => {
               const fresh = (payload as any).new;
               if (!fresh || !user?.id) return;
+              if (hasUnsavedEditsRef.current && shop?.id === fresh.id) {
+                toast.warning(
+                  isMr
+                    ? 'तुमचे बदल सेव्ह केलेले नाहीत — बाहेरून अद्यतन झाले आहे.'
+                    : 'This shop was updated externally while you have unsaved edits.',
+                  {
+                    action: {
+                      label: isMr ? 'नवीन लोड करा' : 'Reload Latest',
+                      onClick: () => {
+                        hasUnsavedEditsRef.current = false;
+                        qc.setQueryData(['my-shops', user.id], (old: any[] | undefined) =>
+                          old ? old.map((s) => (s.id === fresh.id ? { ...s, ...fresh } : s)) : old
+                        );
+                      },
+                    },
+                    duration: 8000,
+                  }
+                );
+                return;
+              }
               qc.setQueryData(['my-shops', user.id], (old: any[] | undefined) =>
                 old ? old.map((s) => (s.id === fresh.id ? { ...s, ...fresh } : s)) : old
+              );
+            },
+          },
+          {
+            table: 'schools',
+            event: 'UPDATE',
+            filter: selectedSchoolId ? `id=eq.${selectedSchoolId}` : undefined,
+            onChange: (payload) => {
+              const fresh = (payload as any).new as SchoolRow | undefined;
+              if (!fresh || !user?.id) return;
+              if (hasUnsavedEditsRef.current && schoolRec?.school_id === fresh.id) {
+                toast.warning(
+                  isMr
+                    ? 'तुमचे बदल सेव्ह केलेले नाहीत — बाहेरून अद्यतन झाले आहे.'
+                    : 'This institute was updated externally while you have unsaved edits.',
+                  {
+                    action: {
+                      label: isMr ? 'नवीन लोड करा' : 'Reload Latest',
+                      onClick: () => {
+                        hasUnsavedEditsRef.current = false;
+                        qc.invalidateQueries({ queryKey: ['my-schools-owned', user.id] });
+                      },
+                    },
+                    duration: 8000,
+                  }
+                );
+                return;
+              }
+              qc.setQueryData<SchoolOwnerRecord[]>(
+                ['my-schools-owned', user.id],
+                (old) =>
+                  old
+                    ? old.map((rec) =>
+                        rec.school_id === fresh.id
+                          ? { ...rec, school: { ...(rec.school || ({} as SchoolRow)), ...fresh } }
+                          : rec
+                      )
+                    : old
               );
             },
           },
@@ -156,81 +299,203 @@ export default function MyShop() {
               qc.invalidateQueries({ queryKey: ['my-shops', user.id] });
             },
           },
+          {
+            table: 'school_owners',
+            event: 'DELETE',
+            filter: `user_id=eq.${user.id}`,
+            onChange: () => {
+              toast.warning(
+                isMr
+                  ? 'अ‍ॅडमिनने तुमचा शिक्षण संस्थेचा मालकी हक्क रद्द केला.'
+                  : 'Your ownership for an institute was revoked by an admin.',
+                { duration: 8000 }
+              );
+              qc.invalidateQueries({ queryKey: ['my-schools-owned', user.id] });
+            },
+          },
+          {
+            table: 'school_owners',
+            event: 'INSERT',
+            filter: `user_id=eq.${user.id}`,
+            onChange: () => {
+              toast.success(
+                isMr
+                  ? 'तुम्हाला नवीन शिक्षण संस्था नियुक्त करण्यात आली आहे.'
+                  : 'An educational institute was assigned to you.',
+                { duration: 6000 }
+              );
+              qc.invalidateQueries({ queryKey: ['my-schools-owned', user.id] });
+            },
+          },
         ]
       : [],
     { enabled: !!user?.id },
-    [user?.id, selectedId],
+    [user?.id, activeKind, activeId],
   );
-
-
 
   if (loading) return <Centered>{t('common.loading')}</Centered>;
   if (!user) return <RedirectToAuth />;
-  const hasOwnership = isShopkeeper || isAdmin;
-  const hasRequests  = myRequests.length > 0;
-  if (!hasOwnership && !hasRequests && !reqLoading) {
+  const hasOwnership = isShopkeeper || isAdmin || (ownedShops?.length ?? 0) > 0 || ownedSchools.length > 0;
+  const hasRequests = myRequests.length > 0;
+  if (!hasOwnership && !hasRequests && !reqLoading && !isLoading && !schoolsLoading) {
     return (
       <Centered>
-        <Store className="w-10 h-10 text-muted-foreground/50 mb-3" />
+        {isInstituteRoute ? (
+          <GraduationCap className="w-10 h-10 text-muted-foreground/50 mb-3" />
+        ) : (
+          <Store className="w-10 h-10 text-muted-foreground/50 mb-3" />
+        )}
         <p className="font-semibold text-foreground">{t('myShop.noOwnership.title')}</p>
         <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">
           {t('myShop.noOwnership.desc')}
         </p>
-        <div className="mt-4 flex gap-2">
-          <button onClick={() => navigate('/shops')} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">{t('myShop.browseShops')}</button>
-          <button onClick={() => navigate('/?list-shop=1')} className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted">{t('myShop.listShop')}</button>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={() => navigate(`/${currentCity.slug}/shops`)}
+            className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+          >
+            {t('myShop.browseShops')}
+          </button>
+          <button
+            onClick={() => navigate(`/${currentCity.slug}/schools`)}
+            className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+          >
+            {isMr ? 'शिक्षण संस्था पहा' : 'Browse Institutes'}
+          </button>
+          <button
+            onClick={() => navigate(`/${currentCity.slug}?list-shop=1`)}
+            className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+          >
+            {t('myShop.listShop')}
+          </button>
         </div>
       </Centered>
     );
   }
 
+  const totalOwned = (ownedShops?.length ?? 0) + ownedSchools.length;
+  const bothOwned = (ownedShops?.length ?? 0) > 0 && ownedSchools.length > 0;
+  const headerTitle = bothOwned
+    ? t('myInstitute.portalTitle')
+    : activeKind === 'school' || isInstituteRoute
+      ? t('myInstitute.title')
+      : t('myShop.title');
+  const HeaderIcon = activeKind === 'school' || isInstituteRoute ? GraduationCap : Store;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background pb-24">
-      <PageSeo title={`My Shop — ${townBrand}`} path="/my-shop" noindex />
+      <PageSeo title={`${headerTitle} — ${townBrand}`} path={location.pathname} noindex />
 
       <header className="bg-gradient-to-r from-primary via-primary to-primary/90 text-primary-foreground px-4 py-3 flex items-center gap-2 shadow-md sticky top-0 z-40">
-        <button onClick={() => navigate(`/${currentCity.slug}`)} className="p-1 hover:bg-primary-foreground/10 rounded-lg transition-colors" aria-label={t('myShop.back')}>
+        <button
+          onClick={() => navigate(`/${currentCity.slug}`)}
+          className="p-1 hover:bg-primary-foreground/10 rounded-lg transition-colors"
+          aria-label={t('myShop.back')}
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <Store className="w-5 h-5 shrink-0" />
-        <span className="font-bold text-base sm:text-lg truncate">{t('myShop.title')}</span>
+        <HeaderIcon className="w-5 h-5 shrink-0" />
+        <span className="font-bold text-base sm:text-lg truncate">{headerTitle}</span>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-4">
-        {isLoading && hasOwnership ? (
+        {(isLoading || schoolsLoading) && hasOwnership && totalOwned === 0 ? (
           <div className="text-center py-12"><Loader2 className="w-5 h-5 animate-spin inline" /></div>
-        ) : !ownedShops?.length && !hasRequests ? (
+        ) : totalOwned === 0 && !hasRequests ? (
           <div className="bg-card rounded-2xl border border-border p-8 text-center">
-            <Store className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
+            <HeaderIcon className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
             <p className="font-semibold text-foreground">{t('myShop.noShops.title')}</p>
             <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
               {t('myShop.noShops.desc')}
             </p>
-            <div className="mt-4 flex justify-center gap-2">
-              <button onClick={() => navigate('/shops')} className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">{t('myShop.browseShops')}</button>
-              <button onClick={() => navigate('/?list-shop=1')} className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted">{t('myShop.listShop')}</button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <button
+                onClick={() => navigate(`/${currentCity.slug}/shops`)}
+                className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold"
+              >
+                {t('myShop.browseShops')}
+              </button>
+              <button
+                onClick={() => navigate(`/${currentCity.slug}/schools`)}
+                className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+              >
+                {isMr ? 'शिक्षण संस्था पहा' : 'Browse Institutes'}
+              </button>
+              <button
+                onClick={() => navigate(`/${currentCity.slug}?list-shop=1`)}
+                className="px-4 py-2 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+              >
+                {t('myShop.listShop')}
+              </button>
             </div>
           </div>
         ) : (
           <>
-            {(ownedShops?.length ?? 0) > 1 && (
+            {totalOwned > 1 && (
               <div className="mb-4 bg-card rounded-xl border border-border p-3">
-                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{t('myShop.activeShop')}</label>
+                <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                  {bothOwned
+                    ? isMr
+                      ? 'सक्रिय दुकान / शिक्षण संस्था'
+                      : 'Active Shop / Institute'
+                    : activeKind === 'school'
+                      ? isMr
+                        ? 'सक्रिय शिक्षण संस्था'
+                        : 'Active Institute'
+                      : t('myShop.activeShop')}
+                </label>
                 <div className="relative mt-1">
                   <select
-                    value={selectedId || ''}
-                    onChange={(e) => setParams({ id: e.target.value })}
+                    value={activeId ? `${activeKind}:${activeId}` : ''}
+                    onChange={(e) => {
+                      const [kind, ...rest] = e.target.value.split(':');
+                      const id = rest.join(':');
+                      if (kind && id) setParams({ type: kind, id });
+                    }}
                     className="w-full appearance-none px-3 py-2.5 pr-9 rounded-lg border border-input bg-background text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {ownedShops!.map((s: any) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
+                    {(ownedShops?.length ?? 0) > 0 && (
+                      <optgroup label={isMr ? '🏪 दुकाने व व्यवसाय' : '🏪 Shops & Services'}>
+                        {ownedShops!.map((s: any) => (
+                          <option key={`shop:${s.id}`} value={`shop:${s.id}`}>
+                            🏪 {s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {ownedSchools.length > 0 && (
+                      <optgroup label={isMr ? '🎓 शिक्षण संस्था' : '🎓 Educational Institutes'}>
+                        {ownedSchools.map((rec) => (
+                          <option key={`school:${rec.school_id}`} value={`school:${rec.school_id}`}>
+                            🎓 {rec.school?.name || rec.school_id}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                   <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
                 </div>
               </div>
             )}
-            {shop && (
+
+            {activeKind === 'school' && schoolRec?.school ? (
+              <SchoolOwnerHub
+                key={schoolRec.school.id}
+                school={schoolRec.school}
+                roleTitle={schoolRec.role_title}
+                onUpdated={(freshRow) => {
+                  qc.setQueryData<SchoolOwnerRecord[]>(
+                    ['my-schools-owned', user?.id],
+                    (old) =>
+                      old
+                        ? old.map((r) =>
+                            r.school_id === freshRow.id ? { ...r, school: freshRow } : r
+                          )
+                        : old
+                  );
+                }}
+              />
+            ) : shop ? (
               <>
                 {isMessShop ? (
                   <>
@@ -255,17 +520,22 @@ export default function MyShop() {
                 ) : (
                   <>
                     <LivingSpecialManagers shop={shop} />
-                    <ShopEditor key={shop.id} shop={shop} onSaved={() => qc.invalidateQueries({ queryKey: ['my-shops', user.id] })} />
+                    <ShopEditor
+                      key={shop.id}
+                      shop={shop}
+                      onSaved={() => qc.invalidateQueries({ queryKey: ['my-shops', user.id] })}
+                      onDirtyChange={(d) => { hasUnsavedEditsRef.current = d; }}
+                    />
                     <EngagementCard shopId={shop.id} />
                   </>
                 )}
               </>
-            )}
+            ) : null}
           </>
         )}
 
         {/* My Requests — always visible if user has submitted any */}
-        <MyRequestsCard requests={myRequests} loading={reqLoading} onListNew={() => navigate('/?list-shop=1')} />
+        <MyRequestsCard requests={myRequests} loading={reqLoading} onListNew={() => navigate(`/${currentCity.slug}?list-shop=1`)} />
       </div>
     </div>
   );
@@ -283,7 +553,7 @@ function LivingSpecialManagers({ shop }: { shop: any }) {
 
   return (
     <div className="mb-4 space-y-3">
-      <div className="flex items-center gap-2 p-2 rounded-xl bg-card border border-border">
+      <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-card border border-border">
         <span className="text-[11px] font-bold text-muted-foreground uppercase px-1">
           Special Features:
         </span>
@@ -373,16 +643,24 @@ function RequestRow({ req }: { req: any }) {
           <p className="text-[11px] text-muted-foreground mt-1 italic line-clamp-2">{t('myShop.adminNote', { note: req.admin_notes })}</p>
         )}
       </div>
-      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${meta.cls}`}>
-        <Icon className="w-3 h-3" /> {meta.label}
+      <span className={`shrink-0 whitespace-nowrap inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border ${meta.cls}`}>
+        <Icon className="w-3 h-3 shrink-0" /> {meta.label}
       </span>
     </li>
   );
 }
 
 /* ─── Editor ──────────────────────────────────────────────────────── */
-function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
-  const { t } = useT();
+function ShopEditor({
+  shop,
+  onSaved,
+  onDirtyChange,
+}: {
+  shop: any;
+  onSaved: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
+  const { t, locale } = useT();
   const { currentCity } = useCity();
   const initialCategoryIds = useMemo(
     () =>
@@ -484,10 +762,20 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
   }
 
 
+  const baselineUpdatedAtRef = useRef<string | null>(shop.updated_at ?? null);
+
+  // Sync dirty status to parent & keep baseline updated_at pinned while form has unsaved edits.
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
   // When realtime/refetch brings fresh shop data and the form has no pending edits,
   // sync the form to the latest values so toggles & external updates appear live.
   useEffect(() => {
-    if (!dirty) setForm(initial);
+    if (!dirty) {
+      setForm(initial);
+      baselineUpdatedAtRef.current = shop.updated_at ?? null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
 
@@ -610,18 +898,17 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
     // Optimistic: write to cache before network round-trip.
     patchCache(patch);
 
-    const result = await updateShopWithConcurrency(shop.id, shop.updated_at, patch);
+    const result = await updateShopWithConcurrency(shop.id, baselineUpdatedAtRef.current ?? shop.updated_at, patch);
     saveInFlight.current = false;
     if (!result.ok) {
       // Rollback to pre-save snapshot
       qc.setQueryData(['my-shops', user?.id], prevSnapshot);
       const r = result as Extract<typeof result, { ok: false }>;
       if (r.conflict) {
-        // Refresh cache with the latest server row so the form auto-syncs
-        // (the ShopEditor's `useEffect` resets `form` to `initial` when not
-        // dirty — and `initial` is derived from the cached shop, which we
-        // just refreshed). The retry button is still available.
-        if ((r as any).latest) patchCache((r as any).latest);
+        if ((r as any).latest) {
+          patchCache((r as any).latest);
+          baselineUpdatedAtRef.current = (r as any).latest.updated_at ?? null;
+        }
         lastFailedSavePatch.current = patch;
         setSaveStatus('error');
         setSaveErr(t('myShop.conflict.title'));
@@ -637,7 +924,8 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
       setSaveErr((r as any).error);
       return;
     }
-    // Merge fresh row into cache so the next save uses the new updated_at.
+    // Merge fresh row into cache and advance concurrency baseline.
+    baselineUpdatedAtRef.current = result.row?.updated_at ?? baselineUpdatedAtRef.current;
     patchCache(result.row);
 
     // Categories live in the `shop_categories` join table — write the diff
@@ -763,8 +1051,7 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
   }
 
   function copyShopLink() {
-    const slug = shop.slug || shop.id;
-    const url = `${window.location.origin}/shop/${slug}`;
+    const url = `${window.location.origin}${getEntityDetailPath(currentCity.slug, shop)}`;
     navigator.clipboard.writeText(url).then(
       () => toast.success(t('myShop.toast.linkCopied')),
       () => toast.error(t('myShop.toast.copyFailed'))
@@ -823,28 +1110,28 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
             </div>
           </div>
         </div>
-        <div className="relative px-4 pb-4 flex gap-2">
+        <div className="relative px-4 pb-4 flex flex-wrap sm:flex-nowrap gap-2">
           <button
             onClick={() => setPreviewOpen(true)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all"
+            className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] transition-all"
           >
-            <Eye className="w-3.5 h-3.5" /> {t('myShop.preview')}
+            <Eye className="w-3.5 h-3.5 shrink-0" /> {t('myShop.preview')}
           </button>
           <button
             onClick={copyShopLink}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-background hover:bg-muted active:scale-[0.98] transition-all"
             title={t('myShop.copyShopLink')}
           >
-            <Link2 className="w-3.5 h-3.5" /> {t('myShop.copyLink')}
+            <Link2 className="w-3.5 h-3.5 shrink-0" /> {t('myShop.copyLink')}
           </button>
           <Link
-            to={`/shop/${shop.slug || shop.id}`}
+            to={getEntityDetailPath(currentCity.slug, shop)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-border bg-background hover:bg-muted active:scale-[0.98] transition-all"
             title={t('myShop.openPublic')}
           >
-            <ExternalLink className="w-3.5 h-3.5" />
+            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
           </Link>
         </div>
       </div>
@@ -855,14 +1142,14 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
           onClick={quickToggleOpen}
           disabled={togglingOpen}
           aria-pressed={form.is_open}
-          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 font-bold text-sm transition-all active:scale-[0.99] ${
+          className={`w-full flex flex-wrap items-center justify-between gap-2 text-left px-4 py-3 rounded-xl border-2 font-bold text-sm transition-all active:scale-[0.99] ${
             form.is_open
               ? 'bg-success/10 border-success/40 text-success'
               : 'bg-destructive/10 border-destructive/30 text-destructive'
           } disabled:opacity-50`}
         >
-          <span className="flex items-center gap-2">
-            {togglingOpen ? <Loader2 className="w-4 h-4 animate-spin" /> : <Power className="w-4 h-4" />}
+          <span className="flex items-center gap-2 min-w-0">
+            {togglingOpen ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Power className="w-4 h-4 shrink-0" />}
             {form.is_open ? t('myShop.toggle.open') : t('myShop.toggle.closed')}
           </span>
           <span className="text-[11px] font-semibold opacity-80">{t('myShop.toggle.hint')}</span>
@@ -966,7 +1253,7 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
         </Section>
 
         <Section title={t('myShop.section.contact')}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={t('myShop.section.phone')}>
               <input value={form.phone} onChange={(e) => set('phone', e.target.value)} inputMode="tel" className={inputCls} />
             </Field>
@@ -977,7 +1264,7 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
         </Section>
 
         <Section title={t('myShop.section.location')}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={t('myShop.section.area')}>
               <input value={form.area} onChange={(e) => set('area', e.target.value)} className={inputCls} />
             </Field>
@@ -1036,7 +1323,7 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
         </Section>
 
         <Section title={t('myShop.section.hours')}>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <TimePickerField label={t('myShop.section.openingTime')} optional value={form.opening_time} onChange={(v) => set('opening_time', v)} />
             <TimePickerField label={t('myShop.section.closingTime')} optional value={form.closing_time} onChange={(v) => set('closing_time', v)} />
           </div>
@@ -1068,7 +1355,10 @@ function ShopEditor({ shop, onSaved }: { shop: any; onSaved: () => void }) {
 
       {/* Sticky save bar — only appears when there are unsaved edits */}
       {dirty && (
-        <div className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_12px_-4px_hsl(var(--foreground)/0.15)]">
+        <div
+          className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_12px_-4px_hsl(var(--foreground)/0.15)]"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        >
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-2">
             <button
               onClick={() => setForm(initial)}
@@ -1195,10 +1485,10 @@ function EngagementCard({ shopId }: { shopId: string }) {
       {isLoading ? (
         <div className="text-center py-4"><Loader2 className="w-4 h-4 animate-spin inline text-muted-foreground" /></div>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
-          <Stat icon={<Phone className="w-4 h-4" />} label={t('myShop.engagement.calls')} value={data?.calls ?? 0} tone="primary" />
-          <Stat icon={<MessageCircle className="w-4 h-4" />} label={t('myShop.engagement.whatsapp')} value={data?.waps ?? 0} tone="success" />
-          <Stat icon={<span className="text-base">📈</span>} label={t('myShop.engagement.total')} value={data?.total ?? 0} tone="muted" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+          <Stat icon={<Phone className="w-4 h-4 shrink-0" />} label={t('myShop.engagement.calls')} value={data?.calls ?? 0} tone="primary" />
+          <Stat icon={<MessageCircle className="w-4 h-4 shrink-0" />} label={t('myShop.engagement.whatsapp')} value={data?.waps ?? 0} tone="success" />
+          <Stat icon={<span className="text-base leading-none">📈</span>} label={t('myShop.engagement.total')} value={data?.total ?? 0} tone="muted" />
         </div>
       )}
     </div>
@@ -1212,9 +1502,12 @@ function Stat({ icon, label, value, tone }: { icon: React.ReactNode; label: stri
     muted:   { background: 'hsl(var(--muted))', color: 'hsl(var(--foreground))' },
   }[tone];
   return (
-    <div className="rounded-xl p-3 text-center" style={styles}>
-      <div className="flex items-center justify-center gap-1 mb-1">{icon}<span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">{label}</span></div>
-      <div className="text-2xl font-bold leading-none">{value}</div>
+    <div className="rounded-xl p-3 flex sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-1 sm:text-center min-w-0" style={styles}>
+      <div className="flex items-center justify-center gap-1.5 min-w-0">
+        {icon}
+        <span className="text-[11px] sm:text-[10px] font-semibold uppercase tracking-wider opacity-80 truncate">{label}</span>
+      </div>
+      <div className="text-xl sm:text-2xl font-bold leading-none shrink-0 tabular-nums">{value}</div>
     </div>
   );
 }
@@ -1238,7 +1531,11 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 function RedirectToAuth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t } = useT();
-  useEffect(() => { navigate('/auth?next=/my-shop', { replace: true }); }, [navigate]);
+  useEffect(() => {
+    const next = encodeURIComponent(location.pathname + location.search);
+    navigate(`/auth?next=${next}`, { replace: true });
+  }, [navigate, location.pathname, location.search]);
   return <Centered>{t('myShop.redirecting')}</Centered>;
 }

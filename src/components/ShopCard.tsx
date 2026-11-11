@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Phone, MessageCircle, MapPin, Clock, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatTime } from '@/lib/shopUtils';
+import { formatTime, getEntityDetailPath } from '@/lib/shopUtils';
 import { logShopEngagement, canDialTel } from '@/lib/engagement';
 import { StatusChip } from '@/components/shared/StatusChip';
 import { ClaimedBadge } from '@/components/shared/ClaimedBadge';
@@ -51,7 +51,7 @@ export function ShopCard({ shop: rawShop, priority = false }: { shop: Shop; prio
   const shop = useLocalizedShop(rawShop) as Shop;
   const localizeCat = useLocalizeCategoryName();
   const [imgError, setImgError] = useState(false);
-  const shopPath = shop.slug ? `/${currentCity.slug}/shop/${shop.slug}` : `/${currentCity.slug}/shop/${shop.id}`;
+  const shopPath = getEntityDetailPath(currentCity.slug, rawShop);
 
   // Flatten M:N shop_categories → [{id,name,icon}]; falls back to legacy 1:1 `categories`.
   const allCats: { id?: string; name: string; icon: string }[] = [];

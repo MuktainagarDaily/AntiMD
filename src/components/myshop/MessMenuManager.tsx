@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { getTodayDateString, saveMessDailyMenu, REGULAR_MENU_DATE } from '@/lib/living/livingService';
 import { compressImage } from '@/lib/imageUtils';
 import { useT } from '@/i18n';
+import { useCity } from '@/hooks/useCity';
 
 interface MessMenuManagerProps {
   shopId: string;
@@ -27,6 +28,7 @@ interface MessMenuManagerProps {
 
 export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: MessMenuManagerProps) {
   const { locale } = useT();
+  const { currentCity } = useCity();
   const qc = useQueryClient();
   const today = getTodayDateString();
 
@@ -148,7 +150,7 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
     try {
       setUploading(true);
       // Compress to WebP
-      const compressed = await compressImage(file, { maxWidth: 1200, quality: 0.85 });
+      const compressed = await compressImage(file, 1200, 0.85);
 
       const fileName = `menu_${shopId}_${today}_${Date.now()}.webp`;
       const filePath = `menus/${fileName}`;
@@ -158,13 +160,9 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
         .upload(filePath, compressed, { upsert: true, contentType: 'image/webp' });
 
       if (error) {
-        // If storage bucket isn't accessible, fallback to data url
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setPhotoUrl(reader.result as string);
-          toast.success(locale === 'mr' ? 'फोटो जोडला गेला!' : 'Photo attached!');
-        };
-        reader.readAsDataURL(file);
+        // Storage upload failed — do NOT persist a data: URL to the database.
+        // Show an error toast so the user knows to retry.
+        toast.error(locale === 'mr' ? 'फोटो अपलोड अयशस्वी. पुन्हा प्रयत्न करा.' : 'Photo upload failed. Please try again.');
       } else {
         const { data: publicData } = supabase.storage.from('shop-images').getPublicUrl(filePath);
         setPhotoUrl(publicData.publicUrl);
@@ -255,7 +253,7 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
 
     textLines.push('');
     textLines.push('मेसचे दर व संपूर्ण माहिती पहा:');
-    textLines.push(`${window.location.origin}/mess`);
+    textLines.push(`${window.location.origin}/${currentCity.slug}/mess`);
 
     const fullMsg = textLines.join('\n');
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(fullMsg)}`;
@@ -272,13 +270,13 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
           <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-500/20">
             <UtensilsCrossed className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm sm:text-base font-bold text-foreground">
                 {locale === 'mr' ? 'आजचा ताजा मेनू अपडेट करा' : 'Post Today’s Fresh Menu'}
               </h3>
               {currentMenu && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/20">
                   <Check className="w-3 h-3" />
                   <span>{locale === 'mr' ? 'प्रसिद्ध झाला आहे' : 'Live Today'}</span>
                 </span>
@@ -307,7 +305,7 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
 
       {/* Lunch Text Input */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+        <label className="text-xs font-semibold text-foreground flex flex-wrap items-center justify-between gap-1">
           <span>🍲 {locale === 'mr' ? 'दुपारचा मेनू (Lunch)' : 'Lunch Menu'}</span>
           <span className="text-[10px] text-muted-foreground">उदा. शेव भाजी, वरण भात, ४ चपाती</span>
         </label>
@@ -336,7 +334,7 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
 
       {/* Dinner Text Input */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+        <label className="text-xs font-semibold text-foreground flex flex-wrap items-center justify-between gap-1">
           <span>🌙 {locale === 'mr' ? 'रात्रीचा मेनू (Dinner)' : 'Dinner Menu'}</span>
           <span className="text-[10px] text-muted-foreground">उदा. पनीर भुर्जी, कढी खिचडी</span>
         </label>
@@ -393,9 +391,9 @@ export function MessMenuManager({ shopId, shopName, shopPhone, shopAddress }: Me
 
       {/* Photo Upload Area */}
       <div className="space-y-2 pt-1 border-t border-border/50">
-        <label className="text-xs font-semibold text-foreground flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <Camera className="w-3.5 h-3.5 text-primary" />
+        <label className="text-xs font-semibold text-foreground flex flex-wrap items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 min-w-0">
+            <Camera className="w-3.5 h-3.5 text-primary shrink-0" />
             <span>{locale === 'mr' ? 'मेनू ब्लॅकबोर्ड किंवा थाळीचा फोटो (ऐच्छिक)' : 'Menu Blackboard or Thali Photo (Optional)'}</span>
           </span>
           {photoUrl && (

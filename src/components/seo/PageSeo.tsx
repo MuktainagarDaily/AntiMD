@@ -2,7 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { useOptionalCity } from '@/hooks/useCity';
 
 export const SITE_URL = 'https://muktainagar-daily.lovable.app';
-export const SITE_NAME = 'ApnaLocal';
+export const SITE_NAME = 'ApnaTown';
 
 type PageSeoProps = {
   title: string;
@@ -16,7 +16,7 @@ type PageSeoProps = {
   jsonLd?: object | object[];
   /** Override og:type — defaults to "website". */
   ogType?: string;
-  /** Override site_name — defaults to SITE_NAME ('ApnaLocal'). */
+  /** Override site_name — defaults to SITE_NAME ('ApnaTown'). */
   siteName?: string;
 };
 

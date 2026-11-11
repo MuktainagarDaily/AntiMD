@@ -8,21 +8,21 @@
 | Concern | Library |
 |---|---|
 | Framework | React 18.3 + TypeScript 5.8 |
-| Build | Vite 5.4 + `@vitejs/plugin-react-swc`, dev on port 8080 |
+| Build | Vite 5.4 + `@vitejs/plugin-react-swc`, dev on port 8080, includes `localNewsProxyPlugin` (`/api/news-proxy`) and `mcpPlugin()` |
 | Router | React Router DOM v6 — `BrowserRouter` + `Routes` |
-| Server state | TanStack React Query v5 (`staleTime: 120s`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`, localStorage persistent categories cache via `createSyncStoragePersister`) |
-| Client state | React Context only (`AuthContext`, `CityContext`, `I18nContext`) |
-| UI primitives | shadcn/ui (full Radix stack) + lucide-react |
+| Server state | TanStack React Query v5 (`staleTime: 120s`, `gcTime: 5min`, `retry: 1`, `refetchOnWindowFocus: false`, localStorage persistent `categories` cache via `createSyncStoragePersister`) |
+| Client state | React Context (`AuthContext`, `CityContext`, `I18nContext`) |
+| UI primitives | shadcn/ui (Radix Primitives) + lucide-react |
 | Styling | Tailwind v3 + `tailwindcss-animate`, `next-themes` |
 | Forms | react-hook-form + Zod |
 | Charts | Recharts |
 | Carousel | Embla Carousel |
-| Image crop | react-easy-crop (single + multi-crop) |
-| Fuzzy search | Fuse.js v7 (client-side with natural-language synonym expansion) |
-| CSV / ZIP | jszip + custom `csvUtils.ts` |
-| SEO | react-helmet-async (`PageSeo` component) + build-time prerender scripts |
+| Image crop | react-easy-crop (single + multi-crop `MultiImageCropPicker`) |
+| Fuzzy search | Fuse.js v7 (client-side with EN/Hinglish/Marathi synonym expansion) |
+| CSV / ZIP | jszip + RFC 4180 `csvUtils.ts` + 20-dataset `masterDatasets.ts` |
+| SEO | react-helmet-async (`PageSeo` component) + build-time sitemap/prerender scripts |
 | Maps | Google Maps JS API + Leaflet |
-| Testing | Vitest + @testing-library/react |
+| Testing | Vitest 3.2 + `@testing-library/react` (**31 test files**, **252 tests**) |
 
 ### Route Table (`src/App.tsx`)
 
@@ -32,10 +32,11 @@
 | `/auth` | `Auth` | public | yes |
 | `/reset-password` | `ResetPassword` | public | yes |
 | `/.lovable/oauth/consent` (aliases: `/oauth/consent`, `/~oauth/consent`) | `OAuthConsent` | public | yes |
-| `/admin/login` | `AdminLogin` (→`/auth`) | public | yes |
-| `/admin` | `AdminLayout` (nested) | `requireRole="admin"` | yes |
-| `/my-shop` | `MyShop` | authenticated | yes |
-| `/saved-shops` | `SavedShops` | authenticated | yes |
+| `/admin/login` | `AdminLogin` (→ `/auth`) | public | yes |
+| `/admin/*` | `AdminLayout` (nested) | `requireRole="admin"` | yes |
+| `/my-shop` | `MyShop` (Shops, Mess, PG & Schools Hub) | authenticated | yes |
+| `/my-institute` | `MyShop` (defaults to owned School/Institute Hub) | authenticated | yes |
+| `/saved-shops` | `SavedShops` | public wrapper (prompts auth if signed out) | yes |
 | `/error/:code` | `ErrorRoute` | public | yes |
 
 #### 2. Root & Legacy Redirects
@@ -47,165 +48,129 @@
 | `/shop/:id` | `LegacyShopDetailRedirect` | Redirects to `/:citySlug/shop/:id` |
 | `/bus-timetable` | `LegacyCityRedirect to="/bus-timetable"` | Redirects to `/:citySlug/bus-timetable` |
 | `/schools` | `LegacyCityRedirect to="/schools"` | Redirects to `/:citySlug/schools` |
+| `/schools/:id` | `LegacySchoolDetailRedirect` | Redirects to `/:citySlug/schools/:id` |
 | `/mess` | `LegacyCityRedirect to="/mess"` | Redirects to `/:citySlug/mess` |
+| `/mess/:id` | `LegacyLivingDetailRedirect module="mess"` | Redirects to `/:citySlug/mess/:id` |
 | `/pg` | `LegacyCityRedirect to="/pg"` | Redirects to `/:citySlug/pg` |
+| `/pg/:id` | `LegacyLivingDetailRedirect module="pg"` | Redirects to `/:citySlug/pg/:id` |
 | `/services` | `LegacyCityRedirect to="/services"` | Redirects to `/:citySlug/services` |
+| `/news` | `LegacyCityRedirect to="/news"` | Redirects to `/:citySlug/news` |
 | `/sections/:key` | `LegacySectionRedirect` | Redirects to `/:citySlug/sections/:key` |
 
 #### 3. Town-Prefixed Routes (`CityRouteGuard`)
 | Path | Component | Protection | Lazy | Description |
 |---|---|---|---|---|
 | `/:citySlug` | `Home` | public | no | Active town discovery home |
-| `/:citySlug/shops` | `Shops` | public | no | Paginated shop directory |
+| `/:citySlug/shops` | `Shops` | public | no | Paginated retail shop directory |
 | `/:citySlug/category/:id` | `CategoryRedirect` | public | no | Redirects to `/:citySlug/shops?category=...` |
-| `/:citySlug/shop/:id` | `ShopDetail` | public | no | Business details & actions |
-| `/:citySlug/bus-timetable` | `BusTimetable` | public | yes | Bus departures & depot info |
-| `/:citySlug/schools` | `Schools` | public | yes | Schools & educational directory |
-| `/:citySlug/mess` | `Mess` | public | yes | Mess & dining with daily menus |
-| `/:citySlug/pg` | `PG` | public | yes | PG & hostels with live vacancies |
+| `/:citySlug/shop/:id` | `ShopDetail` | public | no | Business details, reviews & actions |
+| `/:citySlug/bus-timetable` | `BusTimetable` | public | yes | Bus departures & depot info (offline-cached) |
+| `/:citySlug/schools` | `Schools` | public | yes | Education & Institutes directory with admission/fee filters |
+| `/:citySlug/schools/:id` | `SchoolDetail` | public | yes | Institute profile, fee breakdown, circulars, claims, reviews & WhatsApp enquiry |
+| `/:citySlug/mess` | `Mess` | public | yes | Mess & dining directory with daily menus |
+| `/:citySlug/mess/:id` | `MessDetail` | public | yes | Mess profile, daily thali/menu card, pricing & reviews |
+| `/:citySlug/pg` | `PG` | public | yes | PG & hostels with live bed vacancies |
+| `/:citySlug/pg/:id` | `PGDetail` | public | yes | Hostel profile, room/sharing rates, amenities & reviews |
 | `/:citySlug/services` | `EssentialServices` | public | yes | Civic authorities, emergency helplines & outage advisories |
-| `/:citySlug/sections/:key` | `SectionComingSoon` | public | yes | Placeholder for future verticals |
+| `/:citySlug/news` | `LocalNews` | public | yes | Dated hyperlocal town news feed with RSS/web auto-refresh |
+| `/:citySlug/sections/:key` | `SectionComingSoon` | public | yes | Placeholder for future verticals (`hospitals`, `banks`, `lostfound`) |
 | `*` | `NotFound` | public | no | 404 fallback |
 
 #### 4. Admin Nested Routes (`/admin/*`)
 Driven by `src/components/admin/layout/adminNav.ts`:
-- `/admin/overview` (`Overview`)
+- `/admin/overview` (`AdminOverview`)
 - `/admin/directory/shops` (`DirectoryShops`)
 - `/admin/directory/mess` (`DirectoryMess`)
 - `/admin/directory/pg` (`DirectoryPG`)
 - `/admin/directory/categories` (`DirectoryCategories`)
 - `/admin/directory/inbox` (`DirectoryInbox`)
-- `/admin/directory/quality` (`DirectoryQuality`)
-- `/admin/sections` (`SectionsHub`) & `/admin/sections/:key` (`SectionDetail`)
+- `/admin/directory/quality` → redirects to `/admin/system/quality`
+- `/admin/sections` (`SectionsHub`) & `/admin/sections/:key` (`SectionDetail` — live: `bus`, `schools`, `gov`, `news`; soon: `hospitals`, `banks`, `lostfound`)
 - `/admin/marketing/ads` (`MarketingAds`)
 - `/admin/insights/analytics` (`InsightsAnalytics`)
 - `/admin/system/data` (`SystemData`)
+- `/admin/system/quality` (`DirectoryQuality` — Storage & System Health)
 - `/admin/system/marathi` (`SystemMarathi`)
 - `/admin/system/mcp` (`SystemMcp`)
 
 `AdminLayout` renders `AdminSidebar` + `BranchTabs` + `<Outlet/>`.
+`App.tsx` also mounts global root hosts `<OfflineOverlay />`, `<ListShopModalHost />`, and `<TownAssistantDrawer />` (Sahayak AI).
 
-`ProtectedRoute` waits on `loading && rolesLoading` before redirecting; unauthorised users land on `/` with a destructive toast.
-
-`HistoryTracker` writes `prevInAppRoute` and `IN_APP_HISTORY_FLAG` to `sessionStorage` so `useSmartBack` can fall back to a sensible parent when no in-app history exists.
+`ProtectedRoute` waits on `loading && rolesLoading` before redirecting; unauthorized users land on `/` with a destructive toast.
 
 ### State & data-flow patterns
 
-```
-Component
- └─ TanStack Query (useQuery / useMutation)
-     └─ supabase.from('table').select/insert/update/delete
-         └─ PostgREST + RLS server-side
-```
+- **Queries & Mutations:** TanStack Query v5 wraps PostgREST `.from(...)` and `.rpc(...)` calls via Supabase JS client (`src/integrations/supabase/client.ts`).
+- **Realtime:** Supabase Realtime channels subscribe to `shops`, `shop_requests`, `shop_owners`, `school_owners`, and `mess_daily_menus`.
+- **Optimistic concurrency:** Generic `updateWithConcurrency<T>` (`src/lib/concurrency.ts`) backs both `shopConcurrency.ts` (`shops`) and `schoolConcurrency.ts` (`schools`) with `WHERE id=$1 AND updated_at=$2`.
+- **Translation cache:** `src/hooks/useTranslationsCache.ts` & `src/lib/translateApi.ts` resolve memory → `localStorage` → `translation_cache` table → MyMemory API.
+- **Anonymous engagement & counters:** Public taps write via RLS-gated INSERTs (`shop_engagement`, `school_engagement`) with DB rate-limit triggers, and banner impressions/clicks increment via `SECURITY DEFINER` RPCs.
 
-- **Realtime** (Supabase Realtime) on `shops` and `shop_requests` (publication `supabase_realtime`, `REPLICA IDENTITY FULL`). Consumed by `/my-shop`.
-- **Optimistic concurrency** (`src/lib/shopConcurrency.ts`): `UPDATE shops … WHERE id=$1 AND updated_at=$2 RETURNING *` — zero rows ⇒ conflict.
-- **Translation cache** (`src/hooks/useTranslationsCache.ts`): memory → `localStorage` → `translation_cache` table → MyMemory API.
-- **Banner counters** via SECURITY DEFINER RPCs (`increment_banner_view/click`) so anon can write without table access.
-
-### i18n
-- `src/i18n/index.tsx`: custom `I18nProvider` + `useT()` hook. EN + MR bundled eagerly.
-- Init order: URL `?lang=` → `localStorage['md.locale']` → default `en`.
-- Locale applied to `<html lang>`, `body.lang-mr`, `Intl.NumberFormat`.
-- DB-stored content translations in `shop_translations`, `category_translations`, `amenity_translations`.
-
-### Theming
-- `next-themes` provider; light/dark/system via `src/components/theme-provider.tsx`.
+### i18n & Theming
+- `src/i18n/index.tsx`: `I18nProvider` + `useT()`. EN + MR bundled (`en.json`, `mr.json`). Init order: `?lang=` → `localStorage['md.locale']` → `'en'`.
+- `next-themes` provider; light/dark/system via `src/components/theme-provider.tsx` + pre-hydration inline script in `index.html`.
 
 ## Backend Architecture
 
-- **Provider:** Supabase project `fhlaqgzensagjangkpop` (external — connected per user instruction; hardcoded in `src/integrations/supabase/client.ts` so Lovable Cloud `.env` resets don't break it). *(Confirmed.)*
-- **Edge functions:** **None.** No `supabase/functions/` directory. *(Confirmed.)*
-- **Auth:** Supabase Auth — email/password only. No OAuth. JWT in `localStorage`, `autoRefreshToken: true`.
-- **DB:** PostgreSQL with RLS on every public table. See `DATABASE_REFERENCE.md`.
-- **Storage (2026-07-05, post bucket-split):** four buckets — `shop-images` (shops + banners + `claims/…` proofs), `school-images` (admin-only write), `request-images` (public "list a shop" uploads), `banner-images` (private). All runtime code paths flow through `src/lib/storageNaming.ts`.
-- **Type safety nuance:** A single Supabase type file is used: `src/integrations/supabase/external-types.ts` (intentionally permissive `Record<string, AnyTable>` because the external project's schema can't be auto-generated from Lovable). The `app_role` enum is precisely typed inside it and re-exported as `AppRole`. The previously-coexisting Lovable-generated `types.ts` (which described an unrelated scaffold schema) was deleted on 2026-06-26 — see `TECHNICAL_DEBT.md`.
-
-## Data Flow Example — Tap "Call" on a shop
-
-```
-User taps Call button (ShopDetail.tsx)
- ├─ window.location.href = `tel:+91...`
- └─ supabase.from('shop_engagement').insert({ shop_id, event_type: 'call' })
-     └─ RLS: anon INSERT allowed (write-only)
-         └─ Admin later reads via AnalyticsTab (RLS: authenticated SELECT)
-             └─ Aggregated client-side; CSV export possible
-```
+- **Provider:** External Supabase project `fhlaqgzensagjangkpop` (`src/integrations/supabase/client.ts`).
+- **Edge Functions (`supabase/functions/` — 3 Deno functions):**
+  1. **`mcp` (`supabase/functions/mcp/index.ts`):** Auto-bundled on `vite build` by `mcpPlugin()` from `src/lib/mcp/index.ts`. Serves OAuth 2.1-protected Streamable HTTP MCP endpoint with **7 read-only tools**.
+  2. **`town-assistant` (`supabase/functions/town-assistant/index.ts`):** Sahayak AI backend powered by Gemini via `@lovable.dev/ai-gateway` + deterministic server-side fallback querying all 7 entity verticals (`mess`, `pg`, `shop`, `bus`, `school`, `news`, `service`) with IST clock awareness and Parandwadi bus seeds.
+  3. **`scrape-local-news` (`supabase/functions/scrape-local-news/index.ts`):** Fetches active `news_sources` RSS/Atom feeds and HTML webpages server-side, strips markup, parses IST/RFC dates, infers categories, and upserts deduplicated `local_news` rows.
+- **Dev News Proxy (`vite.config.ts`):** `localNewsProxyPlugin` exposes `/api/news-proxy` during `vite dev` / `vite preview` with SSRF blocking on localhost/link-local/private CIDR ranges.
+- **Auth:** Supabase Auth (email/password for citizens/owners/admins; OAuth 2.1 flow via `/oauth/consent` for external MCP clients). Roles live in `user_roles`, evaluated via `has_role` / `is_admin` `SECURITY DEFINER`.
+- **DB:** PostgreSQL with RLS on every public table (`42` tables, `2` materialized views, `4` views). See `DATABASE_REFERENCE.md`.
+- **Storage (4 buckets):** `shop-images` (shops + banners + `menus/` + `claims/<user_id>/`), `school-images` (admin/owner write), `request-images` (public pre-approval submissions), `banner-images`. Migration `20261113000000_storage_and_health_fixes.sql` fixed root-object SELECT visibility (`(storage.foldername(name))[1] IS DISTINCT FROM 'claims'`) so `.list('')` no longer hides root shop images or triggers 409 collisions, and extended `image_checked_at`/`image_broken_at` columns across `shops`, `schools`, and `banners`.
+- **Type safety nuance:** Runtime `src/integrations/supabase/client.ts` imports `src/integrations/supabase/external-types.ts` (permissive `Record<string, AnyTable>` with strictly typed `AppRole`). A regenerated `src/integrations/supabase/types.ts` snapshot (21 tables from an earlier generation pass) also exists alongside it for reference imports (`MessCsvImportModal`, `PGCsvImportModal`).
 
 ## Responsive & Desktop UX Architecture
 
-The platform follows a mobile-first yet desktop-optimized architecture:
-- **Category Grid Symmetry:** Breakpoints configured as `grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3.5`. Paired with `CATS_PER_PAGE = 8` in `Home.tsx`, this renders exactly 2 balanced rows of 4 on mobile/tablet, and 1 complete full-width row of 8 on desktop with zero vacant columns.
-- **Desktop Expanded Discovery:** On wide viewports (`lg:`), the "Recently Added" and "Featured Shops" sections expand from 4 to 8+ shop cards, eliminating whitespace and taking advantage of wide displays.
-- **Z-Index & Sticky Layering:** Explicit hierarchy prevents overlay bleed-through:
-  - Header: `z-40` (`sticky top-0`)
-  - Sub-navigation & search pill: `z-30`
-  - Sticky bottom action bar: `z-20` (`fixed bottom-0`)
-  - Image lightboxes & full-screen modals: `z-50`
+- **Category Grid Symmetry:** `grid-cols-4 lg:grid-cols-8` paired with `CATS_PER_PAGE = 8` renders 2 balanced rows of 4 on mobile and 1 full-width row of 8 on desktop.
+- **Desktop Expanded Discovery:** Wide viewports (`lg:`) expand recently-added shop grids and expose `DesktopNav` horizontal navigation links.
+- **Strict Geographic & Hyper-Local Related Shops:** `ShopDetail.tsx` strictly bounds recommendations to `.eq('shops.city_id', currentShopCityId)` and sorts same-village matches first (max 12), hiding the section when empty.
+- **Mobile Touch Gestures:** `useEdgeSwipeBack` (`SchoolDetail`, `MessDetail`, `PGDetail`, `ShopDetail`) and `useSwipeDownToClose` (drawers/bottom sheets).
 
-## Geo-Scoping & Hyper-Local Recommendation Architecture
+## Security Model (Hardened v3 + Education & Storage Guardrails)
 
-- **Hard City Boundary:** In `ShopDetail.tsx`, related shops recommendations resolve primary city from `rawShop.city_id || currentCity.id`. Supabase queries strictly enforce `.eq('shops.city_id', currentShopCityId!)`. Shops from different cities or talukas are strictly excluded.
-- **Village-Level Priority:** Candidate shops matching the current shop's `village_id` are sorted first (`hyperLocal`), followed by wider same-city shops (`townWide`). The result is capped at 12 items.
-- **Empty-State Omission:** If no candidate shops exist within the target city, the entire related shops `<section>` (including `#related-shops-title`) is omitted from the DOM.
-- **Cache Invalidation:** TanStack React Query keys incorporate city and village identifiers: `['related-shops', currentShopId, currentShopCityId, currentShopVillageId, sortedCatIds]`.
-- **Banner Geo-Targeting:** Banners support `target_level` (`all`, `district`, `city`) with `target_district_id` and `target_city_id`. `useBanners.ts` validates both `target_city_id` and legacy `city_id` against the active town.
-
-## Security Model (Hardened v3)
-
-| Layer | Finding / Mechanism | Implementation |
+| Layer | Mechanism | Implementation |
 |---|---|---|
-| PostgREST Grants | SEC-01 | Explicit table-level `SELECT` grants to `anon` and `authenticated` for `authority_*` tables. |
-| Living Services RLS | SEC-02 | Explicit `DELETE` RLS policies for `mess_profiles`, `pg_profiles`, `mess_daily_menus` scoped to admins and verified shop owners. |
-| Dev Isolation | SEC-03 | `devRoleSwitcher` strictly tree-shaken: `!import.meta.env.DEV` forces role to `'citizen'`. |
-| MCP Grants | SEC-05 | `mcp_endpoints` write grants revoked from `authenticated`, restricted exclusively to `service_role`. |
-| Resource Exhaustion | SEC-07 | `get_shops_page()` parameter constraints (`clean_search` capped to 100 chars, `p_limit` clamped 1..50, `p_offset >= 0`). |
-| Open-Redirect Prevention | SEC-08 | `safeRelativePath()` recursive URI decoding (`decodeURIComponent`), single forward-slash verification, protocol-relative rejection (`//`, `/\`, `\\`, `%2F%2F`), and protocol-in-path rejection (`/http:`, `/javascript:`). |
-| PII In-Memory Session | SEC-09 | Unencrypted officer PII removed from persistent `localStorage`; cached in-memory during active sessions. |
-| XSS Hardening | SEC-13 | Eliminated `dangerouslySetInnerHTML` in favor of declarative, strongly-typed React JSX nodes. |
+| PostgREST Grants | SEC-01 | Explicit `SELECT` grants for `authority_*` tables, `local_news`, `school_notices`, `school_reviews`. |
+| Living Services RLS | SEC-02 | Explicit `DELETE` policies for `mess_profiles`, `pg_profiles`, `mess_daily_menus` scoped to admin/owner. |
+| Dev Isolation | SEC-03 | `devRoleSwitcher` strips privileges outside `import.meta.env.DEV`. |
+| MCP Grants | SEC-05 | `mcp_endpoints` restricted exclusively to `service_role` in grants + admin RLS. |
+| Resource Exhaustion | SEC-07 | `get_shops_page()` clamps `clean_search` (100 chars) and `p_limit` (1..50). |
+| Open-Redirect / XSS | SEC-08 / SEC-13 | `safeRelativePath()` recursive decoding; declarative JSX rendering; HTTP(S) CHECK constraints on URLs; formula-injection escaping in CSV exports. |
+| Owner Column Guards | DB Triggers | `shops_owner_column_guard` (`shops`) & `protect_school_admin_columns` (`schools`) block privilege/moderation/verified-UDISE tampering. |
+| Spam Rate Limits | DB Triggers | Anon/user rate limits on `shop_claims`, `school_claims`, `school_reviews`, `shop_requests`, `shop_engagement`, `school_engagement`. |
+| Storage Root & PII | RLS + Audit Tooling | `IS DISTINCT FROM 'claims'` protects `claims/` proofs while restoring root enumeration; `StorageAuditPanel` purges expired resolved claim proofs. |
+| SSRF Guard | `vite.config.ts` / Edge | `/api/news-proxy` & `scrape-local-news` reject loopback, RFC1918, and link-local addresses. |
 
-## Deployment Model
+## Deployment & PWA Model
 
-- **Primary Targets:** **Vercel** (production edge CDN + SPA routing + prerendered heads) and Lovable Cloud.
-- **Configuration:** `vercel.json` defines SPA routing, `cleanUrls: true` for prerendered `/shop/<slug>` static files, and edge caching policies (`max-age=0` for `/sw.js`, 1yr immutable for `/assets/*`, security headers).
-- **Pre/post-build scripts:**
-  - `predev` / `prebuild` → `scripts/generate-sitemap.ts` (via `tsx`) → fetches active shops + categories from Supabase REST → `public/sitemap.xml` with per-shop `<lastmod>`.
-  - `postbuild` → `scripts/prerender.ts` (via `tsx`) → fetches active shops, writes `dist/shop/<slug>/index.html` with injected `<title>`, OG/Twitter meta, canonical, JSON-LD `LocalBusiness`. **SEO head only**, not full SSR. Falls back gracefully on Supabase outage.
-- **Alt:** `wrangler.jsonc` (historical Cloudflare Workers scaffold; preserved for reference, not active).
-- **PWA (2026-06-28):** `vite-plugin-pwa` (`generateSW`, `registerType: autoUpdate`, `manifest: false` — we keep `public/manifest.json` by hand) emits `/sw.js` with workbox runtime caching: `NetworkFirst` for HTML navigations and Supabase `bus_timetable`/`bus_stand_info` REST GETs (7d), `CacheFirst` for `shop-images` storage URLs (30d), `StaleWhileRevalidate` for Google Fonts. Registration is gated by `src/lib/pwa/register.ts` — never registers in dev, iframes, Lovable preview hosts, or transient Vercel preview branch deployments, and unregisters any stale `/sw.js` in those contexts. Full PWA active on production domains.
+- **Vercel + Lovable Cloud:** `vercel.json` handles SPA rewrites, `cleanUrls: true`, cache headers (`max-age=0` on `/sw.js`), and security headers.
+- **Pre/post-build scripts:** `prebuild` (`scripts/generate-sitemap.ts`) → `vite build` (`mcpPlugin` emits `supabase/functions/mcp/index.ts`) → `postbuild` (`scripts/prerender.ts` writes SEO `<head>` static shells for `/shop/<slug>`).
+- **PWA (`vite.config.ts` + `src/lib/pwa/register.ts`):** Workbox `NetworkFirst` for navigations & bus timetable, `CacheFirst` for `shop-images`, `StaleWhileRevalidate` for Google Fonts. `index.html` includes both `mobile-web-app-capable` and `apple-mobile-web-app-capable`.
 
 ## Key `src/lib/` Modules
 
-| File | Purpose |
+| File / Folder | Purpose |
 |---|---|
-| `geo/geoService.ts` | Multi-town geographic data access layer; fetches active cities and villages with offline fallbacks |
-| `geo/townConfig.ts` | Dynamic town branding engine (`<Town> Daily`), typography, taglines, and metadata |
-| `geo/types.ts` | Geographic types (`GeoCountry`, `GeoState`, `GeoDistrict`, `GeoCity`, `GeoVillage`, `TownBranding`) |
-| `living/livingService.ts` | Mess daily menus, meal times, and PG vacancy management service |
-| `living/livingTypes.ts` | Mess profile, daily menu, and PG hostel type definitions |
-| `services/authorityService.ts` | Essential Services & Local Authorities data service; session-cached officer rosters, emergency helplines & announcements |
-| `images/imageService.ts` | Centralized image compression, cropping, upload, and deletion across entities |
-| `banners/flags.ts` | 3-layer ad kill switch (build env, runtime localStorage, per-banner active) |
-| `banners/store.ts` | Banner CRUD, upload, dedup, RPC view/click tracking |
-| `shopConcurrency.ts` | Optimistic lock; `OWNER_EDITABLE_FIELDS` whitelist |
-| `shopUtils.ts` | Open/closed computation from `opening_time`/`closing_time` text |
-| `fuzzySearch.ts` | Fuse.js wrapper for shops (EN + MR); consumes `searchSynonyms.ts` for natural-language expansion |
-| `searchSynonyms.ts` (2026-07-08) | Curated EN/Hinglish/MR phrase → category-token dictionary; used by `fuzzySearch.ts` |
-| `concurrency.ts` (2026-07-01) | Generic `updateWithConcurrency<T>` — `shopConcurrency.updateShopWithConcurrency` delegates here |
-| `engagement.ts` | Fire-and-forget `logShopEngagement()` + `canDialTel()`. Writes `event_type: 'directions'` |
-| `forms/EntityForm.tsx` + `forms/types.ts` (Forge #6) | Declarative form runner used by `SchoolModal` |
-| `translateApi.ts` | MyMemory client + 3-tier cache |
-| `imageUtils.ts` | Canvas WebP compression |
-| `storageNaming.ts` | Storage path conventions, public URL helpers |
-| `rateLimit.ts` | `checkCooldown`/`throttle`/`debounce` |
-| `mapsUtils.ts` | Google Maps URL builders, coord helpers |
-| `uxUtils.ts` | Scroll, focus utilities |
-| `error-capture.ts` + `lovable-error-reporting.ts` | Error boundary capture |
-| `csvUtils.ts` | CSV parse/stringify |
-| `perf/webVitals.ts` | Core Web Vitals (LCP, FID, CLS) performance measurement instrumentation |
-| `repos/*` | **Per-entity data-access wrappers** (`shopsRepo`, `requestsRepo`, `claimsRepo`, `bannersRepo`, `categoriesRepo`, `schoolsRepo`, `reviewsRepo`). Additive over raw `supabase.from(...)`. |
-| `mcp/*` | **App-exposed MCP server**. `defineMcp` entry + `tools/{search-shops,get-shop,list-categories,get-bus-timetable}.ts`. Bundled at build time by `mcpPlugin()` into `supabase/functions/mcp/index.ts`. OAuth 2.0 protected. |
-
-## Deployment Surface Expansion (MCP Server)
-
-Alongside the SPA bundle, `vite build` emits an auto-generated **Deno edge function** at `supabase/functions/mcp/index.ts`. Deploying it exposes a public MCP Streamable HTTP endpoint at `https://fhlaqgzensagjangkpop.supabase.co/functions/v1/mcp`. The endpoint is **OAuth 2.0 protected**, read-only, and queries active directory records. Consent page is served at `/.lovable/oauth/consent`. Deploy command: `supabase functions deploy mcp --no-verify-jwt --project-ref fhlaqgzensagjangkpop`.
+| `admin/masterDatasets.ts` | FK-safe 20-dataset Master Export/Import schema registry & `coerceDatasetRow()` |
+| `admin/storageHealthService.ts` | Recursive bucket audit, 8-table media reference extraction, expired claim proof purge, unified broken-media probe, slug rename planner, and Supabase/Edge diagnostics |
+| `admin/dataQualityHelpers.ts` | Devanagari-safe area comparison, city-scoped duplicate/hygiene analysis |
+| `assistant/assistantService.ts` | Sahayak AI client gateway + deterministic offline/local fallback across all 7 verticals |
+| `news/{newsTypes,newsParser,newsService}.ts` | Local News types, RSS/Atom/HTML parser, IST date handling, category inference, Edge Function + proxy orchestration |
+| `schools/{schoolHelpers,schoolNoticesRepo}.ts` | Education Portal constants, metadata serializer, 45-col CSV parser/exporter, and `school_notices` repository |
+| `bus/busHelpers.ts` | Bus direction/type tag parser/serializer, CSV parser, Parandwadi PMPML/MSRTC seeds |
+| `geo/{geoService,townConfig,types}.ts` | Multi-town hierarchy access & dynamic `<Town> Daily` branding engine |
+| `living/{livingService,livingTypes}.ts` | Mess daily menus, fixed-price cards, and PG Simple/Room-by-Room vacancy management |
+| `services/{authorityService,authorityTypes,devRoleSwitcher}.ts` | Essential Services & Civic Authorities service with session-cached contacts |
+| `images/imageService.ts` & `storageNaming.ts` & `imageVerify.ts` & `imageUtils.ts` | Canvas WebP compression, multi-bucket path conventions, recursive listing, and 3-tier broken-image probing |
+| `banners/{flags,store,types}.ts` | 3-layer ad kill switch, geo-targeted banner CRUD, and RPC impression/click tracking |
+| `concurrency.ts`, `shopConcurrency.ts`, `schoolConcurrency.ts` | Generic optimistic concurrency (`updated_at`) and owner-editable field whitelists |
+| `engagement.ts` & `schoolEngagement.ts` | Fire-and-forget deduplicated interaction logging |
+| `reviewsApi.ts` | Unified rating & review hooks/mutations for `shop_reviews` and `school_reviews` |
+| `fuzzySearch.ts` & `searchSynonyms.ts` | Fuse.js search with ~150 EN/Hinglish/MR synonym expansions |
+| `csvUtils.ts` | RFC 4180 multi-line CSV parser, UTF-8 BOM + Devanagari export, formula-injection sanitizer, >1,000-row pagination |
+| `repos/*` & `entities/*` | Thin per-entity repository wrappers and `<EntityTab/>` descriptors |
+| `mcp/*` | `defineMcp` entry (`muktainagar-daily-mcp`) + **7 OAuth-protected read-only tools** compiled to `supabase/functions/mcp/index.ts` |

@@ -35,7 +35,7 @@ export interface Banner {
 export const PLACEMENT_LABELS: Record<BannerPlacement, string> = {
   popup: 'Popup (Home, fullscreen)',
   homepage_inline: 'Homepage inline (top)',
-  home_bottom: 'Homepage bottom (above Recently Added)',
+  home_bottom: 'Homepage bottom (below sections)',
   shops_inline: 'Shops page inline (top)',
   shops_infeed: 'Shops list in-feed (between cards)',
   category_inline: 'Category filter inline',
@@ -43,16 +43,19 @@ export const PLACEMENT_LABELS: Record<BannerPlacement, string> = {
   saved_inline: 'Saved Shops page inline',
 };
 
+export type BannerCampaignStatus = 'live' | 'scheduled' | 'expired' | 'paused';
+
 const ALLOWED_PROTOCOLS = ['http:', 'https:'];
 
-/** Allowed: http(s)://; Rejected: javascript:, data:, file:, vbscript:, blob: */
+/** Allowed: http(s):// with no internal whitespace; Rejected: javascript:, data:, file:, vbscript:, blob: */
 export function isValidTargetUrl(raw: string): boolean {
   if (!raw) return false;
   const trimmed = raw.trim();
+  if (!trimmed || /\s/.test(trimmed)) return false;
   if (/^\s*(javascript|data|file|vbscript|blob):/i.test(trimmed)) return false;
   try {
     const u = new URL(trimmed);
-    return ALLOWED_PROTOCOLS.includes(u.protocol);
+    return ALLOWED_PROTOCOLS.includes(u.protocol) && Boolean(u.hostname);
   } catch {
     return false;
   }
@@ -67,10 +70,14 @@ function localISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-export function isBannerLive(b: Banner, now = new Date()): boolean {
-  if (!b.is_active) return false;
+export function getBannerCampaignStatus(b: Banner, now = new Date()): BannerCampaignStatus {
+  if (!b.is_active) return 'paused';
   const today = localISODate(now);
-  if (b.start_date && b.start_date > today) return false;
-  if (b.end_date && b.end_date < today) return false;
-  return true;
+  if (b.start_date && b.start_date > today) return 'scheduled';
+  if (b.end_date && b.end_date < today) return 'expired';
+  return 'live';
+}
+
+export function isBannerLive(b: Banner, now = new Date()): boolean {
+  return getBannerCampaignStatus(b, now) === 'live';
 }

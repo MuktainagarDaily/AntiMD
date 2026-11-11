@@ -72,13 +72,13 @@ function getActiveTownDefaults(locale: Locale): { town: string; brand: string } 
       const town = found
         ? (locale === 'mr' ? found.mr : found.en)
         : (slug.charAt(0).toUpperCase() + slug.slice(1));
-      const brand = `ApnaLocal · ${town}`;
+      const brand = `ApnaTown · ${town}`;
       return { town, brand };
     }
   } catch { /* noop */ }
   return {
     town: locale === 'mr' ? 'मुक्ताईनगर' : 'Muktainagar',
-    brand: locale === 'mr' ? 'ApnaLocal · मुक्ताईनगर' : 'ApnaLocal · Muktainagar',
+    brand: locale === 'mr' ? 'ApnaTown · मुक्ताईनगर' : 'ApnaTown · Muktainagar',
   };
 }
 

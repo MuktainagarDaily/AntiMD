@@ -196,11 +196,28 @@ export default function BusTimetable() {
   // last-seen data when offline / on a flaky connection. React Query
   // revalidates in the background and writeBusCache refreshes the cache
   // on every successful fetch.
-  const cachedRowsPayload = useMemo(() => readBusCache<Row[]>('rows'), []);
-  const cachedStandPayload = useMemo(() =>
-    readBusCache<{ phone: string | null; address: string | null; maps_url: string | null } | null>('stand'),
-  []);
+  const busRowsCacheKey = `rows-${currentCity.id}`;
+  const busStandCacheKey = `stand-${currentCity.id}`;
+
+  const cachedRowsPayload = useMemo(
+    () => readBusCache<Row[]>(busRowsCacheKey),
+    [busRowsCacheKey],
+  );
+  const cachedStandPayload = useMemo(
+    () =>
+      readBusCache<{
+        phone: string | null;
+        address: string | null;
+        maps_url: string | null;
+        notes: string | null;
+      } | null>(busStandCacheKey),
+    [busStandCacheKey],
+  );
   const [cachedAt, setCachedAt] = useState<number | null>(cachedRowsPayload?.at ?? null);
+
+  useEffect(() => {
+    setCachedAt(cachedRowsPayload?.at ?? null);
+  }, [cachedRowsPayload?.at]);
 
   const {
     data: dbRows = [],
@@ -235,6 +252,7 @@ export default function BusTimetable() {
     retry: 1,
   });
 
+  const isSeedFallback = (!dbRows || dbRows.length === 0) && isMaval;
   const rows = useMemo(() => {
     if (dbRows && dbRows.length > 0) return dbRows;
     if (isMaval) return PARANDWADI_SEED_ROWS;
@@ -243,12 +261,12 @@ export default function BusTimetable() {
 
   // Persist whenever a fresh network result lands (dataUpdatedAt increments).
   useEffect(() => {
-    if (!rowsFetching && rows.length > 0 && rowsUpdatedAt > (cachedRowsPayload?.at ?? 0)) {
-      writeBusCache('rows', rows);
+    if (!rowsFetching && rows.length > 0 && !isSeedFallback && rowsUpdatedAt > (cachedRowsPayload?.at ?? 0)) {
+      writeBusCache(busRowsCacheKey, rows);
       setCachedAt(rowsUpdatedAt);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rowsUpdatedAt, rowsFetching]);
+  }, [rowsUpdatedAt, rowsFetching, busRowsCacheKey, isSeedFallback]);
 
 
   // Admin-editable bus stand info (table: bus_stand_info).
@@ -284,13 +302,13 @@ export default function BusTimetable() {
 
   useEffect(() => {
     if (!standFetching && standUpdatedAt > (cachedStandPayload?.at ?? 0)) {
-      writeBusCache('stand', standInfo ?? null);
+      writeBusCache(busStandCacheKey, standInfo ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [standUpdatedAt, standFetching]);
+  }, [standUpdatedAt, standFetching, busStandCacheKey]);
 
   const standReady = !standLoading && !standError;
-  const standExtra = useMemo(() => {
+  const standExtra = useMemo<{ verified_date?: string; enquiry_phone?: string } | null>(() => {
     if (!standInfo?.notes) return null;
     try {
       return JSON.parse(standInfo.notes) as { verified_date?: string; enquiry_phone?: string };
@@ -463,19 +481,19 @@ export default function BusTimetable() {
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{liveMsg}</div>
 
       <header className="sticky top-0 z-40 bg-primary text-primary-foreground shadow-md">
-        <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <button
               onClick={() => navigate(`/${currentCity.slug}`)}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 shrink-0"
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/20 shrink-0"
               aria-label={t('common.back')}
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 min-w-0">
-              <Bus className="w-5 h-5 shrink-0" />
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <Bus className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
               <div className="min-w-0">
-                <h1 className="font-bold text-base sm:text-lg leading-tight truncate">{t('bus.heading')}</h1>
+                <h1 className="font-bold text-sm sm:text-lg leading-tight truncate">{t('bus.heading')}</h1>
                 <p className="text-[11px] sm:text-xs text-primary-foreground/80 leading-tight truncate">
                   {villageName ? `${villageName}, ${cityName}` : t('bus.subheading', { town: townName })}
                 </p>
@@ -485,17 +503,17 @@ export default function BusTimetable() {
 
           <DesktopNav variant="primary" />
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Location Switcher Pill */}
             <button
               onClick={() => setCityPickerOpen(true)}
-              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-semibold px-2 sm:px-2.5 py-1 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/25 hover:bg-primary-foreground/25 transition-colors"
               title={locale === 'mr' ? 'स्थान बदला' : 'Change Location'}
             >
-              <MapPin className="w-3.5 h-3.5" />
-              <span className="truncate max-w-[100px] sm:max-w-[140px]">{locationLabel}</span>
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate max-w-[78px] sm:max-w-[140px]">{locationLabel}</span>
             </button>
-            <span className="hidden md:inline text-[10px] uppercase tracking-wider text-primary-foreground/80 tabular-nums">
+            <span className="hidden xl:inline text-[10px] uppercase tracking-wider text-primary-foreground/80 tabular-nums whitespace-nowrap">
               {t('bus.asOf')} {formatNowLabel(nowMin)}
             </span>
             <UserMenuDrawer />
@@ -509,29 +527,29 @@ export default function BusTimetable() {
         ) : standError ? (
           <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 pb-2 flex items-center justify-between gap-2 text-[11px] text-primary-foreground/90">
             <span className="inline-flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5" />
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               {t('bus.standInfoError')}
             </span>
             <button
               onClick={() => refetchStand()}
-              className="px-2 py-1 rounded-md bg-primary-foreground/15 hover:bg-primary-foreground/25 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
+              className="px-2 py-1 rounded-md bg-primary-foreground/15 hover:bg-primary-foreground/25 font-semibold shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
             >
               {t('bus.retry')}
             </button>
           </div>
         ) : (standPhoneTel || standMapsUrl) ? (
-          <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 pb-2 flex items-center gap-2">
+          <div className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-3 sm:px-4 md:px-6 pb-2 flex items-center gap-2">
             {standPhoneTel && (
               <a
                 href={`tel:${standPhoneTel}`}
                 onClick={handleStandCall}
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-foreground text-primary px-3 py-2 font-semibold text-sm shadow-sm hover:bg-primary-foreground/90 active:scale-[0.99] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
+                className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-foreground text-primary px-2.5 sm:px-3 py-2 font-semibold text-xs sm:text-sm shadow-sm hover:bg-primary-foreground/90 active:scale-[0.99] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
                 aria-label={`${t('bus.callStand')} ${standPhoneRaw}`}
               >
-                <Phone className="w-4 h-4" />
-                <span className="sm:hidden">{t('bus.callStandShort')}</span>
-                <span className="hidden sm:inline">{t('bus.callStand')}</span>
-                <span className="tabular-nums opacity-80 hidden sm:inline">· {standPhoneRaw}</span>
+                <Phone className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden truncate">{t('bus.callStandShort')}</span>
+                <span className="hidden sm:inline truncate">{t('bus.callStand')}</span>
+                <span className="tabular-nums opacity-80 hidden sm:inline shrink-0">· {standPhoneRaw}</span>
               </a>
             )}
             {standMapsUrl && (
@@ -539,12 +557,12 @@ export default function BusTimetable() {
                 href={standMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/30 px-3 py-2 font-semibold text-sm hover:bg-primary-foreground/20 active:scale-[0.99] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
+                className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-foreground/10 text-primary-foreground border border-primary-foreground/30 px-2.5 sm:px-3 py-2 font-semibold text-xs sm:text-sm hover:bg-primary-foreground/20 active:scale-[0.99] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60"
                 aria-label={t('bus.openMaps')}
               >
-                <MapPin className="w-4 h-4" />
-                <span className="sm:hidden">{t('bus.openMapsShort')}</span>
-                <span className="hidden sm:inline">{t('bus.openMaps')}</span>
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden truncate">{t('bus.openMapsShort')}</span>
+                <span className="hidden sm:inline truncate">{t('bus.openMaps')}</span>
               </a>
             )}
           </div>
@@ -566,6 +584,19 @@ export default function BusTimetable() {
       </header>
 
       <main className="max-w-3xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-4">
+        {isSeedFallback && (
+          <div
+            role="status"
+            className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+          >
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            <span>
+              {locale === 'mr'
+                ? 'संदर्भ / नमुना वेळापत्रक दाखवत आहे — लाइव्ह आगार नोंदी अजून जोडलेल्या नाहीत.'
+                : 'Showing reference / fallback schedule — live depot rows are not yet published for this town.'}
+            </span>
+          </div>
+        )}
         {/* Parandwadi & Maval Village Transit Hub Guide Card */}
         {isParandwadi && (
           <section
@@ -737,7 +768,7 @@ export default function BusTimetable() {
             aria-label={t('bus.leavingSoon')}
             className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-3"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-primary" />
                 <h2 className="text-xs font-bold uppercase tracking-wider text-primary">
@@ -783,7 +814,7 @@ export default function BusTimetable() {
 
         {/* Legend + count */}
         {!isLoading && rows.length > 0 && (
-          <div className="flex items-center justify-between gap-3 mb-3 text-[11px]">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px]">
             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-primary" />
               {t('bus.legendNext')}

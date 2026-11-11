@@ -14,6 +14,7 @@ import { Search } from 'lucide-react';
 import { HighlightedText } from '@/components/shared/HighlightedText';
 import { useLocalizedShop } from '@/hooks/useTranslationsCache';
 import { useCity } from '@/hooks/useCity';
+import { getEntityDetailPath } from '@/lib/shopUtils';
 import { useT } from '@/i18n';
 
 const ROTATING_HINTS_EN = [
@@ -45,7 +46,7 @@ function HomeSuggestionRow({
   const shop = useLocalizedShop(rawShop) || rawShop;
   const sc = rawShop.shop_categories?.[0];
   const catLabel = sc?.categories?.name ? localizeCat(sc.category_id, sc.categories.name) : null;
-  const shopPath = shop.slug ? `/${currentCity.slug}/shop/${shop.slug}` : `/${currentCity.slug}/shop/${shop.id}`;
+  const shopPath = getEntityDetailPath(currentCity.slug, rawShop);
   const areaLine = [shop.area, shop.sub_area].filter(Boolean).join(', ');
   return (
     <div
@@ -120,7 +121,7 @@ export const HomeSearch = forwardRef<HTMLInputElement, HomeSearchProps>(function
         onFocus={onFocus}
         onBlur={onBlur}
         placeholder={currentPlaceholder}
-        className="w-full pl-10 pr-[88px] py-3.5 rounded-xl text-foreground bg-card text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+        className="w-full pl-10 pr-[96px] sm:pr-[104px] py-3.5 rounded-xl text-foreground bg-card text-sm shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow text-ellipsis"
         autoComplete="off"
       />
       <button

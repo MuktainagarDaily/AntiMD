@@ -86,16 +86,20 @@ export async function updateWithConcurrency<Row = any>(
 
   let { data, error } = await query.select(select).maybeSingle();
 
-  // If conditional update matched 0 rows due to timestamp sub-millisecond string differences,
-  // retry directly by ID since we verified serverTs did not have a real conflict above.
-  if (!error && !data) {
-    const directRetry = await client.from(table).update(patch).eq('id', rowId).select(select).maybeSingle();
-    data = directRetry.data;
-    error = directRetry.error;
-  }
-
   if (error) {
     return { ok: false, conflict: false, error: error.message };
+  }
+
+  // If conditional update matched 0 rows while a baseline timestamp was supplied,
+  // another writer modified the row between our pre-check SELECT and UPDATE.
+  // Never blindly retry by ID alone — re-read and report an explicit conflict.
+  if (!data && baselineAt) {
+    const { data: latestRow } = await client
+      .from(table)
+      .select(select)
+      .eq('id', rowId)
+      .maybeSingle();
+    return { ok: false, conflict: true, latest: (latestRow as Row) ?? null };
   }
 
   if (!data) {

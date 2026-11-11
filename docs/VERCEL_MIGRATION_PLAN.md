@@ -33,7 +33,7 @@ flowchart LR
         Auth["Supabase Auth (JWT)"]
         Storage["Storage Buckets (4 Split)"]
         Realtime["Realtime WebSocket"]
-        MCP["Supabase Edge Function (/mcp)"]
+        EdgeFns["Supabase Edge Functions (/mcp, /town-assistant, /scrape-local-news)"]
     end
 
     User --> VercelCDN
@@ -49,13 +49,13 @@ flowchart LR
     SPAShell --> Auth
     SPAShell --> Storage
     SPAShell -.-> Realtime
-    SPAShell --> MCP
+    SPAShell --> EdgeFns
 ```
 
 ### Key Architectural Behaviors on Vercel:
 1. **Dynamic Head Prerendering:** During build, `scripts/prerender.ts` generates static files at `dist/shop/<slug>/index.html` with full `<title>`, Open Graph metadata, and `LocalBusiness` JSON-LD. With `cleanUrls: true` in `vercel.json`, Vercel serves these static files directly to crawlers and visitors without client JavaScript overhead.
-2. **SPA Client Routing Fallback:** For non-prerendered routes (`/shops`, `/bus-timetable`, `/schools`, `/admin/*`, `/my-shop`, `/saved-shops`), Vercel falls back cleanly to `/index.html` via the SPA rewrite rule.
-3. **Decoupled Backend:** All database queries, authentication tokens, file storage, and realtime subscriptions connect directly to the external Supabase project. No backend migrations are needed.
+2. **SPA Client Routing Fallback:** For non-prerendered routes (`/:citySlug/shops`, `/bus-timetable`, `/schools`, `/schools/:id`, `/mess`, `/mess/:id`, `/pg`, `/pg/:id`, `/services`, `/news`, `/admin/*`, `/my-shop`, `/my-institute`, `/saved-shops`), Vercel falls back cleanly to `/index.html` via the SPA rewrite rule.
+3. **Decoupled Backend:** All database queries, authentication tokens, file storage, realtime subscriptions, and Supabase Edge Functions (`mcp`, `town-assistant`, `scrape-local-news`) connect directly to the external Supabase project. Note that Vite's local `/api/news-proxy` middleware only runs in dev/preview, so production news scraping relies on the deployed `scrape-local-news` Edge Function (or direct RSS fallback).
 
 ---
 
@@ -227,10 +227,10 @@ After deploying to Vercel, verify these 10 core health indicators:
 - [ ] **Phone & WhatsApp Actions:** Click Call and WhatsApp buttons — verify links open `tel:` and `https://wa.me/` and engagement events log without errors.
 - [ ] **PWA & Offline Registration:** Open DevTools $\to$ Application $\to$ Service Workers — verify `/sw.js` activates on production and unregisters on preview domains.
 - [ ] **Authentication Flow:** Sign up with a test account, sign in, and test password recovery link.
-- [ ] **Shop Owner Portal:** Visit `/my-shop` — test shop editing, map pin location picker, and realtime updates.
-- [ ] **Admin Layout & Navigation:** Navigate to `/admin/overview`, `/admin/directory/shops`, `/admin/sections/schools`, `/admin/system/data`.
+- [ ] **Owner Portals:** Visit `/my-shop` and `/my-institute` — test shop, mess, PG, and school/institute owner hubs, map pin location picker, and realtime updates.
+- [ ] **Admin Layout & Navigation:** Navigate to `/admin/overview`, `/admin/directory/shops`, `/admin/sections/schools`, `/admin/sections/news`, `/admin/system/data`, `/admin/system/quality`.
 - [ ] **Public Listing Submission:** Open "List a Shop" modal, test the 4-step wizard, and submit a test draft.
-- [ ] **MCP OAuth Endpoint:** Verify `https://fhlaqgzensagjangkpop.supabase.co/functions/v1/mcp` answers MCP client requests with OAuth challenge.
+- [ ] **Edge Functions:** Verify `mcp` (`/functions/v1/mcp`), `town-assistant` (`/functions/v1/town-assistant`), and `scrape-local-news` (`/functions/v1/scrape-local-news`) respond cleanly.
 
 ---
 
