@@ -1,0 +1,27 @@
+# Muktainagar Daily
+
+> Hyperlocal business directory for Muktainagar, Jalgaon District, Maharashtra. Discover local shops and services with categories, areas, hours, phone, WhatsApp, and Google Maps directions.
+
+Muktainagar Daily helps residents and visitors quickly find local shops — grocery, medical, restaurants, electronics, clothing, hardware, bakery, dairy, stationery, services, and more. Listings include open/closed status, area and address, phone/WhatsApp contact, and shop hours.
+
+## Pages
+
+- [Home](/): Search, categories, and featured shops.
+- [All shops](/shops): Browse and filter every active shop by category, area, availability, and verification.
+
+## Categories
+
+- [Medical](/shops?category=Medical)
+- [Restaurant](/shops?category=Restaurant)
+- [Clothing](/shops?category=Clothing)
+- [Hardware](/shops?category=Hardware)
+- [Bakery](/shops?category=Bakery)
+- [Dairy](/shops?category=Dairy)
+- [Stationery](/shops?category=Stationery)
+- [Grocery](/shops?category=Grocery)
+- [Electronics](/shops?category=Electronics)
+- [Vegetable Shops](/shops?category=Vegetable%20Shops)
+- [Snacks & Beverages](/shops?category=Snacks%20%26%20Beverages)
+- [Services](/shops?category=Services)
+- [Home and Living](/shops?category=Home%20and%20Living)
+- [Auto Parts](/shops?category=Auto%20Parts)

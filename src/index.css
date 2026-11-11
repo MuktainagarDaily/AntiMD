@@ -1,0 +1,282 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 45 30% 97%;
+    --foreground: 220 20% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 14%;
+
+    --primary: 214 85% 40%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 214 85% 55%;
+
+    --secondary: 38 95% 52%;
+    --secondary-foreground: 220 20% 14%;
+
+    --muted: 210 20% 94%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 38 95% 52%;
+    --accent-foreground: 220 20% 14%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 38%;
+    --success-foreground: 0 0% 100%;
+
+    --whatsapp: 142 70% 35%;
+    --whatsapp-soft: 142 70% 45% / 0.12;
+    --maps: 211 100% 40%;
+    --maps-soft: 211 100% 45% / 0.10;
+
+    --border: 220 15% 88%;
+    --input: 220 15% 88%;
+    --ring: 214 85% 40%;
+
+    /* Rating stars — amber gold, matches the 20-year convention (Google/Amazon/Yelp).
+       Never reuse --primary for ratings; primary is reserved for actions. */
+    --rating: 38 92% 55%;
+
+
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 40 25% 98%;
+
+    --card: 220 22% 14%;
+    --card-foreground: 40 25% 98%;
+
+    --popover: 220 22% 14%;
+    --popover-foreground: 40 25% 98%;
+
+    --primary: 214 90% 60%;
+    --primary-foreground: 220 30% 10%;
+    --primary-glow: 214 95% 72%;
+
+    --secondary: 38 95% 60%;
+    --secondary-foreground: 220 30% 10%;
+
+    --muted: 220 18% 18%;
+    --muted-foreground: 220 14% 74%;
+
+    --accent: 38 95% 60%;
+    --accent-foreground: 220 30% 10%;
+
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 65% 50%;
+    --success-foreground: 220 30% 10%;
+
+    --whatsapp: 142 65% 60%;
+    --whatsapp-soft: 142 70% 55% / 0.18;
+    --maps: 211 95% 65%;
+    --maps-soft: 211 95% 60% / 0.18;
+
+    --border: 220 15% 26%;
+    --input: 220 15% 26%;
+    --ring: 214 90% 60%;
+
+    --rating: 42 100% 62%;
+
+
+
+    --sidebar-background: 220 24% 10%;
+    --sidebar-foreground: 40 20% 92%;
+    --sidebar-primary: 214 90% 60%;
+    --sidebar-primary-foreground: 220 30% 10%;
+    --sidebar-accent: 220 18% 18%;
+    --sidebar-accent-foreground: 40 20% 92%;
+    --sidebar-border: 220 15% 22%;
+    --sidebar-ring: 214 90% 60%;
+  }
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4rem;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', 'Noto Sans Devanagari', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============================================================
+     Global focus-visible ring — WCAG AA on light + dark.
+     Keyboard-only (focus-visible), never on mouse click.
+     Provides a strong 2-tone ring that reads on every surface,
+     including modals, drawers, popovers, and dark cards.
+     ============================================================ */
+  :where(
+    a, button, [role="button"], [role="link"], [role="menuitem"],
+    [role="menuitemcheckbox"], [role="menuitemradio"],
+    [role="option"], [role="tab"], [role="switch"], [role="checkbox"],
+    [role="radio"], [role="combobox"], [role="searchbox"],
+    input, select, textarea, summary, [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px hsl(var(--background)),
+                0 0 0 6px hsl(var(--ring) / 0.35);
+    border-radius: inherit;
+  }
+
+  /* Inside elevated surfaces (dialogs, drawers, popovers, dropdowns)
+     the halo color must match the surface, not the page background. */
+  [role="dialog"] :where(
+    a, button, [role="button"], [role="menuitem"], [role="option"],
+    [role="tab"], input, select, textarea, summary,
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible,
+  [role="menu"] :where(a, button, [role="menuitem"], [tabindex]:not([tabindex="-1"])):focus-visible,
+  [data-radix-popper-content-wrapper] :where(
+    a, button, [role="button"], [role="menuitem"], [role="option"],
+    input, select, textarea, [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    box-shadow: 0 0 0 4px hsl(var(--popover)),
+                0 0 0 6px hsl(var(--ring) / 0.5);
+  }
+
+  /* Suppress the default UA outline only where focus-visible doesn't
+     apply, so we never get a doubled indicator. */
+  :focus:not(:focus-visible) { outline: none; }
+}
+
+@layer utilities {
+  .text-success {
+    color: hsl(var(--success));
+  }
+  .bg-success {
+    background-color: hsl(var(--success));
+  }
+  .text-success-foreground {
+    color: hsl(var(--success-foreground));
+  }
+  .bg-success\/10 {
+    background-color: hsl(var(--success) / 0.1);
+  }
+  .border-success\/30 {
+    border-color: hsl(var(--success) / 0.3);
+  }
+  .border-success {
+    border-color: hsl(var(--success));
+  }
+
+  /* Cross-browser scrollbar-none */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Horizontal scroll fade-right hint */
+  .scroll-fade-right {
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+
+  /* iOS safe-area bottom padding */
+  .pb-safe {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Pulsing open dot */
+  @keyframes pulse-open {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.3); }
+  }
+  .animate-pulse-open {
+    animation: pulse-open 2s ease-in-out infinite;
+  }
+
+  /* Skeleton shimmer */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 25%,
+      hsl(var(--muted-foreground) / 0.08) 50%,
+      hsl(var(--muted)) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Logo entrance animation */
+  @keyframes logo-enter {
+    0%   { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+
+  /* User menu gradient banner */
+  @keyframes gradient-shift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+}
+
+/* ============================================================
+   i18n — Marathi (Devanagari) layout safety
+   ============================================================ */
+@layer base {
+  /* When body has .lang-mr, switch the body font stack so Marathi
+     glyphs render in Noto Sans Devanagari (taller, wider).
+     English content keeps its normal stack. */
+  body.lang-mr {
+    font-family: 'Noto Sans Devanagari', system-ui, -apple-system,
+      'Segoe UI', sans-serif;
+  }
+
+  /* Marathi glyphs are ~10–15% taller. Convert fixed-height chips
+     and badges to min-height so they grow gracefully without
+     clipping descenders. */
+  body.lang-mr .chip,
+  body.lang-mr .badge,
+  body.lang-mr [data-i18n-grow] {
+    min-height: 1.5rem;
+    line-height: 1.35;
+  }
+
+  /* Long Marathi compound words can break narrow cards; allow
+     soft wrap on long address blocks. */
+  body.lang-mr .lang-wrap {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}

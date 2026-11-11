@@ -1,0 +1,8 @@
+# Directories not needed at build time on Vercel
+.agents
+mem
+docs/patches
+.git
+.github
+*.log
+bun.lockb

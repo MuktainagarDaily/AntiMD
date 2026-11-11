@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Pre-hydration theme sync: prevents a light flash for dark-mode users. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (t === 'dark' || ((!t || t === 'system') && prefersDark)) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Pre-hydration locale sync: prevents a flash by setting <html lang>
+         and a body class before React mounts. Mirrors src/i18n/index.tsx. -->
+    <script>
+      (function () {
+        try {
+          var url = new URL(window.location.href);
+          var fromUrl = url.searchParams.get('lang');
+          var stored = localStorage.getItem('md.locale');
+          var l = (fromUrl === 'en' || fromUrl === 'mr') ? fromUrl
+                : (stored === 'en' || stored === 'mr') ? stored
+                : 'en';
+          document.documentElement.lang = l;
+          if (l === 'mr') {
+            document.addEventListener('DOMContentLoaded', function () {
+              document.body && document.body.classList.add('lang-mr');
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <!-- Devanagari font for Marathi UI. Preconnect + swap to avoid layout flicker. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800&display=swap"
+    />
+    <title>ApnaLocal — Your town. Everything local.</title>
+    <meta name="description" content="ApnaLocal — Your town. Everything local. Find local shops, dining, hostels, bus timetables, and services across your town.">
+    <meta name="author" content="ApnaLocal" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="robots" content="index, follow" />
+    <!-- Per-route <link rel="canonical"> is injected by react-helmet-async (src/components/seo/PageSeo.tsx). -->
+    <meta name="geo.region" content="IN-MH" />
+    <meta name="geo.placename" content="Maharashtra, India" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ApnaLocal" />
+
+    
+    
+    <meta property="og:type" content="website" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <!-- Per-route og:title / og:description / og:url are emitted by react-helmet-async (src/components/seo/PageSeo.tsx).
+         Keeping og:image + og:type here as sitewide fallback for non-JS social crawlers. -->
+
+    <link rel="icon" type="image/png" href="/favicon.png?v=3" sizes="any">
+    <link rel="shortcut icon" type="image/png" href="/favicon.png?v=3">
+    <meta property="og:image" content="https://muktainagar-daily.lovable.app/og-image.png">
+    <meta property="og:image:width" content="1920">
+    <meta property="og:image:height" content="1080">
+    <meta name="twitter:image" content="https://muktainagar-daily.lovable.app/og-image.png">
+</head>
+  <body>
+    <style>
+      /* Match app background to prevent white flash before CSS/JS load */
+      html, body { background: hsl(45 30% 97%); margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      #root { min-height: 100vh; }
+      /* Lightweight skeleton shown until React mounts, then removed by main.tsx.
+         Shaped like the app shell (top bar + a few cards) so the first paint
+         doesn't feel like a blank page. */
+      #initial-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        background: hsl(45 30% 97%);
+        transition: opacity .25s ease;
+        overflow: hidden;
+      }
+      #initial-splash .sk-header {
+        background: hsl(214 85% 40%); height: 112px; width: 100%;
+        display: flex; align-items: center; justify-content: center;
+      }
+      #initial-splash .sk-header-bar {
+        width: min(420px, 86%); height: 40px; border-radius: 12px;
+        background: rgba(255,255,255,0.18);
+      }
+      #initial-splash .sk-body {
+        max-width: 480px; margin: 16px auto; padding: 0 16px;
+        display: flex; flex-direction: column; gap: 12px;
+      }
+      #initial-splash .sk-card {
+        height: 96px; border-radius: 12px;
+        background: linear-gradient(90deg,
+          hsl(220 15% 92%) 0%,
+          hsl(220 15% 96%) 50%,
+          hsl(220 15% 92%) 100%);
+        background-size: 200% 100%;
+        animation: sk-shimmer 1.4s linear infinite;
+      }
+      @keyframes sk-shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      .app-fade-in { animation: app-fade .25s ease-out both; }
+      @keyframes app-fade { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+    <div id="root"></div>
+    <div id="initial-splash" aria-hidden="true">
+      <div class="sk-header"><div class="sk-header-bar"></div></div>
+      <div class="sk-body">
+        <div class="sk-card"></div>
+        <div class="sk-card"></div>
+        <div class="sk-card"></div>
+        <div class="sk-card"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

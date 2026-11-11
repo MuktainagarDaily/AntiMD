@@ -1,0 +1,323 @@
+export type BusDirection = 'outgoing' | 'incoming';
+
+export type BusType = 'msrtc_ordinary' | 'msrtc_express' | 'pmpml' | 'local_shuttle' | 'other';
+
+export interface BusRouteMeta {
+  direction: BusDirection;
+  bus_type: BusType;
+  via: string[];
+  raw_notes: string;
+}
+
+export const BUS_TYPE_CONFIG: Record<
+  BusType,
+  { label: string; label_mr: string; badgeCls: string }
+> = {
+  msrtc_ordinary: {
+    label: 'MSRTC Ordinary',
+    label_mr: 'लालपरी / साधी',
+    badgeCls: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20',
+  },
+  msrtc_express: {
+    label: 'MSRTC Express',
+    label_mr: 'शिवशाही / हिरकणी',
+    badgeCls: 'bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20',
+  },
+  pmpml: {
+    label: 'PMPML Local',
+    label_mr: 'PMPML लोकल',
+    badgeCls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+  },
+  local_shuttle: {
+    label: 'Local Shuttle',
+    label_mr: 'स्थानिक / वडाप',
+    badgeCls: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
+  },
+  other: {
+    label: 'Other',
+    label_mr: 'इतर',
+    badgeCls: 'bg-muted text-muted-foreground border-border',
+  },
+};
+
+/**
+ * Parses route metadata from notes string (supporting human-readable tags and legacy notes).
+ */
+export function parseBusNotes(notesStr: string | null | undefined): BusRouteMeta {
+  if (!notesStr || !notesStr.trim()) {
+    return {
+      direction: 'outgoing',
+      bus_type: 'msrtc_ordinary',
+      via: [],
+      raw_notes: '',
+    };
+  }
+
+  let text = notesStr.trim();
+  let direction: BusDirection = 'outgoing';
+  let bus_type: BusType = 'msrtc_ordinary';
+  let via: string[] = [];
+
+  // 1. Detect direction
+  if (/\[Incoming\]/i.test(text) || /\b(incoming|येणारी|return)\b/i.test(text)) {
+    direction = 'incoming';
+    text = text.replace(/\[Incoming\]\s*(·|-)?\s*/gi, '');
+  } else if (/\[Outgoing\]/i.test(text)) {
+    direction = 'outgoing';
+    text = text.replace(/\[Outgoing\]\s*(·|-)?\s*/gi, '');
+  }
+
+  // 2. Detect bus type
+  if (/\[PMPML\]/i.test(text) || /\bPMPML\b/i.test(text)) {
+    bus_type = 'pmpml';
+    text = text.replace(/\[PMPML\]\s*(·|-)?\s*/gi, '');
+  } else if (/\[Express\]/i.test(text) || /\b(Express|Superfast|शिवशाही|हिरकणी)\b/i.test(text)) {
+    bus_type = 'msrtc_express';
+    text = text.replace(/\[Express\]\s*(·|-)?\s*/gi, '');
+  } else if (/\[Local Shuttle\]/i.test(text) || /\b(Shuttle|वडाप|काळी-पिवळी)\b/i.test(text)) {
+    bus_type = 'local_shuttle';
+    text = text.replace(/\[Local Shuttle\]\s*(·|-)?\s*/gi, '');
+  }
+
+  // 3. Detect via stops: e.g. "via Somatane Phata, Dehu Road" or "मार्गे ..."
+  const viaMatch = text.match(/(?:via|मार्गे)\s+([^·\-\n\r]+)/i);
+  if (viaMatch) {
+    const rawVia = viaMatch[1].trim();
+    via = rawVia
+      .split(/[,/]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    text = text.replace(/(?:via|मार्गे)\s+[^·\-\n\r]+\s*(·|-)?\s*/gi, '');
+  }
+
+  // Clean leftover delimiters
+  text = text.replace(/^[·\-\s]+|[·\-\s]+$/g, '').trim();
+
+  return {
+    direction,
+    bus_type,
+    via,
+    raw_notes: text,
+  };
+}
+
+/**
+ * Serializes route metadata back into a human-readable, backwards-compatible notes string.
+ */
+export function serializeBusNotes(meta: Partial<BusRouteMeta>): string {
+  const parts: string[] = [];
+  if (meta.direction === 'incoming') {
+    parts.push('[Incoming]');
+  }
+  if (meta.bus_type && meta.bus_type !== 'msrtc_ordinary') {
+    const typeLabel =
+      meta.bus_type === 'pmpml'
+        ? 'PMPML'
+        : meta.bus_type === 'msrtc_express'
+        ? 'Express'
+        : meta.bus_type === 'local_shuttle'
+        ? 'Local Shuttle'
+        : '';
+    if (typeLabel) parts.push(`[${typeLabel}]`);
+  }
+  if (meta.via && meta.via.length > 0) {
+    parts.push(`via ${meta.via.join(', ')}`);
+  }
+  if (meta.raw_notes && meta.raw_notes.trim()) {
+    parts.push(meta.raw_notes.trim());
+  }
+  return parts.join(' · ');
+}
+
+export const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+export function parseTimes(raw: string): { ok: string[]; bad: string[] } {
+  const tokens = raw
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => {
+      // Accept "9:00" -> "09:00"
+      const m = s.match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return s;
+      return `${m[1].padStart(2, '0')}:${m[2]}`;
+    });
+  const ok: string[] = [];
+  const bad: string[] = [];
+  for (const tk of tokens) (TIME_RE.test(tk) ? ok : bad).push(tk);
+  // de-dup + sort
+  const dedup = Array.from(new Set(ok)).sort();
+  return { ok: dedup, bad };
+}
+
+export interface ParsedBulkBusRow {
+  destination: string;
+  destination_mr?: string;
+  departure_times: string[];
+  notes?: string;
+  is_active: boolean;
+}
+
+/**
+ * Splits a single CSV / TSV / pipe line respecting quoted strings.
+ */
+export function splitDelimitedLine(line: string): string[] {
+  let delimiter = ',';
+  if (line.includes('\t')) delimiter = '\t';
+  else if (line.includes('|')) delimiter = '|';
+
+  const tokens: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (!inQuotes && (char === '"' || char === "'")) {
+      inQuotes = true;
+      quoteChar = char;
+    } else if (inQuotes && char === quoteChar) {
+      if (i + 1 < line.length && line[i + 1] === quoteChar) {
+        current += quoteChar;
+        i++;
+      } else {
+        inQuotes = false;
+        quoteChar = '';
+      }
+    } else if (!inQuotes && char === delimiter) {
+      tokens.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  tokens.push(current.trim());
+  return tokens;
+}
+
+/**
+ * Parses multi-line pasted CSV / TSV text for bulk timetable import.
+ * Supports lines like:
+ * "Nigdi, निगडी, 07:30 09:30 12:05, PMPML Route 342"
+ */
+export function parseBulkBusCsv(rawText: string): {
+  valid: ParsedBulkBusRow[];
+  errors: { line: number; message: string; raw: string }[];
+} {
+  const lines = rawText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const valid: ParsedBulkBusRow[] = [];
+  const errors: { line: number; message: string; raw: string }[] = [];
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const lineNum = idx + 1;
+    const line = lines[idx];
+
+    const cols = splitDelimitedLine(line);
+
+    // Skip header line if present
+    const firstLower = (cols[0] || '').toLowerCase();
+    if (idx === 0 && (firstLower === 'destination' || firstLower === 'route' || firstLower === 'ठिकाण')) {
+      continue;
+    }
+
+    if (!cols[0]) {
+      errors.push({ line: lineNum, message: 'Destination is missing', raw: line });
+      continue;
+    }
+
+    const destination = cols[0];
+    let destination_mr = '';
+    let timesRaw = '';
+    let notes = '';
+
+    // If 4+ columns: Destination, Marathi, Times, Notes
+    if (cols.length >= 4) {
+      destination_mr = cols[1];
+      timesRaw = cols[2];
+      notes = cols.slice(3).join(' · ');
+    } else if (cols.length === 3) {
+      // Check if cols[1] contains digits (meaning it's times: Destination, Times, Notes)
+      if (/\d/.test(cols[1])) {
+        timesRaw = cols[1];
+        notes = cols[2];
+      } else {
+        destination_mr = cols[1];
+        timesRaw = cols[2];
+      }
+    } else if (cols.length === 2) {
+      timesRaw = cols[1];
+    } else {
+      errors.push({ line: lineNum, message: 'Row must have at least Destination and Times', raw: line });
+      continue;
+    }
+
+    const parsedTimes = parseTimes(timesRaw);
+    if (parsedTimes.ok.length === 0) {
+      errors.push({ line: lineNum, message: `No valid HH:MM times found in "${timesRaw}"`, raw: line });
+      continue;
+    }
+
+    valid.push({
+      destination,
+      destination_mr: destination_mr || undefined,
+      departure_times: parsedTimes.ok,
+      notes: notes || undefined,
+      is_active: true,
+    });
+  }
+
+  return { valid, errors };
+}
+
+export const PARANDWADI_DEPOT_SEEDS: Omit<ParsedBulkBusRow, 'is_active'>[] = [
+  {
+    destination: 'Nigdi (Bhakti Shakti / Pawale Chowk)',
+    destination_mr: 'निगडी (भक्ती शक्ती / पावले चौक)',
+    departure_times: ['07:30', '09:30', '12:05', '16:35', '18:35'],
+    notes: '[Outgoing] · [PMPML] · via Somatane Phata, Dehu Road · PMPML Route 342: Urse -> Parandwadi ZP School -> Nigdi',
+  },
+  {
+    destination: 'Urse Gaon (Vasudev Ashram)',
+    destination_mr: 'उर्से गाव (वासुदेव आश्रम)',
+    departure_times: ['07:15', '09:10', '11:45', '16:20', '18:25'],
+    notes: '[Incoming] · [PMPML] · via Parandwadi · PMPML Route 342: Nigdi -> Dehu Road -> Parandwadi -> Urse Gaon',
+  },
+  {
+    destination: 'Dehu Road Bazar & Station',
+    destination_mr: 'देहूरोड बाजार व रेल्वे स्टेशन',
+    departure_times: ['07:30', '09:30', '12:05', '16:35', '18:35'],
+    notes: '[Outgoing] · [PMPML] · via Somatane Phata · Direct via Route 342 from Parandwadi ZP School',
+  },
+  {
+    destination: 'Somatane Phata (Highway Junction)',
+    destination_mr: 'सोमाटणे फाटा (हायवे जंक्शन)',
+    departure_times: ['06:30', '07:30', '08:30', '09:30', '10:30', '11:30', '12:05', '13:30', '14:30', '15:30', '16:35', '17:30', '18:35', '19:30', '20:30'],
+    notes: '[Outgoing] · [Local Shuttle] · Major highway junction 3km from Parandwadi - Feeder to Pune & Talegaon',
+  },
+  {
+    destination: 'Talegaon Dabhade ST Stand',
+    destination_mr: 'तळेगाव दाभाडे एसटी बसस्थानक',
+    departure_times: ['06:45', '07:45', '08:45', '09:45', '11:15', '12:45', '14:15', '15:45', '17:15', '18:45', '20:00'],
+    notes: '[Outgoing] · [MSRTC Ordinary] · via Somatane Phata, Talegaon Station Road',
+  },
+  {
+    destination: 'Hinjawadi IT Park (Phase 1, 2, 3)',
+    destination_mr: 'हिंजवडी आयटी पार्क (फेज १, २, ३)',
+    departure_times: ['07:15', '08:00', '08:45', '09:30', '17:30', '18:15', '19:00'],
+    notes: '[Outgoing] · [PMPML] · via Somatane Phata, Wakad connecting routes',
+  },
+  {
+    destination: 'Pune Station / Shivajinagar',
+    destination_mr: 'पुणे स्टेशन / शिवाजीनगर',
+    departure_times: ['06:30', '07:30', '08:30', '10:00', '12:00', '14:00', '16:00', '17:30', '19:00'],
+    notes: '[Outgoing] · [Express] · via Somatane Phata, Dehu Road connecting MSRTC Express & PMPML',
+  },
+  {
+    destination: 'Lonavala / Khandala',
+    destination_mr: 'लोणावळा / खंडाळा',
+    departure_times: ['07:00', '08:30', '10:30', '12:30', '14:30', '16:30', '18:30', '20:00'],
+    notes: '[Outgoing] · [MSRTC Ordinary] · via Old Mumbai-Pune Highway, Somatane Toll Naka',
+  },
+];
+

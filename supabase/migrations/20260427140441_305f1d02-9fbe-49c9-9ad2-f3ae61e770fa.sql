@@ -1,0 +1,2 @@
+ALTER TABLE public.shops          ADD COLUMN IF NOT EXISTS amenities text[] NOT NULL DEFAULT '{}'::text[];
+ALTER TABLE public.shop_requests  ADD COLUMN IF NOT EXISTS amenities text[] NOT NULL DEFAULT '{}'::text[];
