@@ -2,7 +2,301 @@
 // To take ownership, delete this banner line; the plugin then leaves the file alone.
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
+// src/lib/mcp/index.ts
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+
+// src/lib/mcp/tools/search-shops.ts
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z } from "npm:zod@^4.6.7";
+
+// src/lib/mcp/supabaseClient.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.110.0";
+var SUPABASE_URL = "https://fhlaqgzensagjangkpop.supabase.co";
+var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZobGFxZ3plbnNhZ2phbmdrcG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxMzU3NzcsImV4cCI6MjA4NzcxMTc3N30.JoeKwYWsW9LoTya_V8eNpJhqnz0wDHa03bXE1KdlvuQ";
+var client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
+function getSupabase() {
+  return client;
+}
+
+// src/lib/mcp/tools/search-shops.ts
+var search_shops_default = defineTool({
+  name: "search_shops",
+  title: "Search shops",
+  description: "Search the local business directory by name or description. Returns active shops with basic details.",
+  inputSchema: {
+    query: z.string().trim().min(1).describe("Text to match against shop name or description."),
+    city: z.string().trim().optional().describe("Optional city/taluka slug (e.g. 'muktainagar', 'bhusawal')."),
+    limit: z.number().int().min(1).max(50).optional().describe("Max results (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ query, city, limit }) => {
+    const supabase = getSupabase();
+    const safeQuery = query.replace(/[%,()\\]/g, " ").trim();
+    if (!safeQuery) {
+      return {
+        content: [{ type: "text", text: "[]" }],
+        structuredContent: { shops: [] }
+      };
+    }
+    let q = supabase.from("shops").select("id, slug, name, description, address, phone, opening_time, closing_time, is_verified").eq("is_active", true).or(`name.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`);
+    if (city) {
+      const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", city.toLowerCase()).maybeSingle();
+      if (cityRow?.id) q = q.eq("city_id", cityRow.id);
+    }
+    const { data, error } = await q.limit(limit ?? 10);
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { shops: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-shop.ts
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z2 } from "npm:zod@^4.6.7";
+var get_shop_default = defineTool2({
+  name: "get_shop",
+  title: "Get shop details",
+  description: "Fetch full details for a single shop by its slug.",
+  inputSchema: {
+    slug: z2.string().trim().min(1).describe("The shop's URL slug.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ slug }) => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from("shops").select("*, shop_categories(category_id, categories(id, name))").eq("slug", slug).eq("is_active", true).maybeSingle();
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    if (!data) {
+      return { content: [{ type: "text", text: `No active shop found with slug "${slug}".` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
+      structuredContent: { shop: data }
+    };
+  }
+});
+
+// src/lib/mcp/tools/list-categories.ts
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
+var list_categories_default = defineTool3({
+  name: "list_categories",
+  title: "List categories",
+  description: "List all active shop categories in the directory.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async () => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from("categories").select("id, name, icon").eq("is_active", true).order("name");
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { categories: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-bus-timetable.ts
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z3 } from "npm:zod@^4.6.7";
+var get_bus_timetable_default = defineTool4({
+  name: "get_bus_timetable",
+  title: "Get bus timetable",
+  description: "Fetch the bus timetable for the specified or default town, optionally filtered by destination.",
+  inputSchema: {
+    city: z3.string().trim().optional().describe("Optional city/taluka slug (e.g. 'muktainagar', 'bhusawal', 'varangaon')."),
+    destination: z3.string().trim().min(1).optional().describe("Optional destination filter (case-insensitive substring).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ city, destination }) => {
+    const supabase = getSupabase();
+    let q = supabase.from("bus_timetable").select("*").order("departure_time");
+    if (destination) q = q.ilike("destination", `%${destination}%`);
+    if (city) {
+      const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", city.toLowerCase()).maybeSingle();
+      if (cityRow?.id) q = q.eq("city_id", cityRow.id);
+    }
+    const { data, error } = await q;
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { buses: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-local-news.ts
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z4 } from "npm:zod@^4.6.7";
+var get_local_news_default = defineTool5({
+  name: "get_local_news",
+  title: "Get local news",
+  description: "Fetch latest active local news headlines and civic/agriculture/market updates for a town or taluka.",
+  inputSchema: {
+    city: z4.string().trim().optional().describe("Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal')."),
+    category: z4.enum(["local", "civic", "education", "agriculture", "markets", "sports", "alerts"]).optional().describe("Optional news category filter."),
+    limit: z4.number().int().min(1).max(30).optional().describe("Max articles to return (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ city, category, limit }) => {
+    const supabase = getSupabase();
+    let q = supabase.from("local_news").select("id, title, title_mr, summary, summary_mr, category, language, source_name, source_url, published_at, is_pinned").eq("is_active", true).order("is_pinned", { ascending: false }).order("published_at", { ascending: false }).limit(limit ?? 10);
+    if (city) {
+      const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", city.toLowerCase()).maybeSingle();
+      if (cityRow?.id) q = q.eq("city_id", cityRow.id);
+    }
+    if (category) {
+      q = q.eq("category", category);
+    }
+    const { data, error } = await q;
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    return {
+      content: [{ type: "text", text: JSON.stringify(data ?? [], null, 2) }],
+      structuredContent: { news: data ?? [] }
+    };
+  }
+});
+
+// src/lib/mcp/tools/search-schools.ts
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z5 } from "npm:zod@^4.6.7";
+var search_schools_default = defineTool6({
+  name: "search_schools",
+  title: "Search schools & colleges",
+  description: "Search schools, junior/degree colleges, engineering/ITI institutes, coaching classes, admissions status, and live notices.",
+  inputSchema: {
+    query: z5.string().trim().optional().describe("Optional name, board, stream, village, or keyword filter."),
+    city: z5.string().trim().optional().describe("Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal')."),
+    admission_status: z5.enum(["open", "ongoing", "upcoming", "closed"]).optional().describe("Optional admission status filter."),
+    limit: z5.number().int().min(1).max(30).optional().describe("Max institutes (default 10).")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ query, city, admission_status, limit }) => {
+    const supabase = getSupabase();
+    let cityId = "";
+    const citySlug = (city || "").toLowerCase();
+    if (citySlug) {
+      const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", citySlug).maybeSingle();
+      if (cityRow?.id) cityId = String(cityRow.id);
+    }
+    const enrichedCols = "id, slug, name, name_mr, school_type, medium, management_type, area, address, phone, board, admission_status, admission_deadline, fee_tier, annual_fee_min, annual_fee_max, streams, scholarships, transport_villages, available_seats, is_verified";
+    const legacyCols = "id, name, name_mr, school_type, medium, area, address, phone";
+    const runQuery = (cols = "", useBoardFilter = false) => {
+      let q = supabase.from("schools").select(cols).eq("is_active", true).limit(limit ?? 10);
+      if (cityId) {
+        q = citySlug === "muktainagar" ? q.or(`city_id.eq.${cityId},city_id.is.null`) : q.eq("city_id", cityId);
+      }
+      if (useBoardFilter && admission_status) {
+        q = q.eq("admission_status", admission_status);
+      }
+      if (query) {
+        const safeQuery = query.replace(/[%,()\\]/g, " ").trim();
+        if (safeQuery) {
+          q = useBoardFilter ? q.or(`name.ilike.%${safeQuery}%,area.ilike.%${safeQuery}%,board.ilike.%${safeQuery}%`) : q.or(`name.ilike.%${safeQuery}%,area.ilike.%${safeQuery}%`);
+        }
+      }
+      return q;
+    };
+    let { data, error } = await runQuery(enrichedCols, true);
+    if (error && /column|does not exist|schema cache/i.test(error.message || "")) {
+      const legacyRes = await runQuery(legacyCols, false);
+      data = legacyRes.data;
+      error = legacyRes.error;
+    }
+    if (error) {
+      return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+    }
+    const rows = data ?? [];
+    return {
+      content: [{ type: "text", text: JSON.stringify(rows, null, 2) }],
+      structuredContent: { schools: rows }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get-civic-services.ts
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { z as z6 } from "npm:zod@^4.6.7";
+var get_civic_services_default = defineTool7({
+  name: "get_civic_services",
+  title: "Get civic alerts & helplines",
+  description: "Fetch active/scheduled water, electricity (MSEDCL), and municipal civic announcements plus official department helplines.",
+  inputSchema: {
+    city: z6.string().trim().optional().describe("Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal')."),
+    department: z6.enum(["water", "electricity", "municipal"]).optional().describe("Optional civic department filter.")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ city, department }) => {
+    const supabase = getSupabase();
+    let cityId = "";
+    if (city) {
+      const { data: cityRow } = await supabase.from("geo_cities").select("id").eq("slug", city.toLowerCase()).maybeSingle();
+      if (cityRow?.id) cityId = String(cityRow.id);
+    }
+    let annQ = supabase.from("authority_announcements").select(
+      "id, title, title_mr, description, description_mr, category, priority, status, start_time, end_time, department:authority_departments(name, slug)"
+    ).in("status", ["active", "scheduled"]).order("published_at", { ascending: false }).limit(15);
+    let orgQ = supabase.from("authority_organizations").select("id, name, name_mr, office_address, visiting_hours, helpline_phone, emergency_phone").eq("is_active", true).limit(15);
+    if (cityId) {
+      annQ = annQ.eq("city_id", cityId);
+      orgQ = orgQ.eq("city_id", cityId);
+    }
+    const [annRes, orgRes] = await Promise.all([annQ, orgQ]);
+    if (annRes.error && orgRes.error) {
+      return {
+        content: [{ type: "text", text: `Error: ${annRes.error.message}` }],
+        isError: true
+      };
+    }
+    const announcements = (annRes.data ?? []).filter((a) => {
+      if (!department) return true;
+      const dept = Array.isArray(a.department) ? a.department[0] : a.department;
+      return dept?.slug === department;
+    });
+    const organizations = orgRes.data ?? [];
+    return {
+      content: [
+        { type: "text", text: JSON.stringify({ announcements, organizations }, null, 2) }
+      ],
+      structuredContent: { announcements, organizations }
+    };
+  }
+});
+
+// src/lib/mcp/index.ts
+var projectRef = "fhlaqgzensagjangkpop";
+var mcp_default = defineMcp({
+  name: "muktainagar-daily-mcp",
+  title: "Muktainagar Daily MCP",
+  version: "0.1.0",
+  instructions: "Read-only tools for the Muktainagar Daily directory. Callers must be signed in. Use `search_shops` and `get_shop` to look up local businesses, `list_categories` to enumerate categories, `get_bus_timetable` for bus departure times, `get_local_news` for town headlines, `search_schools` for colleges/schools/admissions, and `get_civic_services` for water/power alerts & helplines.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
+  tools: [
+    search_shops_default,
+    get_shop_default,
+    list_categories_default,
+    get_bus_timetable_default,
+    get_local_news_default,
+    search_schools_default,
+    get_civic_services_default
+  ]
+});
+
 // lovable-mcp-supabase-entry.ts
-import mcp from "npm:C:\\Users\\Asus\\Downloads\\muktainagar-daily-main\\src\\lib\\mcp\\index.ts";
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.1/stacks/supabase";
-Deno.serve(createSupabaseHandler(mcp, { functionName: "mcp" }));
+import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.20.0/stacks/supabase";
+Deno.serve(createSupabaseHandler(mcp_default, { functionName: "mcp" }));

@@ -15,7 +15,7 @@ interface Props {
   onGeocode?: (g: { address: string; area: string }) => void;
 }
 
-const EXPLICIT_GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+const EXPLICIT_GMAPS_KEY = ((import.meta.env['VITE_GOOGLE_MAPS_API_KEY'] as string | undefined) || (import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'] as string | undefined)) || undefined;
 const TRACKING_ID = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 
 type GMaps = typeof google.maps;
@@ -214,6 +214,7 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
         const initialCoords = latestCoordsRef.current;
         const start = initialCoords ?? latestCenterRef.current ?? MUKTAINAGAR_CENTER;
         const map = new maps.Map(containerRef.current, {
+          clickableIcons: false,
           center: start,
           zoom: initialCoords ? 17 : 15,
           mapTypeId: mapType,
