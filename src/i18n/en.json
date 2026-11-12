@@ -831,5 +831,13 @@
   "school.notices.title": "Live Notice Board & Circulars",
   "school.notices.empty": "No active notices or circulars posted yet.",
   "school.enquiry.title": "Direct Admission Enquiry on WhatsApp",
-  "school.nearbyLiving.title": "Nearby Student Hostels, PGs & Mess"
+  "school.nearbyLiving.title": "Nearby Student Hostels, PGs & Mess",
+  "schoolOwner.tab.notices": "Notices",
+  "schoolOwner.tab.admissions": "Admissions",
+  "schoolOwner.tab.campus": "Campus",
+  "schoolOwner.tab.analytics": "Reach",
+  "schoolOwner.whatsappBroadcast": "WhatsApp Broadcast",
+  "schoolOwner.toast.saved": "Institute details saved!",
+  "schoolOwner.toast.noticePosted": "Notice published!",
+  "schoolOwner.toast.conflict": "This institute was updated elsewhere. Please reload the latest changes."
 }

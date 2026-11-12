@@ -831,5 +831,13 @@
   "school.notices.title": "ताज्या सूचना व परिपत्रके",
   "school.notices.empty": "सध्या कोणतीही सूचना प्रसिद्ध केलेली नाही.",
   "school.enquiry.title": "व्हॉट्सॲपवर थेट प्रवेश चौकशी",
-  "school.nearbyLiving.title": "जवळपासचे विद्यार्थी वसतिगृह, पीजी व मेस"
+  "school.nearbyLiving.title": "जवळपासचे विद्यार्थी वसतिगृह, पीजी व मेस",
+  "schoolOwner.tab.notices": "सूचना",
+  "schoolOwner.tab.admissions": "प्रवेश",
+  "schoolOwner.tab.campus": "परिसर",
+  "schoolOwner.tab.analytics": "पोहोच",
+  "schoolOwner.whatsappBroadcast": "WhatsApp वर शेअर करा",
+  "schoolOwner.toast.saved": "संस्थेची माहिती जतन झाली!",
+  "schoolOwner.toast.noticePosted": "सूचना प्रकाशित झाली!",
+  "schoolOwner.toast.conflict": "ही संस्था इतरत्र अपडेट झाली आहे. कृपया नवीनतम बदल रीलोड करा."
 }
