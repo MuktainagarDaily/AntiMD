@@ -186,7 +186,7 @@ function classifyIntent(qLower: string): IntentFlags {
 
   const isSpecialFood =
     !hasExplicitLiving &&
-    /special|cooked|menu|thali|today|spcl|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|nashta|breakfast|स्पेशल|मेनू|आज|जेवण|खास|kay banla|kya bana/i.test(
+    /\bcook(?:ed|s|ing)?\b|special|menu|thali|today|spcl|\bdish(?:es)?\b|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|nashta|breakfast|स्पेशल|मेनू|आज|जेवण|खास|काय\s*बनलं|kay banla|kya bana/i.test(
       qLower,
     );
 

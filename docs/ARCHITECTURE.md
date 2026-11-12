@@ -21,8 +21,8 @@
 | Fuzzy search | Fuse.js v7 (client-side with EN/Hinglish/Marathi synonym expansion) |
 | CSV / ZIP | jszip + RFC 4180 `csvUtils.ts` + 20-dataset `masterDatasets.ts` |
 | SEO | react-helmet-async (`PageSeo` component) + build-time sitemap/prerender scripts |
-| Maps | Google Maps JS API + Leaflet |
-| Testing | Vitest 3.2 + `@testing-library/react` (**31 test files**, **252 tests**) |
+| Maps | Leaflet / OpenStreetMap (zero-config default) + optional Google Maps JS API (`VITE_GOOGLE_MAPS_API_KEY` with `gm_authFailure` OSM fallback) |
+| Testing | Vitest 3.2 + `@testing-library/react` (**32 test files**, **275 tests**) |
 
 ### Route Table (`src/App.tsx`)
 
@@ -94,7 +94,7 @@ Driven by `src/components/admin/layout/adminNav.ts`:
 - `/admin/system/mcp` (`SystemMcp`)
 
 `AdminLayout` renders `AdminSidebar` + `BranchTabs` + `<Outlet/>`.
-`App.tsx` also mounts global root hosts `<OfflineOverlay />`, `<ListShopModalHost />`, and `<TownAssistantDrawer />` (Sahayak AI).
+`App.tsx` also mounts global root hosts `<OfflineOverlay />`, `<ListShopModalHost />`, `<CallNumberDialog />`, and `<TownAssistantDrawer />` (Sahayak AI).
 
 `ProtectedRoute` waits on `loading && rolesLoading` before redirecting; unauthorized users land on `/` with a destructive toast.
 
@@ -103,7 +103,7 @@ Driven by `src/components/admin/layout/adminNav.ts`:
 - **Queries & Mutations:** TanStack Query v5 wraps PostgREST `.from(...)` and `.rpc(...)` calls via Supabase JS client (`src/integrations/supabase/client.ts`).
 - **Realtime:** Supabase Realtime channels subscribe to `shops`, `shop_requests`, `shop_owners`, `school_owners`, and `mess_daily_menus`.
 - **Optimistic concurrency:** Generic `updateWithConcurrency<T>` (`src/lib/concurrency.ts`) backs both `shopConcurrency.ts` (`shops`) and `schoolConcurrency.ts` (`schools`) with `WHERE id=$1 AND updated_at=$2`.
-- **Translation cache:** `src/hooks/useTranslationsCache.ts` & `src/lib/translateApi.ts` resolve memory → `localStorage` → `translation_cache` table → MyMemory API.
+- **Translation cache:** `src/hooks/useTranslationsCache.ts` & `src/lib/translateApi.ts` resolve memory → `localStorage` → `translation_cache` table → MyMemory API (50k/day) → **Gemini AI Marathi fallback** (`town-assistant` `{ mode: 'translate' }`).
 - **Anonymous engagement & counters:** Public taps write via RLS-gated INSERTs (`shop_engagement`, `school_engagement`) with DB rate-limit triggers, and banner impressions/clicks increment via `SECURITY DEFINER` RPCs.
 
 ### i18n & Theming
@@ -115,7 +115,7 @@ Driven by `src/components/admin/layout/adminNav.ts`:
 - **Provider:** External Supabase project `fhlaqgzensagjangkpop` (`src/integrations/supabase/client.ts`).
 - **Edge Functions (`supabase/functions/` — 3 Deno functions):**
   1. **`mcp` (`supabase/functions/mcp/index.ts`):** Auto-bundled on `vite build` by `mcpPlugin()` from `src/lib/mcp/index.ts`. Serves OAuth 2.1-protected Streamable HTTP MCP endpoint with **7 read-only tools**.
-  2. **`town-assistant` (`supabase/functions/town-assistant/index.ts`):** Sahayak AI backend powered by Gemini via `@lovable.dev/ai-gateway` + deterministic server-side fallback querying all 7 entity verticals (`mess`, `pg`, `shop`, `bus`, `school`, `news`, `service`) with IST clock awareness and Parandwadi bus seeds.
+  2. **`town-assistant` (`supabase/functions/town-assistant/index.ts`):** Sahayak AI backend powered by Gemini via `@lovable.dev/ai-gateway` + deterministic server-side fallback querying all 7 entity verticals (with explicit parallel `mess_profiles` & `pg_profiles` retrieval, Today's Menu / cook dish awareness, IST clock, and Parandwadi bus seeds), plus **`{ mode: 'translate' }`** batch EN⇄MR AI translation fallback.
   3. **`scrape-local-news` (`supabase/functions/scrape-local-news/index.ts`):** Fetches active `news_sources` RSS/Atom feeds and HTML webpages server-side, strips markup, parses IST/RFC dates, infers categories, and upserts deduplicated `local_news` rows.
 - **Dev News Proxy (`vite.config.ts`):** `localNewsProxyPlugin` exposes `/api/news-proxy` during `vite dev` / `vite preview` with SSRF blocking on localhost/link-local/private CIDR ranges.
 - **Auth:** Supabase Auth (email/password for citizens/owners/admins; OAuth 2.1 flow via `/oauth/consent` for external MCP clients). Roles live in `user_roles`, evaluated via `has_role` / `is_admin` `SECURITY DEFINER`.
@@ -136,7 +136,7 @@ Driven by `src/components/admin/layout/adminNav.ts`:
 |---|---|---|
 | PostgREST Grants | SEC-01 | Explicit `SELECT` grants for `authority_*` tables, `local_news`, `school_notices`, `school_reviews`. |
 | Living Services RLS | SEC-02 | Explicit `DELETE` policies for `mess_profiles`, `pg_profiles`, `mess_daily_menus` scoped to admin/owner. |
-| Dev Isolation | SEC-03 | `devRoleSwitcher` strips privileges outside `import.meta.env.DEV`. |
+| Dev & Examiner Isolation | SEC-03 & Examiner Auth | `devRoleSwitcher` strips Services PII privileges outside `import.meta.env.DEV`; production **Examiner Mode** (`EXAMINER_MODE_ENABLED` in `src/lib/devHelpers.ts`) authenticates via Supabase Auth (`admin-test@apnalocal.in`) backed by server `'admin'` role & RLS policies. |
 | MCP Grants | SEC-05 | `mcp_endpoints` restricted exclusively to `service_role` in grants + admin RLS. |
 | Resource Exhaustion | SEC-07 | `get_shops_page()` clamps `clean_search` (100 chars) and `p_limit` (1..50). |
 | Open-Redirect / XSS | SEC-08 / SEC-13 | `safeRelativePath()` recursive decoding; declarative JSX rendering; HTTP(S) CHECK constraints on URLs; formula-injection escaping in CSV exports. |
@@ -161,14 +161,15 @@ Driven by `src/components/admin/layout/adminNav.ts`:
 | `assistant/assistantService.ts` | Sahayak AI client gateway + deterministic offline/local fallback across all 7 verticals |
 | `news/{newsTypes,newsParser,newsService}.ts` | Local News types, RSS/Atom/HTML parser, IST date handling, category inference, Edge Function + proxy orchestration |
 | `schools/{schoolHelpers,schoolNoticesRepo}.ts` | Education Portal constants, metadata serializer, 45-col CSV parser/exporter, and `school_notices` repository |
-| `bus/busHelpers.ts` | Bus direction/type tag parser/serializer, CSV parser, Parandwadi PMPML/MSRTC seeds |
+| `bus/busHelpers.ts` | Bus direction/type tag parser/serializer, CSV parser, Parandwadi PMPML/MSRTC seeds, and forgiving Damerau-Levenshtein/subsequence matcher (`matchesForgivingBusQuery`, `scoreForgivingMatch`) |
 | `geo/{geoService,townConfig,types}.ts` | Multi-town hierarchy access & dynamic `<Town> Daily` branding engine |
-| `living/{livingService,livingTypes}.ts` | Mess daily menus, fixed-price cards, and PG Simple/Room-by-Room vacancy management |
+| `living/{livingService,livingTypes,sampleMenuGenerator}.ts` | Mess daily menus, fixed-price cards, dietary genuine menu autofill (`generateSampleMessMenu`), and PG Simple/Room-by-Room vacancy management |
 | `services/{authorityService,authorityTypes,devRoleSwitcher}.ts` | Essential Services & Civic Authorities service with session-cached contacts |
+| `devHelpers.ts` | Production-enabled Examiner Mode flags (`EXAMINER_MODE_ENABLED`) and entity-specific autofill banks (`getEntityAutofillSample`, `getMessModalAutofillSample`) |
 | `images/imageService.ts` & `storageNaming.ts` & `imageVerify.ts` & `imageUtils.ts` | Canvas WebP compression, multi-bucket path conventions, recursive listing, and 3-tier broken-image probing |
 | `banners/{flags,store,types}.ts` | 3-layer ad kill switch, geo-targeted banner CRUD, and RPC impression/click tracking |
 | `concurrency.ts`, `shopConcurrency.ts`, `schoolConcurrency.ts` | Generic optimistic concurrency (`updated_at`) and owner-editable field whitelists |
-| `engagement.ts` & `schoolEngagement.ts` | Fire-and-forget deduplicated interaction logging |
+| `engagement.ts` & `schoolEngagement.ts` | Fire-and-forget deduplicated interaction logging + desktop `tel:` interception (`handleTelLinkClick` → `OPEN_CALL_DIALOG_EVENT`) |
 | `reviewsApi.ts` | Unified rating & review hooks/mutations for `shop_reviews` and `school_reviews` |
 | `fuzzySearch.ts` & `searchSynonyms.ts` | Fuse.js search with ~150 EN/Hinglish/MR synonym expansions |
 | `csvUtils.ts` | RFC 4180 multi-line CSV parser, UTF-8 BOM + Devanagari export, formula-injection sanitizer, >1,000-row pagination |

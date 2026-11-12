@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { initWebVitals } from '@/lib/perf/webVitals';
 import { PageSeo } from '@/components/seo/PageSeo';
 
@@ -8,12 +8,12 @@ import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { isShopOpen, filterRetailShops } from '@/lib/shopUtils';
+import { isShopOpen, filterRetailShops, getEntityDetailPath } from '@/lib/shopUtils';
 import { CategoryIcon } from '@/components/shared/CategoryIcon';
 import { SectionIcon, type SectionKey } from '@/components/shared/SectionIcon';
 import { BannerPopup } from '@/components/banners/BannerPopup';
 import { BannerSlot } from '@/components/banners/BannerSlot';
-import { HomeSearch } from '@/components/home/HomeSearch';
+import { HomeSearch, type OmniSearchSuggestion } from '@/components/home/HomeSearch';
 import { CategoryGrid } from '@/components/home/CategoryGrid';
 import { ShopList } from '@/components/home/ShopList';
 import { useCity } from '@/hooks/useCity';
@@ -22,6 +22,9 @@ import { DesktopNav } from '@/components/DesktopNav';
 import { Footer } from '@/components/shared/Footer';
 import logoIcon from '@/assets/logo-icon.png';
 import { fetchActiveCriticalAlerts } from '@/lib/services/authorityService';
+import { fetchMessesForCity, fetchPGsForCity } from '@/lib/living/livingService';
+import { schoolsRepo } from '@/lib/repos/schoolsRepo';
+import { matchesForgivingBusQuery, scoreForgivingMatch, PARANDWADI_DEPOT_SEEDS } from '@/lib/bus/busHelpers';
 import {
   Drawer,
   DrawerContent,
@@ -103,7 +106,7 @@ export default function Home() {
       let query = (supabase as any)
         .from('shops')
         .select(
-          'id, name, slug, area, sub_area, address, image_url, photos, phone, whatsapp, opening_time, closing_time, is_open, is_verified, created_at, shop_owners(id), shop_categories(category_id, categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)'
+          'id, name, slug, area, sub_area, address, image_url, photos, phone, whatsapp, opening_time, closing_time, is_open, is_verified, village_id, created_at, shop_categories(category_id, categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)'
         )
         .eq('is_active', true);
 
@@ -117,9 +120,26 @@ export default function Home() {
 
       const { data, error } = await query;
       if (error) throw error;
-      const mapped = (data || []).map((s: any) => ({
+      const rows = (data || []) as any[];
+      const shopIds = rows.map((s) => s.id).filter(Boolean);
+      let claimedSet = new Set<string>();
+      if (shopIds.length > 0 && typeof (supabase as any).rpc === 'function') {
+        try {
+          const { data: claimedRows, error: rpcErr } = await (supabase as any).rpc('get_claimed_shop_ids', {
+            _shop_ids: shopIds,
+          });
+          if (!rpcErr && Array.isArray(claimedRows)) {
+            claimedSet = new Set(
+              claimedRows.map((r: any) => (typeof r === 'string' ? r : r?.shop_id)).filter(Boolean),
+            );
+          }
+        } catch {
+          // Ignore if RPC is not deployed or mocked in tests
+        }
+      }
+      const mapped = rows.map((s) => ({
         ...s,
-        is_claimed: Boolean(s.is_claimed || (s.shop_owners && s.shop_owners.length > 0)),
+        is_claimed: Boolean(s.is_claimed || claimedSet.has(s.id)),
       }));
       // Strictly exclude specialized non-shop entities (Mess, PG, etc.)
       return filterRetailShops(mapped) as any[];
@@ -172,11 +192,262 @@ export default function Home() {
     [shopsForSearch, shopTrMap, catTrMap],
   );
 
-  // Autocomplete suggestions — top 5 fuzzy matches (typo-tolerant, EN+MR)
+  // Omni-search sidecar datasets (lazy-loaded on search focus/typing across Mess, PG, Education & Buses)
+  const { data: omniMesses = [] } = useQuery({
+    queryKey: ['home-omni-messes', currentCity.id, currentVillage?.id],
+    enabled: enableSearchIndex,
+    staleTime: 120_000,
+    queryFn: async () => {
+      try {
+        return await fetchMessesForCity(currentCity.id, currentVillage?.id);
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { data: omniPgs = [] } = useQuery({
+    queryKey: ['home-omni-pgs', currentCity.id, currentVillage?.id],
+    enabled: enableSearchIndex,
+    staleTime: 120_000,
+    queryFn: async () => {
+      try {
+        return await fetchPGsForCity(currentCity.id, currentVillage?.id);
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { data: omniSchools = [] } = useQuery({
+    queryKey: ['home-omni-schools', currentCity.id, currentCity.slug],
+    enabled: enableSearchIndex,
+    staleTime: 120_000,
+    queryFn: async () => {
+      try {
+        return await schoolsRepo.list({ activeOnly: true, cityId: currentCity.id, citySlug: currentCity.slug, limit: 40 });
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { data: omniBuses = [] } = useQuery({
+    queryKey: ['home-omni-buses', currentCity.id, currentCity.slug],
+    enabled: enableSearchIndex,
+    staleTime: 120_000,
+    queryFn: async () => {
+      try {
+        let q = (supabase as any)
+          .from('bus_timetable')
+          .select('id, destination, destination_mr, departure_times, notes')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .limit(40);
+
+        if (currentCity.slug === 'muktainagar') {
+          q = q.or(`city_id.eq.${currentCity.id},city_id.is.null`);
+        } else {
+          q = q.eq('city_id', currentCity.id);
+        }
+
+        const { data, error } = await q;
+        const rows = !error && Array.isArray(data) ? data : [];
+        if (rows.length > 0) return rows;
+        if (currentCity.slug === 'maval' || currentVillage?.slug === 'parandwadi') {
+          return PARANDWADI_DEPOT_SEEDS.map((b, i) => ({
+            id: `seed-bus-${i}`,
+            destination: b.destination,
+            destination_mr: b.destination_mr || null,
+            departure_times: b.departure_times,
+            notes: b.notes || null,
+          }));
+        }
+        return [];
+      } catch {
+        return currentCity.slug === 'maval' || currentVillage?.slug === 'parandwadi'
+          ? PARANDWADI_DEPOT_SEEDS.map((b, i) => ({
+              id: `seed-bus-${i}`,
+              destination: b.destination,
+              destination_mr: b.destination_mr || null,
+              departure_times: b.departure_times,
+              notes: b.notes || null,
+            }))
+          : [];
+      }
+    },
+  });
+
+  const getOmniSuggestions = useCallback(
+    (rawQ: string, maxResults = 8): OmniSearchSuggestion[] => {
+      const q = rawQ.trim();
+      if (q.length < 2) return [];
+      const qLower = q.toLowerCase();
+      const candidates: Array<{ score: number; item: OmniSearchSuggestion }> = [];
+
+      // 1. Shops (preserve Marathi shop translations & category pills via HomeSearch)
+      const matchedShops = fuzzySearchShops(homeFuse, shopsForSearch, q, shopTrMap, catTrMap, 4);
+      matchedShops.forEach((s: any, idx: number) => {
+        const nameLower = (s.name || '').toLowerCase();
+        const nameMrLower = (shopTrMap?.get(s.id)?.name || '').toLowerCase();
+        const boost =
+          nameLower === qLower || nameMrLower === qLower
+            ? 240
+            : nameLower.startsWith(qLower) || nameMrLower.startsWith(qLower)
+              ? 180
+              : nameLower.includes(qLower) || nameMrLower.includes(qLower)
+                ? 135
+                : Math.max(40, 85 - idx * 10);
+        candidates.push({
+          score: boost,
+          item: {
+            id: s.id,
+            entityType: 'shop',
+            title: s.name || '',
+            path: getEntityDetailPath(currentCity.slug, s),
+            raw: s,
+          },
+        });
+      });
+
+      // 2. Mess & Today's Dishes
+      for (const m of omniMesses as any[]) {
+        const menuDishText = (m.menu_items || []).map((i: any) => i.name).join(' ');
+        const score = scoreForgivingMatch(q, [
+          m.name,
+          m.name_mr,
+          m.today_menu?.special_tag,
+          m.today_menu?.lunch_text,
+          m.today_menu?.dinner_text,
+          m.latest_menu?.special_tag,
+          m.latest_menu?.lunch_text,
+          m.latest_menu?.dinner_text,
+          menuDishText,
+          m.area,
+        ]);
+        if (score > 0) {
+          const menuPreview =
+            m.today_menu?.special_tag ||
+            m.today_menu?.lunch_text ||
+            m.today_menu?.dinner_text ||
+            m.latest_menu?.special_tag ||
+            m.area;
+          candidates.push({
+            score,
+            item: {
+              id: m.id,
+              entityType: 'mess',
+              title: locale === 'mr' && m.name_mr ? m.name_mr : m.name,
+              subtitle: menuPreview || undefined,
+              badgeLabel: m.mess_profile?.single_thali_rate
+                ? `₹${m.mess_profile.single_thali_rate}`
+                : undefined,
+              path: `/${currentCity.slug}/mess/${m.slug || m.id}`,
+              raw: m,
+            },
+          });
+        }
+      }
+
+      // 3. PG & Hostels
+      for (const p of omniPgs as any[]) {
+        const score = scoreForgivingMatch(q, [
+          p.name,
+          p.name_mr,
+          p.area,
+          p.address,
+          p.pg_profile?.gender,
+          Array.isArray(p.amenities) ? p.amenities.join(' ') : '',
+        ]);
+        if (score > 0) {
+          const beds = p.pg_profile?.available_beds;
+          candidates.push({
+            score,
+            item: {
+              id: p.id,
+              entityType: 'pg',
+              title: locale === 'mr' && p.name_mr ? p.name_mr : p.name,
+              subtitle: [p.pg_profile?.gender, p.area].filter(Boolean).join(' · ') || undefined,
+              badgeLabel: typeof beds === 'number' && beds > 0 ? `${beds} beds` : undefined,
+              path: `/${currentCity.slug}/pg/${p.slug || p.id}`,
+              raw: p,
+            },
+          });
+        }
+      }
+
+      // 4. Education / Institutes
+      for (const sc of omniSchools as any[]) {
+        const score = scoreForgivingMatch(q, [
+          sc.name,
+          sc.name_mr,
+          sc.area,
+          sc.school_type,
+          sc.board,
+          sc.medium,
+          Array.isArray(sc.streams) ? sc.streams.join(' ') : '',
+          Array.isArray(sc.coaching_focus) ? sc.coaching_focus.join(' ') : '',
+        ]);
+        if (score > 0) {
+          candidates.push({
+            score,
+            item: {
+              id: sc.id,
+              entityType: 'school',
+              title: locale === 'mr' && sc.name_mr ? sc.name_mr : sc.name,
+              subtitle: [sc.board, sc.area].filter(Boolean).join(' · ') || undefined,
+              badgeLabel: sc.admission_status === 'open' ? (locale === 'mr' ? 'प्रवेश सुरू' : 'Admissions') : undefined,
+              path: `/${currentCity.slug}/schools/${sc.slug || sc.id}`,
+              raw: sc,
+            },
+          });
+        }
+      }
+
+      // 5. Bus Routes & Stops (forgiving shorthand like "ng" -> "Nigdi")
+      for (const bus of omniBuses as any[]) {
+        const score = matchesForgivingBusQuery(q, bus);
+        if (score > 0) {
+          const depCount = Array.isArray(bus.departure_times) ? bus.departure_times.length : 0;
+          candidates.push({
+            score,
+            item: {
+              id: bus.id,
+              entityType: 'bus',
+              title: locale === 'mr' && bus.destination_mr ? bus.destination_mr : bus.destination,
+              subtitle: bus.notes || undefined,
+              badgeLabel: depCount > 0 ? `${depCount} trips` : undefined,
+              path: `/${currentCity.slug}/bus-timetable?q=${encodeURIComponent(q)}`,
+              raw: bus,
+            },
+          });
+        }
+      }
+
+      return candidates
+        .sort((a, b) => b.score - a.score)
+        .slice(0, maxResults)
+        .map((c) => c.item);
+    },
+    [
+      homeFuse,
+      shopsForSearch,
+      shopTrMap,
+      catTrMap,
+      omniMesses,
+      omniPgs,
+      omniSchools,
+      omniBuses,
+      currentCity.slug,
+      locale,
+    ],
+  );
+
+  // Autocomplete suggestions across Shops, Mess, PG, Education, and Bus Routes
   const searchSuggestions = useMemo(() => {
     if (!searchFocused || debouncedSearch.trim().length < 2) return [];
-    return fuzzySearchShops(homeFuse, shopsForSearch, debouncedSearch, shopTrMap, catTrMap, 5);
-  }, [homeFuse, shopsForSearch, debouncedSearch, searchFocused, shopTrMap, catTrMap]);
+    return getOmniSuggestions(debouncedSearch, 8);
+  }, [searchFocused, debouncedSearch, getOmniSuggestions]);
 
   const catShopCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -413,7 +684,12 @@ export default function Home() {
       lower.includes('वेळापत्रक')
     ) {
       toast.message(locale === 'mr' ? 'बस वेळापत्रक उघडत आहे...' : 'Opening Bus Timetable...');
-      navigate(`/${currentCity.slug}/bus-timetable`);
+      const cleanedBusStop = q.replace(/\b(bus|buses|timetable|schedule)\b|बस|वेळापत्रक/gi, '').trim();
+      navigate(
+        cleanedBusStop
+          ? `/${currentCity.slug}/bus-timetable?q=${encodeURIComponent(cleanedBusStop)}`
+          : `/${currentCity.slug}/bus-timetable`,
+      );
       return;
     }
 
@@ -450,10 +726,39 @@ export default function Home() {
       }
       toast.message(t('home.openingCategory', { name: matchedCat.name }));
       navigate(`/${currentCity.slug}/shops?category=${encodeURIComponent(matchedCat.name)}`);
-    } else {
+      return;
+    }
+
+    // Check unified omni-matches across Shops, Mess/Dishes, PGs, Education, and Bus stops
+    const omniMatches = getOmniSuggestions(q, 5);
+    const hasShopMatch = omniMatches.some((m) => m.entityType === 'shop');
+
+    if (omniMatches.length > 0 && !hasShopMatch) {
+      const top = omniMatches[0];
+      toast.message(
+        locale === 'mr' ? `उघडत आहे: ${top.title}` : `Opening ${top.title}...`,
+      );
+      navigate(top.path);
+      return;
+    }
+
+    if (hasShopMatch) {
       toast.message(t('home.searching', { q }));
       navigate(`/${currentCity.slug}/shops?search=${encodeURIComponent(q)}`);
+      return;
     }
+
+    // Last-resort fallback: ask Sahayak AI when zero local matches exist across all modules
+    toast.message(
+      locale === 'mr'
+        ? `"${q}" साठी सहाय्यक AI कडून मदत घेत आहे...`
+        : `Asking Sahayak AI about "${q}"...`,
+    );
+    window.dispatchEvent(
+      new CustomEvent('open-town-assistant', {
+        detail: { query: q, autoSend: true },
+      }),
+    );
   };
 
   const scrollToCategories = () => {
@@ -607,9 +912,18 @@ export default function Home() {
             searchFocused={searchFocused}
             suggestions={searchSuggestions}
             localizeCat={localizeCat}
-            onPickSuggestion={(shop, p) => {
-              toast.message(t('home.openingCategory', { name: shop.name }));
+            onPickSuggestion={(item, p) => {
+              const label = item?.title || item?.name || '';
+              if (label) toast.message(t('home.openingCategory', { name: label }));
               navigate(p);
+            }}
+            onAskAi={(qText) => {
+              setSearchFocused(false);
+              window.dispatchEvent(
+                new CustomEvent('open-town-assistant', {
+                  detail: { query: qText, autoSend: true },
+                }),
+              );
             }}
           />
 
@@ -761,7 +1075,7 @@ export default function Home() {
             </p>
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal'))}
+              onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'shop' } }))}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
@@ -854,7 +1168,7 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal'))}
+                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'shop' } }))}
                 className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-95"
               >
                 <Plus className="w-4 h-4" />

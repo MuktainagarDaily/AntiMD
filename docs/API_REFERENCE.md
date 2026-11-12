@@ -17,7 +17,7 @@
 | Function | Endpoint | Auth / Access | Purpose |
 |---|---|---|---|
 | **`mcp`** | `/functions/v1/mcp` | OAuth 2.1 (Supabase Auth JWT, audience `authenticated`) | Auto-generated MCP Streamable HTTP server exposing **7 read-only town tools** (`src/lib/mcp/index.ts`) |
-| **`town-assistant`** | `/functions/v1/town-assistant` | Public / Anon key + CORS | **Sahayak AI** backend querying Gemini via `@lovable.dev/ai-gateway` plus deterministic town-aware local fallback across all 7 verticals |
+| **`town-assistant`** | `/functions/v1/town-assistant` | Public / Anon key + CORS | **Sahayak AI** backend querying Gemini via `@lovable.dev/ai-gateway` + deterministic fallback across all 7 verticals (direct PG/Mess/Today's Menu retrieval), plus **`{ mode: 'translate' }`** batch EN⇄MR Marathi translation endpoint |
 | **`scrape-local-news`** | `/functions/v1/scrape-local-news` | Admin / Service role or client fallback | Server-side RSS/Atom & HTML scraper parsing headlines, stripping markup, normalizing IST dates, inferring categories, and deduplicating `local_news` |
 
 ## RPC Endpoints
@@ -37,6 +37,8 @@
 | `increment_banner_view` | `_id uuid` | void | public (`SECURITY DEFINER`) | `lib/banners/store.ts` |
 | `increment_banner_click` | `_id uuid` | void | public (`SECURITY DEFINER`) | `lib/banners/store.ts` |
 | `shop_is_claimed` | `_shop_id uuid` | boolean | public | `pages/ShopDetail.tsx` |
+| `get_claimed_shop_ids` | `_shop_ids uuid[]` | `SETOF uuid` | public (`SECURITY DEFINER`) | `pages/Shops.tsx`, detail badges |
+| `get_public_reviewer_names` | `_user_ids uuid[]` | `(id, full_name)` | public (`SECURITY DEFINER`) | `lib/reviewsApi.ts` |
 | `get_shop_rating` | `_shop_id uuid` | `(average, count, d5..d1)` | public (`SECURITY DEFINER`) | `lib/reviewsApi.ts` |
 | `get_school_rating` | `_school_id uuid` | `(average, count, d5..d1)` | public | `lib/reviewsApi.ts` |
 | `get_schools_rating_summary` | `_school_ids uuid[]` | `(school_id, average, count)` | public | `pages/Schools.tsx` / `schoolsRepo.ts` |
@@ -96,8 +98,8 @@
 
 | Service | Used for | Where |
 |---|---|---|
-| **Google Maps JS API** | Interactive map picker, reverse geocoding | `LocationMapPicker.tsx`, `mapsUtils.ts` |
-| **MyMemory Translation API** | English $\leftrightarrow$ Marathi translation (50k/day quota with registered email) | `translateApi.ts`, `MarathiBackfillModal.tsx` |
+| **Leaflet / OpenStreetMap + Google Maps JS API (Optional)** | Zero-config default OSM map picker & Nominatim reverse geocoding (optional Google Maps + auto `gm_authFailure` OSM fallback) | `LocationMapPicker.tsx`, `mapsUtils.ts` |
+| **MyMemory + Gemini AI (`town-assistant` `mode: 'translate'`)** | 5-layer EN $\leftrightarrow$ MR translation pipeline (Memory, localStorage, DB cache, 50k/day MyMemory, Gemini fallback) | `translateApi.ts`, `MarathiBackfillModal.tsx` |
 | **Lovable AI Gateway (Gemini)** | Sahayak AI natural-language intent & response generation | `supabase/functions/town-assistant/index.ts` |
 | **Local News Dev Proxy (`/api/news-proxy`)** | CORS-free RSS/HTML fetching during `vite dev` / `vite preview` (SSRF-guarded) | `vite.config.ts`, `src/lib/news/newsService.ts` |
 

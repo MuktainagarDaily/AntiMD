@@ -124,6 +124,43 @@ export function useSchoolRatingsMap(schoolIds: string[]) {
 
 /* ─────────────── Review list ─────────────── */
 
+async function fetchReviewerNames(userIds: string[]): Promise<Map<string, string | null>> {
+  const nameMap = new Map<string, string | null>();
+  if (userIds.length === 0) return nameMap;
+
+  // 1. Prefer SECURITY DEFINER RPC (safe for guests & authenticated users alike)
+  if (typeof client.rpc === 'function') {
+    try {
+      const { data, error } = await client.rpc('get_public_reviewer_names', {
+        _user_ids: userIds,
+      });
+      if (!error && Array.isArray(data)) {
+        for (const p of data as any[]) {
+          if (p?.id) nameMap.set(p.id, p.full_name ?? null);
+        }
+        return nameMap;
+      }
+    } catch {
+      // Fallback below if RPC is not deployed yet
+    }
+  }
+
+  // 2. Fallback to public-safe view / profiles for authenticated contexts
+  try {
+    const { data: pubProfiles } = await client
+      .from('profiles_public')
+      .select('id, full_name')
+      .in('id', userIds);
+    for (const p of (pubProfiles ?? []) as any[]) {
+      if (p?.id) nameMap.set(p.id, p.full_name ?? null);
+    }
+  } catch {
+    // non-blocking profile name lookup
+  }
+
+  return nameMap;
+}
+
 async function fetchEntityReviews(
   entityId: string,
   entityType: ReviewEntityType = 'shop',
@@ -144,20 +181,7 @@ async function fetchEntityReviews(
     if (rows.length === 0) return [];
 
     const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
-    const nameMap = new Map<string, string | null>();
-    if (userIds.length > 0) {
-      try {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
-        for (const p of (profiles ?? []) as any[]) {
-          nameMap.set(p.id, p.full_name ?? null);
-        }
-      } catch {
-        // non-blocking profile name lookup
-      }
-    }
+    const nameMap = await fetchReviewerNames(userIds);
 
     return rows.map((r) => ({
       ...r,
@@ -167,25 +191,28 @@ async function fetchEntityReviews(
     }));
   }
 
+  // Note: `shop_reviews.user_id` references `auth.users(id)`, not `public.profiles(id)`,
+  // so avoid PostgREST `!shop_reviews_user_id_fkey` embed (causes HTTP 400 Bad Request).
   const { data, error } = await client
     .from('shop_reviews')
-    .select('id, shop_id, user_id, rating, body, helpful_count, created_at, updated_at, profiles:profiles!shop_reviews_user_id_fkey(full_name)')
+    .select('id, shop_id, user_id, rating, body, helpful_count, created_at, updated_at')
     .eq('shop_id', entityId)
     .order('created_at', { ascending: false });
 
   if (error) {
-    const { data: plain, error: e2 } = await client
-      .from('shop_reviews')
-      .select('id, shop_id, user_id, rating, body, helpful_count, created_at, updated_at')
-      .eq('shop_id', entityId)
-      .order('created_at', { ascending: false });
-    if (e2) throw e2;
-    return (plain ?? []).map((r: any) => ({ ...r, author_name: null }));
+    if (isMissingSchemaErr(error)) return [];
+    throw error;
   }
 
-  return (data ?? []).map((r: any) => ({
+  const rows = (data ?? []) as any[];
+  if (rows.length === 0) return [];
+
+  const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+  const nameMap = await fetchReviewerNames(userIds);
+
+  return rows.map((r: any) => ({
     ...r,
-    author_name: r.profiles?.full_name ?? null,
+    author_name: nameMap.get(r.user_id) ?? null,
   }));
 }
 

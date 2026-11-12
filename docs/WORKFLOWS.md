@@ -28,22 +28,22 @@
 **Entry:** `/:citySlug` (`Home`) or category/search link.
 
 **Steps:**
-1. `Home` loads `shops_with_claim` (scoped by `city_id` and `is_active = true`), `categories`, section quick links, and banners (`BannerSlot` / `BannerPopup`).
-2. User searches in `HomeSearch` (debounced 250 ms, Fuse.js EN+MR with `searchSynonyms.ts`) → highlighted autocomplete suggestions.
-3. User picks a category from `CategoryGrid` / suggestion / shop → navigates to `/:citySlug/shops?category=...` or `/:citySlug/shop/<slug>`.
-4. `Shops` applies URL-persistent filters (`useUrlFilters`), paginates results, and auto-refreshes open/closed status (`isShopOpen`) every 60 s.
-5. `ShopDetail` loads shop + categories + multi-photo slider (`PhotoSlider` + `ImageLightbox`) + claim status (`shop_is_claimed` RPC) + ratings/reviews (`ReviewsSection`) + ownership; **Related Shops** strip queries active same-city shops sorted by same-village priority first (up to 12 items; hidden if empty).
-6. Citizen action: Call (`tel:`), WhatsApp (`wa.me`), Google Maps directions, Share, Bookmark (`BookmarkButton`), Claim (`ClaimShopModal`), or Write Review (`WriteReviewSheet`).
+1. `Home` loads `shops` (scoped by `city_id` and `is_active = true`), `mess_profiles`/`mess_daily_menus`, `pg_profiles`, `schools`, `bus_timetable`, `categories`, and banners (`BannerSlot` / `BannerPopup`).
+2. User searches in `HomeSearch` (unified omni-search across Shops, Messes & Today's Menus/specials, PGs, Schools, and Bus Routes via Fuse.js + `scoreForgivingMatch`) → highlighted suggestions or **"Ask Sahayak AI"** fallback.
+3. User picks a category from `CategoryGrid` / suggestion / shop → navigates to `/:citySlug/shops?category=...` or entity detail route.
+4. `Shops` applies URL-persistent filters (`useUrlFilters`), paginates results, surfaces `<DemoBadge />` for Parandwadi samples, and auto-refreshes open/closed status (`isShopOpen`) every 60 s.
+5. `ShopDetail` loads shop + categories + multi-photo slider (`PhotoSlider` + `ImageLightbox`) + claim status (`get_claimed_shop_ids` / `shop_is_claimed` RPC) + ratings/reviews (`ReviewsSection` using `get_public_reviewer_names` RPC) + ownership; **Related Shops** strip queries active same-city shops sorted by same-village priority first (up to 12 items; hidden if empty).
+6. Citizen action: Call (`handleTelLinkClick` → native `tel:` on mobile touch devices or `<CallNumberDialog />` with copy/WhatsApp on desktop), WhatsApp (`wa.me`), Google Maps directions, Share, Bookmark (`BookmarkButton`), Claim (`ClaimShopModal`), or Write Review (`WriteReviewSheet`).
 
-**Data touched:** `shops_with_claim`, `categories`, `shop_categories`, `shop_reviews`, `shop_engagement` (INSERT on tap), `shop_bookmarks`, `shop_is_claimed` RPC, `shop_owners` (if signed in).
+**Data touched:** `shops`, `categories`, `shop_categories`, `shop_reviews`, `shop_engagement` (INSERT on tap), `shop_bookmarks`, `get_claimed_shop_ids` / `get_public_reviewer_names` RPCs, `shop_owners` (if signed in).
 
-**Exit:** External dialer / WhatsApp / Maps deep-link, detail review drawer, or claim modal.
+**Exit:** Desktop Call dialog / mobile dialer / WhatsApp / Maps deep-link, detail review drawer, or claim modal.
 
 ---
 
 ## Sahayak AI Town Assistant & Voice Search
 
-**Entry:** Header / Home floating CTA or quick prompt pill → opens `TownAssistantDrawer`.
+**Entry:** Header / Home floating CTA (with 20 s idle nudge pill) or search fallback `'open-town-assistant'` event → opens `TownAssistantDrawer`.
 
 **Steps:**
 1. Citizen types a natural-language query (English, Marathi, or Hinglish) or taps the microphone icon (Web Speech API `SpeechRecognition` with `mr-IN` / `en-IN`).
@@ -61,14 +61,15 @@
 
 ---
 
-## Visitor → Listing Request → Published Entity (Multi-Entity)
+## Visitor → Sign-In Intent → Listing Request → Published Entity (Multi-Entity)
 
-**Entry:** `UserMenuDrawer` (or Home CTA) dispatches window custom event `'open-list-shop-modal'` → `ListShopModalHost` renders `RequestListingModal` (guest-friendly; no auth wall required).
+**Entry:** `UserMenuDrawer` ("List New Business"), Home, Mess, PG, or Schools CTAs dispatch `'open-list-shop-modal'` (`detail?: { entityType }`) → `ListShopModalHost`.
 
 **Steps:**
-1. Submitter picks **Entity Type**: `shop` (Shop/Business), `mess` (Mess & Bhojanalay), `pg` (PG & Hostel), or `school` (School/College/Coaching).
-2. 4-step wizard (`Basics → Location → Optional → Review`) with debounced `localStorage` draft recovery and per-step Zod validation:
-   - Core fields + town/village + `LocationMapPicker` pin + `MarathiMirrorField` / `TranslateAllButton`.
+1. **Guest Auth-Gate & Intent Preservation:** If no user is signed in, `ListShopModalHost` displays a notification toast (`"Please sign in or sign up to list your business"`) and navigates to `/auth?next=<currentPath>&list-shop=<entityType>`. Once Sign In / Sign Up finishes, `Auth.tsx` redirects back to `nextPath` with `?list-shop=<entityType>`, and `ListShopModalHost` automatically opens `RequestListingModal` with `initialEntityType` pre-selected.
+2. Submitter confirms **Entity Type**: `shop` (Shop/Business), `mess` (Mess & Bhojanalay), `pg` (PG & Hostel), or `school` (School/College/Coaching).
+3. 4-step wizard (`Basics → Location → Optional → Review`) with optional Examiner Autofill (`getEntityAutofillSample`), debounced `localStorage` draft recovery, and per-step Zod validation:
+   - Core fields + town/village + OpenStreetMap/Google `LocationMapPicker` pin + `MarathiMirrorField` / `TranslateAllButton`.
    - Photos: `MultiImageCropPicker` crops & compresses up to 5 WebP images.
    - Conditional fields in `meta` JSONB: Mess meal timings/rates/type, PG gender/rent/beds/rules, School type/medium/board/fees/UDISE/admissions.
 3. Images upload to `request-images` bucket (`storageNaming.ts`) with a 3-second submit cooldown.
@@ -373,7 +374,7 @@
 
 ## Marathi Translation Pipeline & Quota Management
 
-**Inline (Admin modals):** `MarathiMirrorField` for manual Devanagari input; `TranslateAllButton` batch-translates EN fields via `translateEnToMr` → MyMemory API backed by 3-tier cache (in-memory → `localStorage` → `translation_cache` table).
+**Inline (Admin modals):** `MarathiMirrorField` for manual Devanagari input; `TranslateAllButton` batch-translates EN fields via `translateEnToMr` → 5-layer cascade (in-memory → `localStorage` → `translation_cache` table → MyMemory API → **Gemini AI `town-assistant` `{ mode: 'translate' }` fallback**).
 
 **Bulk backfill (`MarathiBackfillModal` via `/admin/system/marathi` or `/admin/overview`):**
 1. Scans for Categories, Shops, and Schools missing Marathi fields (`category_translations`, `shop_translations`, `schools.name_mr`, `schools.address_mr`).

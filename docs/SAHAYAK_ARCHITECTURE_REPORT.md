@@ -323,3 +323,20 @@ Every issue below was verified directly in source files:
    - `.filter((t) => t.length > 2)` drops two-letter high-signal domain terms like `"pg"`, `"ac"`, `"st"`, and `"it"` during `rankByQuery` sorting before slicing `shops` and `schools`.
 6. **Hardcoded External Supabase Ref/Anon Key in MCP Client ([`src/lib/mcp/supabaseClient.ts:8-10`](../src/lib/mcp/supabaseClient.ts#L8-L10))**
    - Hardcodes project ref `fhlaqgzensagjangkpop` and anon key for Vite bundle import-safety during MCP manifest extraction, whereas `town-assistant` reads `Deno.env.get("SUPABASE_URL")` dynamically. Environments pointing at a staging Supabase project via `SUPABASE_URL` would still see `mcp` reading production unless updated.
+
+---
+
+## 9. 2026-11 Platform Upgrades: PG/Menu Retrieval Fix, UI Nudge & AI Marathi Translation Mode
+
+Subsequent hardening in `supabase/functions/town-assistant/index.ts`, `src/components/TownAssistantDrawer.tsx`, and `src/lib/translateApi.ts` addressed pre-ranking truncation, menu freshness, UI discoverability, and translation resilience:
+
+1. **Direct Non-Truncated Living Retrieval (`town-assistant/index.ts:855-949`):**
+   - Queries `mess_profiles` (limit 150) and `pg_profiles` (limit 150) joined to active `shops` in parallel alongside `shops` (limit 220), merging missing living shop rows into `mergedShopById` so town PG hostels and messes are never evicted by the general shops cap when users ask about hostels or dining.
+   - Splits `mess_daily_menus` queries into exact IST today (`menu_date = today`), recent historical fallback (`>= '2020-01-01'`), and Regular Menu cards (`menu_date = '1970-01-01'`, parsed via `formatRegularMenuSummary()`).
+   - Expanded cook/menu/special intent matching (`isSpecialFood`) and client `tokenizeQuery()` (`length >= 2`) so 2-character high-signal tokens (`pg`, `ac`) and `"what's cooked today"` queries match `lunch_text`, `dinner_text`, `special_tag`, and regular menu items cleanly.
+2. **`{ mode: "translate" }` Batch EN ⇄ MR Fallback (`town-assistant/index.ts:680-778`, `src/lib/translateApi.ts:177-285`):**
+   - Accepts `{ mode: "translate", texts: string[], sourceLang: "en" | "mr", targetLang: "en" | "mr" }` (rate-limited at 60 requests/min/IP) and translates via `@lovable.dev/ai-gateway` (`google/gemini-2.5-flash` structured JSON output) with direct Gemini REST API fallback.
+   - Wired as **Layer 5 fallback** in `translateApi.ts` whenever MyMemory quota-limits (HTTP 403/429 or `MYMEMORY WARNING`), fails, or echoes raw untranslated English.
+3. **20-Second Idle FAB Nudge & Fallback Search Wiring (`TownAssistantDrawer.tsx:218-266`):**
+   - After 20 seconds on public routes (`hiddenRoute === false`), displays a friendly bilingual nudge bubble next to the Sahayak floating button (dismissed cleanly via `sessionStorage['apnatown:sahayak-nudge-dismissed']`).
+   - Listens for `'open-town-assistant'` window custom events dispatched by `HomeSearch`, `BusTimetable`, and `Mess` when direct or forgiving local search finds no results.

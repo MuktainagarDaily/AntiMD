@@ -42,10 +42,47 @@ export async function logShopEngagement(
 
 /**
  * Heuristic: coarse pointer + no hover usually = phone/tablet that can dial.
- * Desktop browsers fire tel: but nothing visible happens, so we surface a toast
- * with the number instead of leaving the user staring at a dead click.
+ * Desktop browsers fail with `Failed to launch 'tel:...' because the scheme
+ * does not have a registered handler`, so we intercept desktop clicks and open
+ * an in-app call modal showing the formatted number + one-tap copy.
  */
 export function canDialTel(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return true;
   return window.matchMedia('(pointer: coarse)').matches;
+}
+
+export const OPEN_CALL_DIALOG_EVENT = 'open-call-dialog';
+
+export interface CallDialogDetail {
+  phone: string;
+  label?: string;
+}
+
+/**
+ * Handles clicks on `<a href="tel:...">` links cleanly:
+ * - Always invokes `onDial?.()` (for telemetry/analytics).
+ * - On mobile touch devices (`canDialTel() === true`), lets native `tel:` dialer open.
+ * - On desktop (`canDialTel() === false`), calls `e.preventDefault()` to avoid Chromium's
+ *   `Failed to launch 'tel:...'` console error and opens `<CallNumberDialog />`.
+ */
+export function handleTelLinkClick(
+  e: { preventDefault: () => void } | null | undefined,
+  phone: string | null | undefined,
+  label?: string,
+  onDial?: () => void,
+): boolean {
+  onDial?.();
+  if (!phone) return false;
+  if (canDialTel()) {
+    return true;
+  }
+  e?.preventDefault?.();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent<CallDialogDetail>(OPEN_CALL_DIALOG_EVENT, {
+        detail: { phone: phone.trim(), label },
+      }),
+    );
+  }
+  return false;
 }

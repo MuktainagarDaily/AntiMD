@@ -128,8 +128,10 @@
 
 | Function | Type | Purpose |
 |---|---|---|
-| `has_role(uid, role)` / `is_admin(uid)` | `SECURITY DEFINER` | Role checks inside RLS policies & guards |
-| `is_shop_owner(shop_id, user_id)` / `is_school_owner(user_id, school_id)` | `SECURITY DEFINER` | Ownership checks for RLS & portals |
+| `has_role(uid, role)` / `is_admin(uid)` | `SECURITY DEFINER` | Role checks inside RLS policies & guards (`anon, authenticated` `EXECUTE` restored on helper predicates with `NULL` short-circuit) |
+| `is_shop_owner(user_id, shop_id)` / `is_school_owner(user_id, school_id)` | `SECURITY DEFINER` | Ownership checks returning `false` on `NULL` so public RLS policies succeed cleanly for guests |
+| `get_public_reviewer_names(_user_ids)` | `SECURITY DEFINER` RPC | Safe `(id, full_name)` public attribution for `shop_reviews` & `school_reviews` (fixes HTTP 400 `profiles` embed join & PII RLS block) |
+| `get_claimed_shop_ids(_shop_ids)` | `SECURITY DEFINER` RPC | Returns verified claimed `shop_id` set without exposing `shop_owners.user_id` to guests |
 | `approve_shop_claim(_claim_id)` / `reject_shop_claim(_claim_id, _notes)` | Admin RPC | Moderates shop claims; anon EXECUTE revoked |
 | `assign_shop_owner` / `revoke_shop_owner` | Admin RPC | Grants/revokes shop ownership (`revoke_shop_owner` preserves `shopkeeper` if user still owns a school) |
 | `approve_school_claim(_claim_id)` / `reject_school_claim(_claim_id, _notes)` | Admin RPC | Moderates school claims and promotes `school_owners` + `shopkeeper` role |
@@ -144,7 +146,8 @@
 
 | Table | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
-| `shops` / `categories` / `shop_categories` | Public (active) | authenticated | authenticated + owner guard | admin/authenticated |
+| `shops` / `categories` / `shop_categories` | Public (`is_active=true` or admin / `is_shop_owner`) | authenticated | authenticated + owner guard | admin/authenticated |
+| `category_translations` / `shop_translations` / `amenity_translations` | Public | admin (`authenticated`) | admin (`authenticated`) | admin (`authenticated`) |
 | `schools` | Public (`is_active=true`) + own school owners + admin | admin | admin + owned school owners (`protect_school_admin_columns`) | admin |
 | `school_owners` / `school_claims` | Own + admin | authenticated (`status='pending'` for claims) | admin | admin |
 | `school_notices` | Active notices on active schools + owners + admin | admin + school owner | admin + school owner | admin + school owner |
@@ -179,3 +182,4 @@
 | 2026-11-12 | `20261112000000_education_portal_and_owner_hub.sql` | Expanded `schools` (~30 cols), added `school_owners`, `school_claims`, `school_notices`, `school_reviews`, `school_review_helpful`, `school_engagement`, triggers & RPCs |
 | 2026-11-12 | `2026-11-12_seed_education_notices_reviews.sql` *(docs patch)* | Optional idempotent seed for demo school notices & bilingual institute reviews |
 | 2026-11-13 | `20261113000000_storage_and_health_fixes.sql` | Fixed `storage.objects` root listing (`IS DISTINCT FROM 'claims'`), added `image_checked_at`/`image_broken_at` on `shops`/`schools`/`banners`, added `get_system_health_snapshot()` RPC |
+| 2026-11-15 | `20261115000000_guest_rls_reviews_and_examiner_admin.sql` *(mirror: `docs/patches/2026-11-15_guest_rls_reviews_and_examiner_admin.sql`)* | Restored guest visibility on public catalog tables & helper RLS `EXECUTE` grants, added `get_public_reviewer_names()` & `get_claimed_shop_ids()` RPCs, fixed translation write RLS policies, and granted full `'admin'` role parity to Examiner Mode (`admin-test@apnalocal.in`) |

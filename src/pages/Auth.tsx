@@ -4,14 +4,18 @@ import { z } from 'zod';
 
 import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { MapPin, Mail, Lock, User as UserIcon, ArrowLeft, CheckCircle2, UserCircle2 } from 'lucide-react';
+import { MapPin, Mail, Lock, User as UserIcon, ArrowLeft, CheckCircle2, UserCircle2, GraduationCap, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { safeRelativePath } from '@/lib/utils';
 import { useT } from '@/i18n';
 import { useCity } from '@/hooks/useCity';
 import { checkCooldown } from '@/lib/rateLimit';
+import { EXAMINER_MODE_ENABLED } from '@/lib/devHelpers';
 
 type Mode = 'signin' | 'signup' | 'forgot';
+
+const EXAMINER_EMAIL = 'admin-test@apnalocal.in';
+const EXAMINER_PASSWORD = 'Password@123';
 
 // ----- Validation schemas (client-side; server still enforces auth) -----
 const emailSchema = z
@@ -58,7 +62,7 @@ const sanitize = (v: string) =>
 type FieldErrors = Partial<Record<'email' | 'password' | 'fullName', string>>;
 
 export default function Auth() {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { townBrand } = useCity();
   const [params] = useSearchParams();
   const [mode, setMode] = useState<Mode>(params.get('mode') === 'signup' ? 'signup' : 'signin');
@@ -68,6 +72,7 @@ export default function Auth() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const [examinerLoading, setExaminerLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const [signupSent, setSignupSent] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
@@ -75,15 +80,30 @@ export default function Auth() {
   const { user, loading: authLoading, signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
   // Accept both `next` (canonical) and legacy `redirect`. Validate it's a
   // same-origin relative path to prevent open-redirect attacks via
   // `/auth?next=https://evil.com`.
   const rawNext = params.get('next') ?? params.get('redirect');
   const nextPath = safeRelativePath(rawNext);
   const claimFlag = params.get('claim');
-  const redirectTo = nextPath
+  const rawListShop = params.get('list-shop');
+  const validListShop =
+    rawListShop && ['1', 'shop', 'mess', 'pg', 'school'].includes(rawListShop)
+      ? rawListShop
+      : null;
+
+  const guestRedirectTo = nextPath
     ? `${nextPath}${claimFlag ? (nextPath.includes('?') ? '&' : '?') + 'claim=1' : ''}`
     : '/';
+
+  const redirectTo = (() => {
+    let url = guestRedirectTo;
+    if (validListShop && !url.includes('list-shop=')) {
+      url += (url.includes('?') ? '&' : '?') + `list-shop=${encodeURIComponent(validListShop)}`;
+    }
+    return url;
+  })();
 
   if (!authLoading && user) return <Navigate to={redirectTo} replace />;
 
@@ -107,8 +127,38 @@ export default function Auth() {
   };
 
   const handleGuest = () => {
+    try {
+      sessionStorage.removeItem('pendingOpenListShop');
+      sessionStorage.removeItem('pendingOpenListShopEntity');
+    } catch { /* ignore */ }
     toast({ title: t('auth.browsingAsGuest'), description: t('auth.guestFeatureHint') });
-    navigate(redirectTo);
+    navigate(guestRedirectTo);
+  };
+
+  const handleExaminerLogin = async () => {
+    if (examinerLoading || loading) return;
+    setError('');
+    setFieldErrors({});
+    setEmail(EXAMINER_EMAIL);
+    setPassword(EXAMINER_PASSWORD);
+    setExaminerLoading(true);
+    try {
+      const { error } = await signIn(EXAMINER_EMAIL, EXAMINER_PASSWORD);
+      if (error) {
+        setError(friendlyError(error.message));
+        return;
+      }
+      toast({
+        title: locale === 'mr' ? 'परीक्षक मोड सक्रिय' : 'Examiner Mode Active',
+        description:
+          locale === 'mr'
+            ? 'अ‍ॅडमिन खात्यात यशस्वीपणे साइन इन झाले.'
+            : 'Signed in directly with Examiner Admin access.',
+      });
+      navigate(redirectTo);
+    } finally {
+      setExaminerLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,15 +166,11 @@ export default function Auth() {
     setError('');
     setFieldErrors({});
 
-    // Throttle auth attempts — protects against keyboard-Enter mashing on
-    // sign-in / sign-up / forgot-password. Server-side Supabase rate limits
-    // remain authoritative.
     if (!checkCooldown(`auth-submit:${mode}`, 1500)) {
       setError(t('rate.tooFast'));
       return;
     }
 
-    // Sanitize first so what we validate is what we send.
     const cleanEmail = sanitize(email).toLowerCase();
     const cleanName = sanitize(fullName);
 
@@ -199,6 +245,17 @@ export default function Auth() {
         </div>
 
         <div className="bg-card rounded-2xl border border-border p-5 sm:p-6 shadow-lg">
+          {validListShop && (
+            <div className="mb-4 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2.5 flex items-start gap-2 text-xs text-foreground">
+              <ShieldAlert className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="leading-snug">
+                {locale === 'mr'
+                  ? 'तुमचा व्यवसाय येथे नोंदवण्यासाठी साइन इन किंवा साइन अप करा — त्यानंतर नोंदणी फॉर्म आपोआप उघडेल.'
+                  : 'You need to sign in or sign up to list your business here — we will open your listing form automatically once done.'}
+              </p>
+            </div>
+          )}
+
           {/* Tabs (hidden in forgot mode) */}
           {mode !== 'forgot' && (
             <div className="grid grid-cols-2 bg-muted rounded-lg p-1 mb-5">
@@ -327,7 +384,6 @@ export default function Auth() {
                 </Field>
               )}
 
-
               {mode === 'signup' && (
                 <p className="text-[11px] text-muted-foreground -mt-1">
                   {t('auth.passwordHint')}
@@ -340,7 +396,7 @@ export default function Auth() {
 
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || examinerLoading}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold text-base hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 {loading
@@ -362,20 +418,21 @@ export default function Auth() {
                 </button>
               )}
 
-              {/* Dev Quick Admin Login */}
-              {import.meta.env.DEV && mode === 'signin' && (
-                <div className="pt-2">
+              {/* Examiner Mode (1-Tap Admin Sign In on both Sign In & Sign Up tabs in Dev & Production) */}
+              {EXAMINER_MODE_ENABLED && mode !== 'forgot' && (
+                <div className="pt-1.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      setEmail('admin-test@apnalocal.in');
-                      setPassword('Password@123');
-                      window.localStorage.setItem('dev_admin', 'true');
-                      toast({ title: 'Dev Admin Credentials Loaded', description: 'Click Sign In to authenticate as Admin.' });
-                    }}
-                    className="w-full text-xs py-2 px-3 rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold hover:bg-purple-500/20 transition-colors flex items-center justify-center gap-1.5"
+                    disabled={examinerLoading || loading}
+                    onClick={handleExaminerLogin}
+                    className="w-full text-xs py-2.5 px-3 rounded-lg border border-purple-500/35 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold hover:bg-purple-500/20 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
                   >
-                    <span>⚡ Dev 1-Tap Admin Login</span>
+                    <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {examinerLoading
+                        ? (locale === 'mr' ? 'साइन इन होत आहे…' : 'Signing in as Examiner…')
+                        : (locale === 'mr' ? 'परीक्षक मोड (१-टॅप अ‍ॅडमिन लॉगिन)' : 'Examiner Mode (1-Tap Admin)')}
+                    </span>
                   </button>
                 </div>
               )}

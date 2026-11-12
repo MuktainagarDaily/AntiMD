@@ -29,6 +29,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useT } from '@/i18n';
 import { ConfirmTapButton } from '@/components/admin/_shared/ConfirmTapButton';
 import { downloadCsv, townCsvFilename } from '@/lib/csvUtils';
+import { handleTelLinkClick } from '@/lib/engagement';
 import { AuthorityCsvImportModal } from './AuthorityCsvImportModal';
 import {
   AuthorityAnnouncement,
@@ -936,6 +937,9 @@ export function GovernmentServicesTab() {
                             {officer.phone && (
                               <a
                                 href={`tel:${officer.phone}`}
+                                onClick={(e) =>
+                                  handleTelLinkClick(e, officer.phone, `${officer.name} (${officer.role})`)
+                                }
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                               >
                                 <Phone className="w-3 h-3" />

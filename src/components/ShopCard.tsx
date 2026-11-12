@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Phone, MessageCircle, MapPin, Clock, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatTime, getEntityDetailPath } from '@/lib/shopUtils';
-import { logShopEngagement, canDialTel } from '@/lib/engagement';
+import { logShopEngagement, handleTelLinkClick } from '@/lib/engagement';
 import { StatusChip } from '@/components/shared/StatusChip';
 import { ClaimedBadge } from '@/components/shared/ClaimedBadge';
+import { DemoBadge, isParandwadiDemoListing } from '@/components/shared/DemoBadge';
 import { CategoryIcon } from '@/components/shared/CategoryIcon';
 import { EntityCard, type EntityAction } from '@/components/shared/EntityCard';
 import { useT } from '@/i18n';
@@ -40,6 +41,7 @@ interface Shop {
   image_url?: string | null;
   photos?: string[] | null;
   is_claimed?: boolean;
+  village_id?: string | null;
   // BUG-07: include is_active on category so the runtime cast has type backing
   shop_categories?: { categories: { name: string; icon: string; is_active?: boolean } | null }[];
   categories?: { name: string; icon: string; is_active?: boolean } | null;
@@ -47,11 +49,12 @@ interface Shop {
 
 export function ShopCard({ shop: rawShop, priority = false }: { shop: Shop; priority?: boolean }) {
   const { t } = useT();
-  const { currentCity, townName } = useCity();
+  const { currentCity, currentVillage, townName } = useCity();
   const shop = useLocalizedShop(rawShop) as Shop;
   const localizeCat = useLocalizeCategoryName();
   const [imgError, setImgError] = useState(false);
   const shopPath = getEntityDetailPath(currentCity.slug, rawShop);
+  const isDemo = isParandwadiDemoListing(rawShop, currentVillage);
 
   // Flatten M:N shop_categories → [{id,name,icon}]; falls back to legacy 1:1 `categories`.
   const allCats: { id?: string; name: string; icon: string }[] = [];
@@ -93,7 +96,7 @@ export function ShopCard({ shop: rawShop, priority = false }: { shop: Shop; prio
   const { data: rating } = useShopRating(shop.id);
 
   const badges =
-    (shop as any).is_verified || shop.is_claimed ? (
+    (shop as any).is_verified || shop.is_claimed || isDemo ? (
       <>
         {(shop as any).is_verified && (
           <span
@@ -105,6 +108,7 @@ export function ShopCard({ shop: rawShop, priority = false }: { shop: Shop; prio
           </span>
         )}
         {shop.is_claimed && <ClaimedBadge size="sm" />}
+        {isDemo && <DemoBadge size="sm" />}
       </>
     ) : null;
 
@@ -163,12 +167,12 @@ export function ShopCard({ shop: rawShop, priority = false }: { shop: Shop; prio
       href: `tel:${shop.phone}`,
       ariaLabel: `${t('shop.call')} ${shop.name} ${shop.phone}`,
       style: { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' },
-      onClick: () => {
-        logShopEngagement(shop.id, 'call');
-        if (canDialTel()) {
+      onClick: (e) => {
+        const openedDialer = handleTelLinkClick(e, shop.phone, shop.name, () => {
+          logShopEngagement(shop.id, 'call');
+        });
+        if (openedDialer) {
           toast.success(t('shop.calling', { name: shop.name }));
-        } else {
-          toast.info(t('shop.callDesktop', { phone: shop.phone! }), { duration: 6000 });
         }
       },
     });

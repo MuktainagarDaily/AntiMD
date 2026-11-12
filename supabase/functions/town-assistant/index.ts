@@ -306,15 +306,15 @@ function buildLocalFallbackResponse(
       /school|schools|college|colleges|class|coaching|education|study|institute|admission|admissions|pravesh|scholarship|\biti\b|polytechnic|diploma|engineering|university|abhyasika|शाळा|कॉलेज|महाविद्यालय|प्रवेश|शिष्यवृत्ती|अभ्यासिका|परीक्षा|परिपत्रक/i.test(
         text,
       );
-    const hasLiving = /\bpg\b|\bhostel\b|paying\s*guest|वसतिगृह|पीजी|खोली/i.test(text);
+    const hasLiving = /\bpg\b|\bhostel\b|paying\s*guest|वसतिगृह|पीजी|खोली|राहण्यासाठी/i.test(text);
     const isSpecialFood =
       !hasLiving &&
-      /special|cooked|menu|thali|today|spcl|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|nashta|breakfast|स्पेशल|मेनू|आज|जेवण|खास/i.test(
+      /\bcook(?:ed|s|ing)?\b|special|menu|thali|today|spcl|\bdish(?:es)?\b|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|nashta|breakfast|स्पेशल|मेनू|आज|जेवण|खास|kay banla|kya bana/i.test(
         text,
       );
     const isAffordableFood =
       !hasLiving &&
-      /cheap|afford|budget|meal|meals|food|mess|tiffin|lunch|dinner|eat|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|स्वस्त|जेवण|मेस|थाळी|टिफिन/i.test(
+      /cheap|afford|budget|meal|meals|food|mess|tiffin|lunch|dinner|eat|\bhotel\b|हॉटेल|restaurant|रेस्टॉरंट|dhaba|ढाबा|bhojanalay|भोजनालय|khanawal|खानावळ|misal|biryani|khana|jevan|swast|sasta|स्वस्त|जेवण|मेस|थाळी|टिफिन/i.test(
         text,
       );
     const isPg = /\bpg\b|hostel|paying\s*guest|room|rooms|bed|beds|rent|stay|accommodation|boys|girls|खोली|पीजी|वसतिगृह|राहण्यासाठी/i.test(
@@ -647,6 +647,136 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const sb = createClient(supabaseUrl, anonKey || serviceKey!);
+    const rateSb = createClient(supabaseUrl, serviceKey || anonKey!);
+
+    const forwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "anon";
+    const clientIp = forwardedFor.split(",")[0].trim().slice(0, 64) || "anon";
+
+    // AI Translation Mode (fallback when MyMemory API fails / hits daily limit / echoes English)
+    if (body?.mode === "translate") {
+      const rawTexts: string[] = Array.isArray(body?.texts)
+        ? body.texts
+        : typeof body?.text === "string"
+          ? [body.text]
+          : [];
+      const cleanedTexts = rawTexts
+        .map((t) => (typeof t === "string" ? t.trim().slice(0, 500) : ""))
+        .filter(Boolean)
+        .slice(0, 25);
+
+      if (cleanedTexts.length === 0) {
+        return new Response(
+          JSON.stringify({ translations: [], error: "No valid texts supplied." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      try {
+        const { data: allowed, error: rlErr } = await rateSb.rpc("apnatown_check_rate_limit", {
+          _key: `translate:${clientIp}`,
+          _window_secs: 60,
+          _max_calls: 60,
+        });
+        if (!rlErr && allowed === false) {
+          return new Response(
+            JSON.stringify({ translations: [], error: "Translation rate limit exceeded." }),
+            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          );
+        }
+      } catch {
+        // Ignore if rate limit RPC is unavailable
+      }
+
+      const sourceLang = body?.sourceLang === "mr" ? "Marathi" : "English";
+      const targetLang = body?.targetLang === "en" ? "English" : "Marathi (Devanagari script)";
+      const systemPrompt =
+        `You are an accurate Maharashtra town-directory translator translating from ${sourceLang} to ${targetLang}. ` +
+        `Preserve proper names naturally by transliterating to Marathi Devanagari where helpful (e.g. "Parandwadi" -> "परंदवडी", "General Stores" -> "जनरल स्टोअर्स"). ` +
+        `Return ONLY a valid JSON object matching { "translations": string[] } with the EXACT same length and order as the input array. No markdown or commentary.`;
+      const userPrompt = JSON.stringify({ texts: cleanedTexts });
+
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+      let translations: string[] = [];
+
+      if (lovableKey) {
+        try {
+          const aiRes = await generateChatCompletion({
+            model: "google/gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "translations_batch",
+                strict: true,
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    translations: { type: "array", items: { type: "string" } },
+                  },
+                  required: ["translations"],
+                },
+              },
+            },
+          });
+          const rawOut = aiRes.choices?.[0]?.message?.content;
+          const parsedOut = typeof rawOut === "string" ? JSON.parse(rawOut) : null;
+          if (Array.isArray(parsedOut?.translations)) {
+            translations = parsedOut.translations.map((x: any) => String(x || "").trim());
+          }
+        } catch (trErr) {
+          console.error("[town-assistant] AI gateway translate error:", trErr);
+        }
+      }
+
+      if (translations.length !== cleanedTexts.length && geminiApiKey) {
+        try {
+          const gemRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(geminiApiKey)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+                generationConfig: { responseMimeType: "application/json" },
+              }),
+            },
+          );
+          if (gemRes.ok) {
+            const gemJson = await gemRes.json();
+            const rawText = gemJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            const parsedGem = JSON.parse(rawText);
+            if (Array.isArray(parsedGem?.translations)) {
+              translations = parsedGem.translations.map((x: any) => String(x || "").trim());
+            }
+          }
+        } catch (gemErr) {
+          console.error("[town-assistant] Gemini REST translate error:", gemErr);
+        }
+      }
+
+      if (translations.length === 0) {
+        return new Response(
+          JSON.stringify({ translations: [], error: "AI translation service unavailable." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ translations, mode: "ai-fallback" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const query = typeof body?.query === "string" ? body.query.trim().slice(0, 400) : "";
     const cityId = typeof body?.cityId === "string" ? body.cityId.trim() : "";
     const citySlug = typeof body?.citySlug === "string" ? body.citySlug.trim().toLowerCase() : "";
@@ -672,17 +802,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    // Minimize privilege: use anon key for all public directory reads so RLS enforces visibility;
-    // keep rate-limit client using service role if available (falls back to anon + SECURITY DEFINER RPC).
-    const sb = createClient(supabaseUrl, anonKey || serviceKey!);
-    const rateSb = createClient(supabaseUrl, serviceKey || anonKey!);
-
     // Rate-limit caller before performing heavy retrieval or calling Gemini
-    const forwardedFor = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || "anon";
-    const clientIp = forwardedFor.split(",")[0].trim().slice(0, 64) || "anon";
     try {
       const { data: allowed, error: rlErr } = await rateSb.rpc("apnatown_check_rate_limit", {
         _key: `sahayak:${clientIp}`,
@@ -728,19 +848,33 @@ Deno.serve(async (req) => {
       }
     };
 
-    // Parallel geo-scoped queries across all modules
+    // Parallel geo-scoped queries across all modules (explicitly include all PG & Mess profiles so they never get truncated by general shop limit)
     const nowIso = new Date().toISOString();
-    const [shopsData, categoriesData, busesData, rawSchools, newsDbData, annData, orgData] = await Promise.all([
+    const shopCols =
+      "id, slug, name, category_id, area, address, description, keywords, amenities, phone, whatsapp, opening_time, closing_time, is_verified, is_open, village_id, city_id, shop_categories(categories(name))";
+    const [shopsData, directMessRows, directPgRows, categoriesData, busesData, rawSchools, newsDbData, annData, orgData] = await Promise.all([
       safeSelect(() =>
         applyCityScope(
           sb
             .from("shops")
-            .select(
-              "id, slug, name, category_id, area, address, description, keywords, amenities, phone, whatsapp, opening_time, closing_time, is_verified, is_open, village_id, shop_categories(categories(name))",
-            )
+            .select(shopCols)
             .eq("is_active", true)
-            .limit(150),
+            .limit(220),
         ),
+      ),
+      safeSelect(() =>
+        sb
+          .from("mess_profiles")
+          .select(`shop_id, mess_type, single_thali_rate, monthly_rate, tiffin_delivery, lunch_timing, dinner_timing, sunday_feast, shops!inner(${shopCols}, is_active)`)
+          .eq("shops.is_active", true)
+          .limit(150),
+      ),
+      safeSelect(() =>
+        sb
+          .from("pg_profiles")
+          .select(`shop_id, gender, occupancy_target, total_beds, available_beds, food_included, sharing_rates, gate_closing_time, shops!inner(${shopCols}, is_active)`)
+          .eq("shops.is_active", true)
+          .limit(150),
       ),
       safeSelect(() => sb.from("categories").select("id, name")),
       safeSelect(() =>
@@ -788,6 +922,31 @@ Deno.serve(async (req) => {
       ),
     ]);
 
+    const matchesCityRow = (rowCityId: string | null | undefined) =>
+      rowCityId === cityId || (isMuktainagar && !rowCityId);
+
+    // Merge direct PG & Mess shop records into unified city shop map so none are evicted by general shop limit
+    const mergedShopById = new Map<string, any>();
+    for (const s of shopsData || []) {
+      mergedShopById.set(s.id, s);
+    }
+    const scopedDirectMess: any[] = [];
+    for (const mp of directMessRows || []) {
+      const sh = mp.shops;
+      if (sh && matchesCityRow(sh.city_id)) {
+        if (!mergedShopById.has(sh.id)) mergedShopById.set(sh.id, sh);
+        scopedDirectMess.push(mp);
+      }
+    }
+    const scopedDirectPg: any[] = [];
+    for (const pg of directPgRows || []) {
+      const sh = pg.shops;
+      if (sh && matchesCityRow(sh.city_id)) {
+        if (!mergedShopById.has(sh.id)) mergedShopById.set(sh.id, sh);
+        scopedDirectPg.push(pg);
+      }
+    }
+
     // Optional live RSS fallback ONLY when local_news DB has 0 rows AND query asks for news
     let newsItems = newsDbData;
     const isNewsAsk = /news|headline|batmya|samachar|बातम्या|ताज्या|वृत्त/i.test(query);
@@ -820,19 +979,20 @@ Deno.serve(async (req) => {
       noticesBySchool.set(n.school_id, list);
     }
 
-    const sortedShops = [...shopsData].sort((a, b) => {
+    const sortedShops = [...mergedShopById.values()].sort((a, b) => {
       if (!villageId) return 0;
       return (b.village_id === villageId ? 1 : 0) - (a.village_id === villageId ? 1 : 0);
     });
 
     const shopIds = sortedShops.map((s) => s.id);
-    const [messProfData, messDailyMenuData, regularMenuData, pgProfData, shopTranslationsData] = shopIds.length
+    const [messTodayMenuData, messDailyMenuData, regularMenuData, shopTranslationsData] = shopIds.length
       ? await Promise.all([
           safeSelect(() =>
             sb
-              .from("mess_profiles")
-              .select("shop_id, mess_type, single_thali_rate, monthly_rate, tiffin_delivery, lunch_timing, dinner_timing, sunday_feast")
-              .in("shop_id", shopIds),
+              .from("mess_daily_menus")
+              .select("shop_id, menu_date, lunch_text, dinner_text, special_tag")
+              .in("shop_id", shopIds)
+              .eq("menu_date", today),
           ),
           safeSelect(() =>
             sb
@@ -841,7 +1001,7 @@ Deno.serve(async (req) => {
               .in("shop_id", shopIds)
               .gte("menu_date", "2020-01-01")
               .order("menu_date", { ascending: false })
-              .limit(150),
+              .limit(200),
           ),
           safeSelect(() =>
             sb
@@ -849,13 +1009,7 @@ Deno.serve(async (req) => {
               .select("shop_id, menu_date, lunch_text, special_tag")
               .in("shop_id", shopIds)
               .eq("menu_date", REGULAR_MENU_DATE)
-              .limit(100),
-          ),
-          safeSelect(() =>
-            sb
-              .from("pg_profiles")
-              .select("shop_id, gender, occupancy_target, total_beds, available_beds, food_included, sharing_rates, gate_closing_time")
-              .in("shop_id", shopIds),
+              .limit(150),
           ),
           safeSelect(() =>
             sb
@@ -865,16 +1019,16 @@ Deno.serve(async (req) => {
               .in("shop_id", shopIds),
           ),
         ])
-      : [[], [], [], [], []];
+      : [[], [], [], []];
 
     const categoryNameById = new Map<string, string>(
       (categoriesData || []).map((c: any) => [c.id, c.name]),
     );
     const messProfileMap = new Map<string, any>(
-      (messProfData || []).map((mp: any) => [mp.shop_id, mp]),
+      scopedDirectMess.map((mp: any) => [mp.shop_id, mp]),
     );
     const pgProfileMap = new Map<string, any>(
-      (pgProfData || []).map((pg: any) => [pg.shop_id, pg]),
+      scopedDirectPg.map((pg: any) => [pg.shop_id, pg]),
     );
     const translationByShop = new Map<string, any>(
       (shopTranslationsData || []).map((tr: any) => [tr.shop_id, tr]),
@@ -882,8 +1036,11 @@ Deno.serve(async (req) => {
 
     const shopMap = new Map(sortedShops.map((s) => [s.id, s]));
     const menuByShop = new Map<string, any>();
+    for (const m of messTodayMenuData || []) {
+      menuByShop.set(m.shop_id, m);
+    }
     for (const m of messDailyMenuData || []) {
-      if (!menuByShop.has(m.shop_id) || m.menu_date === today) {
+      if (!menuByShop.has(m.shop_id)) {
         menuByShop.set(m.shop_id, m);
       }
     }
@@ -954,6 +1111,7 @@ Deno.serve(async (req) => {
           dinner_timing: mp?.dinner_timing || null,
           sunday_feast: Boolean(mp?.sunday_feast),
           menu_date: menu?.menu_date || null,
+          menu_is_today: menu?.menu_date === today,
           special_tag: menu?.special_tag || null,
           lunch_text: menu?.lunch_text || null,
           dinner_text: menu?.dinner_text || null,
@@ -1104,11 +1262,12 @@ Deno.serve(async (req) => {
 
     const compactContext = {
       location: locationLabel,
+      currentDateIST: today,
       currentTimeIST: getCurrentISTFormatted(),
-      messes: messes.slice(0, 18),
-      pgs: pgs.slice(0, 12),
-      buses: buses.slice(0, 15),
-      schools: schools.slice(0, 15),
+      messes: messes.slice(0, 24),
+      pgs: pgs.slice(0, 20),
+      buses: buses.slice(0, 18),
+      schools: schools.slice(0, 18),
       news: rankedNews.slice(0, 15),
       services: services.slice(0, 12),
       shops: shops.slice(0, 25),
@@ -1151,8 +1310,8 @@ Deno.serve(async (req) => {
           "You are ApnaTown Sahayak, a helpful, concise hyper-local town assistant for citizens, commuters, parents, and students in Maharashtra, India. " +
           "ONLY cite places, prices, menus, bus times, colleges/notices, news headlines, and civic alerts/helplines present in the supplied JSON database records. Never invent facts, prices, or phone numbers. " +
           "Reply in Marathi (Devanagari) if asked in Marathi, otherwise natural English/Hinglish matching the user's style. " +
-          "Use entityType='mess' for all messes, hotels, restaurants, dhabas, bhojanalays, tiffin services, and thali/dining listings (check BOTH daily lunch_text/dinner_text/special_tag AND regular_menu items + prices in messes[] before saying any menu is unavailable). " +
-          "Use entityType='pg' for PGs and hostels, 'school' for schools/colleges/admissions/scholarships/school_notices, 'bus' for bus timings, 'news' for local news headlines, 'service' for water/power/municipal outages and official helplines, and 'shop' ONLY for retail/commercial shops in shops[]. " +
+          "Use entityType='mess' for all messes, hotels, restaurants, dhabas, bhojanalays, tiffin services, and thali/dining listings (ALWAYS inspect BOTH daily lunch_text/dinner_text/special_tag — prioritizing menu_is_today=true — AND regular_menu items + prices in messes[] before saying any menu or dish is unavailable). " +
+          "Use entityType='pg' for all PGs and hostels in pgs[] (check available_beds, sharing_rates, gender, food_included, and area thoroughly before saying no PGs exist), 'school' for schools/colleges/admissions/scholarships/school_notices, 'bus' for bus timings, 'news' for local news headlines, 'service' for water/power/municipal outages and official helplines, and 'shop' ONLY for retail/commercial shops in shops[]. " +
           "Return up to 5 recommendations with exact ids from their matching array and 2-3 short follow-up suggestions in the user's language.",
       },
       ...history.map((h) => ({ role: h.role as "user" | "assistant", content: h.text })),

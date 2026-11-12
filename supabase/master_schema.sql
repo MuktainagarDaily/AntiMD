@@ -1002,10 +1002,26 @@ GRANT SELECT ON public.shops_list_public, public.shops_search_public, public.sho
 
 GRANT INSERT ON public.shop_engagement TO anon, authenticated;
 GRANT INSERT ON public.shop_requests   TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.shop_translations, public.category_translations, public.amenity_translations TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.reviews, public.shop_bookmarks TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.shop_claims TO authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.authority_announcements, public.announcement_locations TO authenticated;
 GRANT UPDATE                 ON public.authority_organizations TO authenticated;
+
+-- Public-safe RPC helpers for reviewer names & claimed badges
+CREATE OR REPLACE FUNCTION public.get_public_reviewer_names(_user_ids uuid[])
+RETURNS TABLE (id uuid, full_name text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT p.id, p.full_name FROM public.profiles p WHERE p.id = ANY(_user_ids);
+$$;
+GRANT EXECUTE ON FUNCTION public.get_public_reviewer_names(uuid[]) TO anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.get_claimed_shop_ids(_shop_ids uuid[])
+RETURNS SETOF uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+  SELECT DISTINCT shop_id FROM public.shop_owners WHERE shop_id = ANY(_shop_ids);
+$$;
+GRANT EXECUTE ON FUNCTION public.get_claimed_shop_ids(uuid[]) TO anon, authenticated;
 
 -- Master Admin / Service Role Grants
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
@@ -1015,7 +1031,8 @@ GRANT ALL ON public.mcp_endpoints TO service_role;
 -- Core RLS Policies
 CREATE POLICY "Public read geo hierarchy" ON public.geo_cities FOR SELECT USING (true);
 CREATE POLICY "Public read active categories" ON public.categories FOR SELECT USING (true);
-CREATE POLICY "Public read active shops" ON public.shops FOR SELECT USING (is_active = true OR public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "Shops are publicly readable" ON public.shops FOR SELECT TO public
+  USING (is_active = true OR (auth.uid() IS NOT NULL AND (public.has_role(auth.uid(), 'admin') OR public.is_shop_owner(auth.uid(), id))));
 CREATE POLICY "Public read shop categories" ON public.shop_categories FOR SELECT USING (true);
 
 -- Living Services RLS (SELECT + Explicit DELETE)

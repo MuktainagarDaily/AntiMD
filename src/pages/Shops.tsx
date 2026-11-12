@@ -194,7 +194,7 @@ export default function Shops() {
       let query = (supabase as any)
         .from('shops')
         .select(
-          'id, name, slug, area, sub_area, address, image_url, photos, phone, whatsapp, opening_time, closing_time, is_open, is_verified, shop_owners(id), shop_categories(category_id, categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)'
+          'id, name, slug, area, sub_area, address, image_url, photos, phone, whatsapp, opening_time, closing_time, is_open, is_verified, village_id, shop_categories(category_id, categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)'
         )
         .eq('is_active', true)
         .order('name');
@@ -209,9 +209,26 @@ export default function Shops() {
 
       const { data, error } = await query;
       if (error) throw error;
-      const mapped = (data || []).map((s: any) => ({
+      const rows = (data || []) as any[];
+      const shopIds = rows.map((s) => s.id).filter(Boolean);
+      let claimedSet = new Set<string>();
+      if (shopIds.length > 0 && typeof (supabase as any).rpc === 'function') {
+        try {
+          const { data: claimedRows, error: rpcErr } = await (supabase as any).rpc('get_claimed_shop_ids', {
+            _shop_ids: shopIds,
+          });
+          if (!rpcErr && Array.isArray(claimedRows)) {
+            claimedSet = new Set(
+              claimedRows.map((r: any) => (typeof r === 'string' ? r : r?.shop_id)).filter(Boolean),
+            );
+          }
+        } catch {
+          // Ignore if RPC is not deployed or mocked in tests
+        }
+      }
+      const mapped = rows.map((s) => ({
         ...s,
-        is_claimed: Boolean(s.is_claimed || (s.shop_owners && s.shop_owners.length > 0)),
+        is_claimed: Boolean(s.is_claimed || claimedSet.has(s.id)),
       }));
       // Strictly exclude specialized non-shop entities (Mess, PG, etc.)
       return filterRetailShops(mapped);
@@ -892,7 +909,7 @@ export default function Shops() {
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 mt-5 max-w-xs mx-auto">
                   <button
                     type="button"
-                    onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal'))}
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'shop' } }))}
                     className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-semibold shadow-xs active:scale-95 transition-all"
                   >
                     <Plus className="w-4 h-4" />

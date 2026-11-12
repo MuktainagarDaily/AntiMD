@@ -4,6 +4,38 @@
 
 ---
 
+## 2026-11-12 — Guest Visibility, Examiner Mode, Forgiving Omni-Search, Desktop Dialing, OSM Maps, Genuine Menu Autofill & AI Marathi Fallback
+
+### Discovery, Search & Sahayak AI
+- **Guest Visibility & Reviewer Attribution (`supabase/migrations/20261115000000_guest_rls_reviews_and_examiner_admin.sql`, `src/lib/reviewsApi.ts`, `src/pages/ShopDetail.tsx`, `src/pages/MessDetail.tsx`, `src/pages/PGDetail.tsx`):**
+  - Restored `anon, authenticated` `EXECUTE` grants on RLS helper predicates (`has_role`, `is_shop_owner`, `is_school_owner` with NULL short-circuiting), updated `"Shops are publicly readable"` SELECT policy, and ensured explicit `SELECT` grants so unauthenticated visitors can browse all Shops, Messes, PGs, and Schools as intended.
+  - Fixed HTTP `400 Bad Request` on `shop_reviews` by replacing the broken embedded `profiles!shop_reviews_user_id_fkey` PostgREST join with the new `SECURITY DEFINER` RPC `get_public_reviewer_names(_user_ids uuid[])`, alongside `get_claimed_shop_ids(_shop_ids uuid[])` for safe public claim badges.
+- **Guest Auth-Gate & Preserved Listing Intent (`src/components/ListShopModalHost.tsx`, `src/pages/Auth.tsx`, `src/components/RequestListingModal.tsx`):**
+  - Clicking "List New Business / Mess / PG / School" as an unauthenticated guest now shows a friendly notification and routes to `/auth?next=<currentPath>&list-shop=<entityType>`. Upon completing Sign In or Sign Up, users are redirected back and `RequestListingModal` automatically opens with `initialEntityType` pre-selected.
+- **Forgiving Bus Search & Homepage Omni-Search (`src/lib/bus/busHelpers.ts`, `src/pages/BusTimetable.tsx`, `src/components/home/HomeSearch.tsx`, `src/pages/Home.tsx`, `src/pages/Mess.tsx`):**
+  - Added `matchesForgivingBusQuery()` and `scoreForgivingMatch()` combining prefix matching, ordered character subsequence matching (e.g. `"ng"` → `"Nigdi"`), phonetic normalization (`"talegav"` → `"Talegaon"`), and Damerau-Levenshtein transposition/typo tolerance (`"nidgi"` → `"Nigdi"`), plus an **Ask Sahayak AI** button when zero routes match.
+  - Upgraded `HomeSearch` to unified omni-search across Shops, Messes (+ Today's Menus/specials), PGs, Schools/Institutes, and Bus Routes with entity-type badges and Sahayak AI fallback trigger.
+  - Upgraded `/mess` search bar with a forgiving second-tier fallback across `today_menu` (`special_tag`, `lunch_text`, `dinner_text`), `latest_menu`, and Regular Menu items (`menu_items`).
+- **Sahayak AI & AI Marathi Fallback (`supabase/functions/town-assistant/index.ts`, `src/components/TownAssistantDrawer.tsx`, `src/lib/translateApi.ts`):**
+  - Added a session-dismissible **20-second idle nudge pill** next to the Sahayak floating button inviting visitors to try AI assistance, plus support for `open-town-assistant` custom events from fallback search prompts.
+  - Fixed Sahayak PG & Today's Menu retrieval by querying `mess_profiles` and `pg_profiles` directly alongside `shops` (preventing shop-limit truncation) and separating Today's Menu (`menu_date = today` IST) + Regular Menu (`1970-01-01`) + cook/special intent detection (`isSpecialFood`).
+  - Added **`mode: 'translate'`** batch translation mode in `town-assistant` (Gemini Gateway + REST fallback) wired as **Layer 5 fallback** in `src/lib/translateApi.ts` whenever MyMemory quota limits, fails, or returns untranslated English.
+
+### UX, Maps, Examiner Mode & Admin Operations
+- **Desktop `tel:` Handling (`src/lib/engagement.ts`, `src/components/shared/CallNumberDialog.tsx`, `src/App.tsx`):** Intercepted desktop `tel:` clicks via `handleTelLinkClick()` to prevent Chromium's `"Failed to launch 'tel:...' because the scheme does not have a registered handler"` console error and instead present `<CallNumberDialog />` with formatted display, clipboard copy, and conditional WhatsApp quick link.
+- **Zero-Config OpenStreetMap Default (`src/components/shared/LocationMapPicker.tsx`):** Switched default interactive map rendering to Leaflet/OpenStreetMap with optional Google Maps enhancement (gated on `VITE_GOOGLE_MAPS_API_KEY` + `gm_authFailure` auto-fallback), eliminating `RefererNotAllowedMapError` on localhost/Vercel URLs.
+- **Parandwadi Demo Badges (`src/components/shared/DemoBadge.tsx`):** Surfaced bilingual `Demo / डेमो` badges on Parandwadi sample shops, messes, PGs, and schools.
+- **User Drawer, Cache Clear & About Refresh (`src/components/UserMenuDrawer.tsx`):** Renamed buttons (`List New Business`, `My Businesses`, `Saved`), removed redundant `My Institutes`, added an animated multi-step Clear Cache progress bar (with WebView/missing-`indexedDB` guards + Reload action), and updated the About drawer feature list across all live verticals.
+- **Production Examiner Mode & Genuine Menu/Entity Autofill (`src/lib/devHelpers.ts`, `src/pages/Auth.tsx`, `src/lib/living/sampleMenuGenerator.ts`, `src/pages/admin/DirectoryMess.tsx`, `src/components/admin/MessModal.tsx`):**
+  - Renamed Dev 1-Tap Admin Login to **`Examiner Mode (1-Tap Admin)`** (`EXAMINER_MODE_ENABLED = true`), active in production for external reviewers, and granted `admin-test@apnalocal.in` full `'admin'` role + write RLS parity on `category_translations`, `shop_translations`, `amenity_translations`, `shops`, and admin tables.
+  - Upgraded listing form autofill to supply entity-appropriate dummy datasets (`shop`, `mess`, `pg`, `school`) via `getEntityAutofillSample()` and `getMessModalAutofillSample()`.
+  - Added dual-tab `MessMenuQuickModal` (`Today's Menu` + `General Menu Card`) in `DirectoryMess` with dietary-aligned (`pure_veg`, `veg_nonveg`, `jain_available`) **`Auto-fill Genuine Menu`** powered by `generateSampleMessMenu()`.
+
+### Verification
+- Expanded test suite to **32 test files (275 tests)** including `src/test/ComprehensiveFixes.test.tsx`, Damerau-Levenshtein forgiving bus search tests (`BusTimetable.test.tsx`), dietary menu generator specs (`MessMenuFeatures.test.ts`), and Gemini AI Marathi fallback tests (`MarathiTranslation.test.ts`).
+
+---
+
 ## 2026-11-08 → 2026-11-13 — Essential Services, Local News, Sahayak AI v2, Education Portal, Storage & Health Suite, Export/Import v2 & Documentation Sync
 
 ### Features & Verticals

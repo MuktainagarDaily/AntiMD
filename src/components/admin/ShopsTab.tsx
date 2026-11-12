@@ -42,6 +42,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { EntityTab } from './_shared/EntityTab';
 import { ShopEntity, type ShopRow } from '@/lib/entities/shopEntity';
 import type { EntityColumn } from '@/lib/entities/types';
+import { handleTelLinkClick } from '@/lib/engagement';
 
 type QuickFilter = 'all' | 'active' | 'hidden' | 'verified' | 'unverified' | 'noimage';
 
@@ -794,7 +795,10 @@ function ShopMobileCard({
               </DropdownMenuItem>
               {shop.phone && (
                 <DropdownMenuItem asChild>
-                  <a href={`tel:${shop.phone}`}>
+                  <a
+                    href={`tel:${shop.phone}`}
+                    onClick={(e) => handleTelLinkClick(e, shop.phone, shop.name)}
+                  >
                     <PhoneIcon className="w-4 h-4 mr-2" /> Call
                   </a>
                 </DropdownMenuItem>

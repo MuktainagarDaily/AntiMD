@@ -27,6 +27,7 @@ import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { Footer } from '@/components/shared/Footer';
 import { useCity } from '@/hooks/useCity';
 import { useT } from '@/i18n';
+import { handleTelLinkClick } from '@/lib/engagement';
 import {
   AuthorityDepartment,
   AuthorityOrganization,
@@ -343,6 +344,9 @@ export default function EssentialServices() {
                         {org.emergency_phone && (
                           <a
                             href={`tel:${org.emergency_phone}`}
+                            onClick={(e) =>
+                              handleTelLinkClick(e, org.emergency_phone, isMr ? org.name_mr : org.name)
+                            }
                             className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-all active:scale-95 shadow-2xs"
                           >
                             <Phone className="w-3.5 h-3.5 shrink-0" />
@@ -522,6 +526,13 @@ export default function EssentialServices() {
                   {org.helpline_phone && (
                     <a
                       href={`tel:${org.helpline_phone}`}
+                      onClick={(e) =>
+                        handleTelLinkClick(
+                          e,
+                          org.helpline_phone,
+                          `${isMr ? org.name_mr : org.name} (${isMr ? 'हेल्पलाईन' : 'Helpline'})`,
+                        )
+                      }
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-muted hover:bg-muted/80 text-foreground transition-all active:scale-95"
                     >
                       <Phone className="w-3 h-3 text-primary" />
@@ -531,6 +542,13 @@ export default function EssentialServices() {
                   {org.emergency_phone && org.emergency_phone !== org.helpline_phone && (
                     <a
                       href={`tel:${org.emergency_phone}`}
+                      onClick={(e) =>
+                        handleTelLinkClick(
+                          e,
+                          org.emergency_phone,
+                          `${isMr ? org.name_mr : org.name} (${isMr ? 'तातडीची मदत' : 'Emergency'})`,
+                        )
+                      }
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/20 border border-rose-500/20 transition-all active:scale-95"
                     >
                       <Phone className="w-3 h-3 text-rose-500" />
@@ -570,6 +588,9 @@ export default function EssentialServices() {
                           {officer.phone && (
                             <a
                               href={`tel:${officer.phone}`}
+                              onClick={(e) =>
+                                handleTelLinkClick(e, officer.phone, `${officer.name} (${officer.role})`)
+                              }
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
                             >
                               <Phone className="w-3 h-3 shrink-0" />

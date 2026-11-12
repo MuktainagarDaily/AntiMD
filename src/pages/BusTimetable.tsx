@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Search, Bus, Clock, AlertTriangle, ArrowRight, Phone, MapPin, RefreshCw, X, Inbox, WifiOff, Navigation } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ChevronLeft, Search, Bus, Clock, AlertTriangle, ArrowRight, Phone, MapPin, RefreshCw, X, Inbox, WifiOff, Navigation, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,10 +14,10 @@ import { useT } from '@/i18n';
 import { useCity } from '@/hooks/useCity';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { canDialTel } from '@/lib/engagement';
+import { handleTelLinkClick } from '@/lib/engagement';
 import { cn } from '@/lib/utils';
 import { readBusCache, writeBusCache, formatCacheAge } from '@/lib/pwa/busCache';
-import { parseBusNotes, BUS_TYPE_CONFIG } from '@/lib/bus/busHelpers';
+import { parseBusNotes, BUS_TYPE_CONFIG, matchesForgivingBusQuery } from '@/lib/bus/busHelpers';
 
 interface Row {
   id: string;
@@ -159,6 +159,7 @@ const ALPHABET = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P
 
 export default function BusTimetable() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t, locale } = useT();
   const { currentCity, currentVillage, townBrand, townName, getPageTitle } = useCity();
   const [cityPickerOpen, setCityPickerOpen] = useState(false);
@@ -166,7 +167,7 @@ export default function BusTimetable() {
     fallbackPath: `/${currentCity.slug}`,
   });
   const online = useOnlineStatus();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => searchParams.get('q') || searchParams.get('search') || '');
   const debounced = useDebouncedValue(search, 200);
   const listRef = useRef<HTMLUListElement | null>(null);
   // aria-live announcement string; replaced on every jump so AT users
@@ -381,12 +382,13 @@ export default function BusTimetable() {
   }, [rows, nowMin, locale]);
 
   const filtered = useMemo(() => {
-    const q = debounced.trim().toLowerCase();
+    const q = debounced.trim();
     if (!q) return rows;
-    return rows.filter((r) =>
-      r.destination.toLowerCase().includes(q) ||
-      (r.destination_mr || '').toLowerCase().includes(q),
-    );
+    return rows
+      .map((r, idx) => ({ row: r, score: matchesForgivingBusQuery(q, r), idx }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => (b.score !== a.score ? b.score - a.score : a.idx - b.idx))
+      .map((x) => x.row);
   }, [rows, debounced]);
 
   // Which letters actually have destinations (for alphabet jump bar).
@@ -443,16 +445,17 @@ export default function BusTimetable() {
     return t('bus.hrLeft', { h: Math.floor(n / 60), m: n % 60 });
   };
 
-  // Surface feedback for the stand-call action so desktop users — where
-  // tel: opens nothing visible — at least see the number to dial manually.
-  const handleStandCall = useCallback(() => {
-    if (!standPhoneRaw) return;
-    if (canDialTel()) {
-      toast.success(t('bus.callingStand', { phone: standPhoneRaw }));
-    } else {
-      toast.info(t('bus.callDesktop', { phone: standPhoneRaw }), { duration: 6000 });
-    }
-  }, [standPhoneRaw, t]);
+  // Surface an in-app call dialog on desktop instead of letting a tel: link fail with a scheme error.
+  const handleStandCall = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!standPhoneRaw) return;
+      const openedDialer = handleTelLinkClick(e, standPhoneRaw, `${locationLabel} Bus Stand`);
+      if (openedDialer) {
+        toast.success(t('bus.callingStand', { phone: standPhoneRaw }));
+      }
+    },
+    [standPhoneRaw, locationLabel, t],
+  );
 
   // Track which letters we've already labelled while rendering.
   const seenLetters = new Set<string>();
@@ -884,13 +887,41 @@ export default function BusTimetable() {
             <p className="text-sm text-muted-foreground mt-1">
               {t('bus.searchEmptyHint', { q: debounced.trim() })}
             </p>
-            <button
-              onClick={() => setSearch('')}
-              className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <X className="w-4 h-4" />
-              {t('bus.clearSearch')}
-            </button>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {debounced.trim() && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent('open-town-assistant', {
+                        detail: {
+                          query:
+                            locale === 'mr'
+                              ? `${debounced.trim()} साठी बस वेळापत्रक व मार्ग सांगा`
+                              : `Bus timings and routes for ${debounced.trim()}`,
+                          autoSend: true,
+                        },
+                      }),
+                    )
+                  }
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>
+                    {locale === 'mr'
+                      ? `"${debounced.trim()}" बद्दल सहाय्यक AI ला विचारा`
+                      : `Ask Sahayak AI about "${debounced.trim()}"`}
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={() => setSearch('')}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-muted/60 text-foreground font-semibold text-sm hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="w-4 h-4" />
+                {t('bus.clearSearch')}
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex gap-3">

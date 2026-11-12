@@ -15,7 +15,7 @@ Make every legitimate local business, civic authority, news update, bus route, s
 
 | Role | DB enum | How granted | What they get |
 |---|---|---|---|
-| **Visitor (anon)** | — | default | Browse, search, ask Sahayak AI, call/WA/Maps, submit a listing request, view news/schools/mess/PG/services, see banners (with "Sponsored" labels) |
+| **Visitor (anon)** | — | default | Browse shops/mess/PG/schools/news/services/bus, omni-search, ask Sahayak AI, call (`CallNumberDialog` on desktop)/WA/Maps, bookmark locally, see banners (with "Sponsored" labels); prompted to sign in (preserving destination & entity type) when starting a business listing submission |
 | **User** (signed in) | `user` | sign-up | Bookmark listings (`/saved-shops`), claim a shop or school/institute, write reviews (`shop_reviews` / `school_reviews`) & helpful votes, track own listing requests |
 | **Shopkeeper / Institute Owner** | `shopkeeper` | granted via `approve_shop_claim`, `assign_shop_owner`, `approve_school_claim`, or `assign_school_owner` RPCs | `/my-shop` & `/my-institute` Owner Hubs (Shop Editor, `MessOwnerHub`, `PGOwnerHub`, `SchoolOwnerHub`) with concurrency-safe edits, daily menus/vacancies/notices, realtime ownership updates, and 30-day engagement metrics |
 | **Admin** | `admin` | bootstrap (`claim_first_admin` RPC) or migration seed | `/admin` hub-and-leaf dashboard: full CRUD across all verticals, moderation Inbox, Storage & System Health diagnostics, 20-dataset Master Backup/Restore, per-module CSV export/import, banners, and Marathi pipeline |
@@ -68,7 +68,7 @@ Make every legitimate local business, civic authority, news update, bus route, s
 
 ## Current Architecture Summary (high level — full detail in `ARCHITECTURE.md`)
 
-- **Frontend:** React 18 + Vite 5 + TypeScript SPA. React Router v6 (`/:citySlug/...`), TanStack Query v5 (`staleTime: 120s`, `categories` localStorage persister), shadcn/Radix + Tailwind, lucide-react, Vitest (31 test files).
+- **Frontend:** React 18 + Vite 5 + TypeScript SPA. React Router v6 (`/:citySlug/...`), TanStack Query v5 (`staleTime: 120s`, `categories` localStorage persister), shadcn/Radix + Tailwind, lucide-react, Leaflet/OpenStreetMap (zero-config default map picker), Vitest (32 test files, 275 tests).
 - **Backend:** External Supabase project (`fhlaqgzensagjangkpop.supabase.co`) with PostgREST + Realtime + 4 Storage buckets + Auth + **3 Deno Edge Functions** (`mcp`, `town-assistant`, `scrape-local-news`).
 - **Auth & MCP:** Supabase email/password for end users; OAuth 2.1 for MCP clients hitting `/functions/v1/mcp` (7 read-only tools) with consent UI at `/.lovable/oauth/consent`.
 - **Build & Hosting:** `npm run build` (`generate-sitemap.ts` + `vite build` + `mcpPlugin` + `prerender.ts`). Vercel primary (`vercel.json`); Lovable Cloud compatible.

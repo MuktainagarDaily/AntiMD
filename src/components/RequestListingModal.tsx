@@ -18,7 +18,7 @@ import { AmenitiesPicker } from '@/components/shared/AmenitiesPicker';
 import { LocationMapPicker, MUKTAINAGAR_CENTER, clearGeocodeCacheNear, type Coords } from '@/components/shared/LocationMapPicker';
 import { MarathiMirrorField } from '@/components/shared/MarathiMirrorField';
 import { TranslateAllButton } from '@/components/shared/TranslateAllButton';
-import { DEV_AUTOFILL, DUMMY_SHOP_DATA } from '@/lib/devHelpers';
+import { DEV_AUTOFILL, getEntityAutofillSample } from '@/lib/devHelpers';
 import { uploadShopImage } from '@/lib/storageNaming';
 import { isValidIndianPhone, isSafeHttpUrl, inputCls } from '@/lib/utils';
 import { normalizeWhatsApp } from '@/components/admin/adminHelpers';
@@ -113,9 +113,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /* ── component ─────────────────────────────────────────────────── */
-interface Props { onClose: () => void; }
+interface Props {
+  onClose: () => void;
+  initialEntityType?: RequestEntityType;
+}
 
-export function RequestListingModal({ onClose }: Props) {
+export function RequestListingModal({ onClose, initialEntityType }: Props) {
   const { user } = useAuth();
   const { t, locale } = useT();
   const { currentCity, currentVillage, townName } = useCity();
@@ -124,7 +127,13 @@ export function RequestListingModal({ onClose }: Props) {
   const TOTAL_STEPS = 5;
 
   const [step, setStep] = useState(1);
-  const [entityType, setEntityType] = useState<RequestEntityType>('shop');
+  const [entityType, setEntityType] = useState<RequestEntityType>(initialEntityType ?? 'shop');
+
+  useEffect(() => {
+    if (initialEntityType) {
+      setEntityType(initialEntityType);
+    }
+  }, [initialEntityType]);
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [resumePrompt, setResumePrompt] = useState(false);
 
@@ -214,12 +223,13 @@ export function RequestListingModal({ onClose }: Props) {
         (Array.isArray(draft.amenities) && draft.amenities.length > 0) ||
         (Array.isArray(draft.photos) && draft.photos.length > 0)
       );
-      if (hasContent) {
+      const draftMatchesContext = !initialEntityType || !draft?.entityType || draft.entityType === initialEntityType;
+      if (hasContent && draftMatchesContext) {
         setResumePrompt(true);
         setDraftStatus('saved');
       }
     } catch { /* ignore */ }
-  }, [DRAFT_KEY]);
+  }, [DRAFT_KEY, initialEntityType]);
 
   const restoreDraft = () => {
     try {
@@ -360,89 +370,102 @@ export function RequestListingModal({ onClose }: Props) {
 
   const set = (key: string, val: string) => setForm((f) => ({ ...f, [key]: val }));
 
-  /* ── Dev autofill ───────────────────────────────────────────── */
+  /* ── Examiner / Sample autofill ──────────────────────────────── */
   const handleDevFill = () => {
-    if (entityType === 'mess') {
-      setForm((f) => ({
-        ...f,
-        name: 'Shree Krishna Bhojanalay',
-        phone: '9876543210',
-        whatsapp: '919876543210',
-        address: 'Opposite Shivaji College, College Road',
-        area: 'College Road',
-        description: 'Authentic Maharashtrian vegetarian thali, pure ghee chapati, and student monthly pass.',
-        opening_time: '11:00',
-        closing_time: '22:30',
-      }));
-      setMessType('pure_veg');
-      setMonthlyRate('2200');
-      setSingleThaliRate('70');
-      setTiffinDelivery(true);
-      setSundayFeast(true);
-      setAmenities(['Pure Veg', 'Tiffin Delivery', 'Unlimited Thali', 'RO Drinking Water', 'Monthly Pass Available']);
-      setPhotos(['/images/demo/swami-samarth-thali.jpg', '/images/demo/daily-menu-board.jpg']);
-    } else if (entityType === 'pg') {
-      setForm((f) => ({
-        ...f,
-        name: 'Sai Krupa Boys Hostel & PG',
-        phone: '9876543210',
-        whatsapp: '919876543210',
-        address: 'Plot 15, Near ST Stand, Station Road',
-        area: 'Station Road',
-        description: 'Peaceful accommodation for students with high speed Wi-Fi, RO water, and solar geyser.',
-        opening_time: '06:00',
-        closing_time: '22:00',
-      }));
-      setPgGender('boys');
-      setTotalBeds('24');
-      setAvailableBeds('4');
-      setDepositAmount('1500');
-      setRateDouble('2500');
-      setRateTriple('2000');
-      setFoodIncluded(true);
-      setAmenities(['Wi-Fi', 'RO Drinking Water', 'Geyser / Hot Water', 'Inverter / Power Backup', 'Study Table & Chair', 'Mess / Food Included']);
-      setPhotos(['/images/demo/sai-boys-hostel.jpg']);
-    } else if (entityType === 'school') {
-      setForm((f) => ({
-        ...f,
-        name: 'Adarsh High School & Junior College',
-        phone: '9876543210',
-        whatsapp: '919876543210',
-        address: 'School Road, Near Panchayat Office',
-        area: 'Main Road',
-        description: 'Quality secondary and higher secondary education with modern computer lab and playground.',
-        opening_time: '07:30',
-        closing_time: '17:30',
-      }));
-      setSchoolType('higher-secondary');
-      setSchoolMedium('semi-english');
-      setSchoolBoard('State Board (SSC/HSC)');
-      setSchoolManagement('aided');
-      setSchoolAdmissionStatus('open');
-      setSchoolStreams('Science, Commerce, Arts');
-      setSchoolEmail('admissions@adarshschool.edu.in');
-      setSchoolWebsite('https://adarshschool.edu.in');
-      setSchoolIsOwner(true);
-    } else {
-      setForm({
-        name: DUMMY_SHOP_DATA.name,
-        phone: DUMMY_SHOP_DATA.phone,
-        whatsapp: DUMMY_SHOP_DATA.whatsapp,
-        address: DUMMY_SHOP_DATA.address,
-        area: DUMMY_SHOP_DATA.area,
-        sub_area: DUMMY_SHOP_DATA.sub_area,
-        description: DUMMY_SHOP_DATA.description,
-        keywords: DUMMY_SHOP_DATA.keywords,
-        category_text: DUMMY_SHOP_DATA.category_text,
-        opening_time: DUMMY_SHOP_DATA.opening_time,
-        closing_time: DUMMY_SHOP_DATA.closing_time,
-        submitter_name: DUMMY_SHOP_DATA.submitter_name,
-        latitude: DUMMY_SHOP_DATA.latitude,
-        longitude: DUMMY_SHOP_DATA.longitude,
-      });
+    const sample = getEntityAutofillSample(entityType, currentCity);
+    const common = sample.common;
+
+    // Resolve exact <select> category option when categories are loaded for Shop
+    let resolvedCategory = common.category_text;
+    if (entityType === 'shop' && categories.length > 0) {
+      const targetTokens = common.category_text
+        .toLowerCase()
+        .split(/[^a-z0-9]+/)
+        .filter((tok) => tok.length > 2);
+      const exactMatch = categories.find(
+        (c) => c.name.toLowerCase() === common.category_text.toLowerCase(),
+      );
+      const fuzzyMatch = exactMatch || categories.find((c) => {
+        const cname = c.name.toLowerCase();
+        return targetTokens.some((tok) => cname.includes(tok));
+      }) || categories[0];
+      if (fuzzyMatch?.name) resolvedCategory = fuzzyMatch.name;
     }
+
+    setForm((f) => ({
+      ...f,
+      name: common.name,
+      phone: common.phone,
+      whatsapp: common.whatsapp,
+      address: common.address,
+      area: common.area,
+      sub_area: common.sub_area,
+      description: common.description,
+      keywords: common.keywords,
+      category_text: resolvedCategory,
+      opening_time: common.opening_time,
+      closing_time: common.closing_time,
+      submitter_name: common.submitter_name,
+      latitude: common.latitude,
+      longitude: common.longitude,
+    }));
+
+    setAmenities(common.amenities || []);
+    if (common.mr) {
+      setMr(common.mr);
+    }
+
+    if (entityType === 'mess' && sample.mess) {
+      setMessType(sample.mess.messType);
+      setMonthlyRate(sample.mess.monthlyRate);
+      setSingleThaliRate(sample.mess.singleThaliRate);
+      setTiffinDelivery(sample.mess.tiffinDelivery);
+      setSundayFeast(sample.mess.sundayFeast);
+      setLunchTiming(sample.mess.lunchTiming);
+      setDinnerTiming(sample.mess.dinnerTiming);
+      setPhotos(
+        sample.mess.messType === 'veg_nonveg'
+          ? ['/images/demo/ruchira-nonveg-thali.jpg', '/images/demo/daily-menu-board.jpg']
+          : ['/images/demo/swami-samarth-thali.jpg', '/images/demo/daily-menu-board.jpg'],
+      );
+    } else if (entityType === 'pg' && sample.pg) {
+      setPgGender(sample.pg.pgGender);
+      setOccupancyTarget(sample.pg.occupancyTarget);
+      setTotalBeds(sample.pg.totalBeds);
+      setAvailableBeds(sample.pg.availableBeds);
+      setDepositAmount(sample.pg.depositAmount);
+      setGateClosingTime(sample.pg.gateClosingTime);
+      setFoodIncluded(sample.pg.foodIncluded);
+      setRateSingle(sample.pg.rateSingle);
+      setRateDouble(sample.pg.rateDouble);
+      setRateTriple(sample.pg.rateTriple);
+      setPhotos(
+        sample.pg.pgGender === 'girls'
+          ? ['/images/demo/matoshree-girls-pg.jpg']
+          : ['/images/demo/sai-boys-hostel.jpg'],
+      );
+    } else if (entityType === 'school' && sample.school) {
+      setSchoolType(sample.school.schoolType);
+      setSchoolMedium(sample.school.schoolMedium);
+      setSchoolBoard(sample.school.schoolBoard);
+      setSchoolManagement(sample.school.schoolManagement);
+      setSchoolAdmissionStatus(sample.school.schoolAdmissionStatus);
+      setSchoolStreams(sample.school.schoolStreams);
+      setSchoolEmail(sample.school.schoolEmail);
+      setSchoolWebsite(sample.school.schoolWebsite);
+      setSchoolIsOwner(true);
+      setPhotos([]);
+    } else {
+      setPhotos([]);
+    }
+
     setTruthConfirmed(true);
     setErrors({});
+    toast.success(
+      locale === 'mr'
+        ? `नमुना ${entityType.toUpperCase()} माहिती भरली!`
+        : `Sample ${entityType.toUpperCase()} details filled!`,
+    );
   };
 
   /* ── Validation ───────────────────────────────────────────── */
@@ -893,10 +916,12 @@ export function RequestListingModal({ onClose }: Props) {
             </div>
           </div>
 
-          {DEV_AUTOFILL && step === 1 && (
+          {DEV_AUTOFILL && step >= 1 && step <= 4 && (
             <button type="button" onClick={handleDevFill}
               className="w-full mb-4 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border border-dashed border-secondary text-secondary bg-secondary/10 hover:bg-secondary/20 transition-colors">
-              <FlaskConical className="w-3.5 h-3.5" /> {t('request.devAutofill')}
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>{t('request.devAutofill')}</span>
+              <span className="opacity-75">({entityType.toUpperCase()})</span>
             </button>
           )}
 
@@ -906,7 +931,7 @@ export function RequestListingModal({ onClose }: Props) {
               <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: 'hsl(var(--primary))' }} />
               <span className="text-muted-foreground">
                 {t('request.freeListing')} ·{' '}
-                <button type="button" onClick={() => { onClose(); navigate('/auth?next=' + encodeURIComponent('/?list-shop=1')); }}
+                <button type="button" onClick={() => { onClose(); navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}&list-shop=${encodeURIComponent(entityType)}`); }}
                   className="font-semibold text-primary hover:underline">{t('request.signInLink')}</button>{' '}
                 {t('request.signInToTrackInline')}
               </span>

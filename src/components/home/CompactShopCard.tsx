@@ -9,21 +9,23 @@ import { useNavigate } from 'react-router-dom';
 import { MapPin, ShieldCheck, Phone, MessageCircle } from 'lucide-react';
 import { isShopOpen } from '@/lib/shopUtils';
 import { ClaimedBadge } from '@/components/shared/ClaimedBadge';
+import { DemoBadge, isParandwadiDemoListing } from '@/components/shared/DemoBadge';
 import { CategoryIcon } from '@/components/shared/CategoryIcon';
 import { ShopImage } from '@/components/shared/ShopImage';
 import { useT } from '@/i18n';
 import { useLocalizedShop } from '@/hooks/useTranslationsCache';
 import { useCity } from '@/hooks/useCity';
 import { cn } from '@/lib/utils';
-import { logShopEngagement } from '@/lib/engagement';
+import { logShopEngagement, handleTelLinkClick } from '@/lib/engagement';
 import { RatingInline } from '@/components/shared/rating/RatingInline';
 import { useShopRating } from '@/lib/reviewsApi';
 
 
 export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any; priority?: boolean }) {
   const navigate = useNavigate();
-  const { currentCity } = useCity();
+  const { currentCity, currentVillage } = useCity();
   const shop = useLocalizedShop(rawShop) || rawShop;
+  const isDemo = isParandwadiDemoListing(rawShop, currentVillage);
   const open = isShopOpen(shop);
   const [imgError, setImgError] = useState(false);
   const shopPath = shop.slug ? `/${currentCity.slug}/shop/${shop.slug}` : `/${currentCity.slug}/shop/${shop.id}`;
@@ -123,7 +125,7 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
             <span className="truncate">{shop.area}</span>
           </p>
         )}
-        {(shop.is_verified || shop.is_claimed) && (
+        {(shop.is_verified || shop.is_claimed || isDemo) && (
           <div className="flex items-center flex-wrap gap-1">
             {shop.is_verified && (
               <span
@@ -135,6 +137,7 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
               </span>
             )}
             {shop.is_claimed && <ClaimedBadge size="sm" />}
+            {isDemo && <DemoBadge size="sm" />}
           </div>
         )}
 
@@ -142,7 +145,10 @@ export function CompactShopCard({ shop: rawShop, priority = false }: { shop: any
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
-              onClick={(e) => { e.stopPropagation(); logEngagement('call'); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleTelLinkClick(e, shop.phone, shop.name, () => logEngagement('call'));
+              }}
               className="flex-1 min-w-0 inline-flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-lg text-[10px] font-semibold transition-colors hover:opacity-80"
               style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             >

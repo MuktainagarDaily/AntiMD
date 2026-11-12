@@ -9,7 +9,9 @@
  *      users/devices. First user to translate a phrase pays the MyMemory
  *      call; everyone after that gets it free. RLS lets anon+auth read,
  *      insert, and bump hit_count.
- *   4. **MyMemory API** — last resort (50,000 chars/day tier unlocked via &de=).
+ *   4. **MyMemory API** — primary remote translator (50,000 chars/day tier via &de=).
+ *   5. **AI Marathi Fallback (Gemini via town-assistant Edge Function)** — automatic backup
+ *      whenever MyMemory errors, hits daily quota, returns empty, or echoes untranslated English.
  *
  * Pending-promise dedupe prevents duplicate concurrent requests for the
  * same phrase within a single tab.
@@ -25,8 +27,10 @@ type Direction = 'en|mr' | 'mr|en';
 let memCache: Map<string, string> | null = null;
 const pending = new Map<string, Promise<string>>();
 let quotaExceededFlag = false;
+let myMemoryQuotaHit = false;
+let aiTranslateCooldownUntil = 0;
 
-/** Check if MyMemory API reported a quota or rate limit during this session. */
+/** Check if translation service reported a quota or rate limit during this session. */
 export function isQuotaExceeded(): boolean {
   return quotaExceededFlag;
 }
@@ -34,6 +38,8 @@ export function isQuotaExceeded(): boolean {
 /** Reset quota exceeded state (e.g. before starting a fresh backfill run). */
 export function resetQuotaExceeded(): void {
   quotaExceededFlag = false;
+  myMemoryQuotaHit = false;
+  aiTranslateCooldownUntil = 0;
 }
 
 /** Clear in-memory and pending caches (useful for testing or cache reset). */
@@ -165,7 +171,37 @@ async function writeSharedCache(srcNorm: string, dir: Direction, translated: str
   }
 }
 
-/** Translate text via MyMemory, using all cache layers first. */
+/**
+ * AI Marathi fallback invoked when MyMemory quota-limits, fails, or echoes raw English.
+ */
+async function translateViaAiFallback(src: string, dir: Direction): Promise<string> {
+  if (Date.now() < aiTranslateCooldownUntil) return '';
+  if (typeof (supabase as any)?.functions?.invoke !== 'function') return '';
+  try {
+    const [sourceLang, targetLang] = dir.split('|') as ['en' | 'mr', 'en' | 'mr'];
+    const { data, error } = await supabase.functions.invoke('town-assistant', {
+      body: {
+        mode: 'translate',
+        texts: [src],
+        sourceLang,
+        targetLang,
+      },
+    });
+    if (error || !Array.isArray(data?.translations)) {
+      return '';
+    }
+    const candidate = decodeEntities(String(data.translations[0] || '')).trim();
+    if (!candidate || isWarningText(candidate)) return '';
+    if (normalize(candidate) === normalize(src)) return '';
+    if (dir === 'en|mr' && !/[\u0900-\u097F]/.test(candidate)) return '';
+    return candidate;
+  } catch {
+    aiTranslateCooldownUntil = Date.now() + 60_000;
+    return '';
+  }
+}
+
+/** Translate text via MyMemory + automatic Gemini AI fallback, using all cache layers first. */
 export async function translate(text: string, dir: Direction = 'en|mr'): Promise<string> {
   const src = text.trim();
   if (!src) return '';
@@ -191,39 +227,63 @@ export async function translate(text: string, dir: Direction = 'en|mr'): Promise
     }
 
     // Layer 4: MyMemory API (with &de= to unlock 50,000 characters/day free tier)
-    try {
-      const url = `${ENDPOINT}?q=${encodeURIComponent(src)}&langpair=${dir}&de=admin@muktainagardaily.com`;
-      const res = await fetch(url);
-      if (!res.ok || res.status !== 200) {
-        if (res.status === 403 || res.status === 429) {
-          quotaExceededFlag = true;
+    let myMemoryOut = '';
+    if (!myMemoryQuotaHit) {
+      try {
+        const url = `${ENDPOINT}?q=${encodeURIComponent(src)}&langpair=${dir}&de=admin@muktainagardaily.com`;
+        const res = await fetch(url);
+        if (!res.ok || res.status !== 200) {
+          if (res.status === 403 || res.status === 429) {
+            myMemoryQuotaHit = true;
+            quotaExceededFlag = true;
+          }
+        } else {
+          const json = (await res.json()) as {
+            responseData?: { translatedText?: string; match?: number };
+            responseStatus?: number;
+          };
+          if (json?.responseStatus !== 200) {
+            if (json?.responseStatus === 403 || json?.responseStatus === 429) {
+              myMemoryQuotaHit = true;
+              quotaExceededFlag = true;
+            }
+          } else {
+            const raw = json?.responseData?.translatedText || '';
+            const out = decodeEntities(raw).trim();
+            if (isWarningText(out)) {
+              myMemoryQuotaHit = true;
+              quotaExceededFlag = true;
+            } else if (
+              out &&
+              normalize(out) !== srcNorm &&
+              (dir !== 'en|mr' || /[\u0900-\u097F]/.test(out))
+            ) {
+              myMemoryOut = out;
+            }
+          }
         }
-        return '';
+      } catch {
+        // Fall through to AI backup
       }
-      const json = (await res.json()) as {
-        responseData?: { translatedText?: string; match?: number };
-        responseStatus?: number;
-      };
-      if (json?.responseStatus !== 200) {
-        if (json?.responseStatus === 403 || json?.responseStatus === 429) {
-          quotaExceededFlag = true;
-        }
-        return '';
-      }
-      const raw = json?.responseData?.translatedText || '';
-      const out = decodeEntities(raw).trim();
-      if (!out || isWarningText(out)) {
-        if (isWarningText(out)) {
-          quotaExceededFlag = true;
-        }
-        return '';
-      }
-      storeLocal(k, out);
-      void writeSharedCache(srcNorm, dir, out);
-      return out;
-    } catch {
-      return '';
     }
+
+    if (myMemoryOut) {
+      quotaExceededFlag = false;
+      storeLocal(k, myMemoryOut);
+      void writeSharedCache(srcNorm, dir, myMemoryOut);
+      return myMemoryOut;
+    }
+
+    // Layer 5: Gemini AI fallback when MyMemory is exhausted, offline, or untranslated
+    const aiOut = await translateViaAiFallback(src, dir);
+    if (aiOut) {
+      quotaExceededFlag = false;
+      storeLocal(k, aiOut);
+      void writeSharedCache(srcNorm, dir, aiOut);
+      return aiOut;
+    }
+
+    return '';
   })().finally(() => pending.delete(k));
 
   pending.set(k, promise);

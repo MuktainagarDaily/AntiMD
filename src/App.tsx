@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { OfflineOverlay } from "@/components/shared/OfflineOverlay";
 import { ListShopModalHost } from "@/components/ListShopModalHost";
 import { TownAssistantDrawer } from "@/components/TownAssistantDrawer";
+import { CallNumberDialog } from "@/components/shared/CallNumberDialog";
 
 // Code-split routes that are not on the public hot path. The admin subtree,
 // auth flows, account pages, and rarely-hit error pages all become their
@@ -163,9 +164,6 @@ function ProtectedRoute({
   // fallback → this → page skeleton).
   if (stillLoading) return null;
   if (!user) {
-    if (import.meta.env.DEV && typeof window !== 'undefined' && window.localStorage.getItem('dev_admin') === 'true') {
-      return <>{children}</>;
-    }
     const currentPath = location.pathname + location.search + location.hash;
     const nextParam = currentPath && currentPath !== '/' ? `?next=${encodeURIComponent(currentPath)}` : '';
     return <Navigate to={`/auth${nextParam}`} replace />;
@@ -284,6 +282,7 @@ const App = () => (
             <OfflineOverlay />
             <ListShopModalHost />
             <TownAssistantDrawer />
+            <CallNumberDialog />
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 {/* Global, non-town scoped routes */}

@@ -68,7 +68,7 @@ Set these environment variables in **Vercel Project Settings $\to$ Environment V
 | `VITE_SUPABASE_URL` | **Yes** | Your Supabase project URL | `https://fhlaqgzensagjangkpop.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | **Yes** | Supabase anonymous public key | `eyJhbGciOiJIUzI1...` |
 | `VITE_SUPABASE_PROJECT_ID` | **Yes** | Supabase project identifier | `fhlaqgzensagjangkpop` |
-| `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` | **Yes** | Google Maps JavaScript API key | `AIzaSy...` |
+| `VITE_GOOGLE_MAPS_API_KEY` *(or `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`)* | Optional | Google Maps key (`LocationMapPicker` uses OpenStreetMap/Leaflet out-of-the-box if omitted or referrer-blocked) | `AIzaSy...` |
 | `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID` | Optional | Maps telemetry tracking ID | `f43bc5eec...` |
 | `VITE_SITE_URL` | Recommended | Canonical production URL (used for sitemap and prerender canonical tags) | `https://muktainagardaily.com` or `https://muktainagar-daily.vercel.app` |
 | `VITE_ADS_ENABLED` | Optional | Build-time ad kill switch (`true`/`false`) | `true` (default) |
@@ -229,7 +229,7 @@ After deploying to Vercel, verify these 10 core health indicators:
 - [ ] **Authentication Flow:** Sign up with a test account, sign in, and test password recovery link.
 - [ ] **Owner Portals:** Visit `/my-shop` and `/my-institute` — test shop, mess, PG, and school/institute owner hubs, map pin location picker, and realtime updates.
 - [ ] **Admin Layout & Navigation:** Navigate to `/admin/overview`, `/admin/directory/shops`, `/admin/sections/schools`, `/admin/sections/news`, `/admin/system/data`, `/admin/system/quality`.
-- [ ] **Public Listing Submission:** Open "List a Shop" modal, test the 4-step wizard, and submit a test draft.
+- [ ] **Public Listing Submission:** Click "List New Business" as guest (verify auth prompt & `?list-shop=` resume), open the 4-step wizard, test Examiner Autofill, and submit a test draft.
 - [ ] **Edge Functions:** Verify `mcp` (`/functions/v1/mcp`), `town-assistant` (`/functions/v1/town-assistant`), and `scrape-local-news` (`/functions/v1/scrape-local-news`) respond cleanly.
 
 ---

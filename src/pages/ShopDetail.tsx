@@ -25,7 +25,8 @@ import { useLocalizedShop, useLocalizeCategoryName } from '@/hooks/useTranslatio
 import { useCity } from '@/hooks/useCity';
 import { BannerSlot } from '@/components/banners/BannerSlot';
 import { Skeleton } from '@/components/ui/skeleton';
-import { logShopEngagement } from '@/lib/engagement';
+import { logShopEngagement, handleTelLinkClick } from '@/lib/engagement';
+import { DemoBadge, isParandwadiDemoListing } from '@/components/shared/DemoBadge';
 import { RatingStars } from '@/components/shared/rating/RatingStars';
 import { ReviewsSection } from '@/components/reviews/ReviewsSection';
 import { useShopRating } from '@/lib/reviewsApi';
@@ -76,7 +77,7 @@ export default function ShopDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = useSmartBack();
-  const { currentCity, townBrand, townName, stateName } = useCity();
+  const { currentCity, currentVillage, townBrand, townName, stateName } = useCity();
   const { indicatorNode } = useEdgeSwipeBack({
     fallbackPath: `/${currentCity.slug}/shops`,
   });
@@ -502,6 +503,7 @@ export default function ShopDetail() {
 
                 {/* Claimed chip — sibling to Verified, hover tooltip */}
                 {isClaimed && <ClaimedBadge size="md" />}
+                {isParandwadiDemoListing(rawShop || shop, currentVillage) && <DemoBadge size="md" />}
               </div>
 
               <ShopRatingJump shopId={shop.id} label={t('reviews.jumpCta') || 'See reviews'} />
@@ -726,7 +728,9 @@ export default function ShopDetail() {
           {shop.phone && (
             <a
               href={`tel:${shop.phone}`}
-              onClick={() => logEngagement(shop.id, 'call')}
+              onClick={(e) =>
+                handleTelLinkClick(e, shop.phone, shop.name, () => logEngagement(shop.id, 'call'))
+              }
               className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl font-semibold text-[11px] active:scale-95 transition-all"
               style={{ background: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))' }}
             >

@@ -38,6 +38,8 @@ import { Footer } from '@/components/shared/Footer';
 import { CityPickerModal } from '@/components/shared/CityPickerModal';
 import { useEdgeSwipeBack } from '@/hooks/useEdgeSwipeBack';
 import { toast } from 'sonner';
+import { handleTelLinkClick } from '@/lib/engagement';
+import { DemoBadge, isParandwadiDemoListing } from '@/components/shared/DemoBadge';
 
 export default function PGDetail() {
   const { citySlug, id } = useParams<{ citySlug: string; id: string }>();
@@ -251,6 +253,7 @@ export default function PGDetail() {
                     <span>Verified</span>
                   </span>
                 )}
+                {isParandwadiDemoListing(pg, currentVillage) && <DemoBadge size="md" />}
               </div>
 
               {/* Area & Address */}
@@ -534,6 +537,7 @@ export default function PGDetail() {
           {phone ? (
             <a
               href={`tel:${phone}`}
+              onClick={(e) => handleTelLinkClick(e, phone, displayName)}
               className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-98 transition-all shadow-sm"
             >
               <Phone className="w-4 h-4" />

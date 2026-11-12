@@ -1,4 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const { mockInvoke, mockFrom } = vi.hoisted(() => ({
+  mockInvoke: vi.fn(),
+  mockFrom: vi.fn(),
+}));
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    functions: {
+      invoke: mockInvoke,
+    },
+    from: mockFrom,
+  },
+}));
+
 import {
   translateEnToMr,
   isQuotaExceeded,
@@ -7,6 +22,22 @@ import {
   isWarningText,
 } from '@/lib/translateApi';
 
+function makeCacheTableMock() {
+  return {
+    select: () => ({
+      eq: () => ({
+        eq: () => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+    }),
+    update: () => ({
+      eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+    insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+}
+
 describe('Marathi Translation Engine & Warning Guard', () => {
   const originalFetch = globalThis.fetch;
 
@@ -14,7 +45,9 @@ describe('Marathi Translation Engine & Warning Guard', () => {
     resetQuotaExceeded();
     clearMemoryCache();
     localStorage.clear();
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    mockFrom.mockImplementation(() => makeCacheTableMock());
+    mockInvoke.mockResolvedValue({ data: null, error: new Error('AI unavailable') });
   });
 
   afterEach(() => {
@@ -175,6 +208,87 @@ describe('Marathi Translation Engine & Warning Guard', () => {
         const parsed = JSON.parse(cached);
         expect(Object.values(parsed).some((v: any) => isWarningText(v))).toBe(false);
       }
+    });
+  });
+
+  describe('Gemini AI Marathi Fallback', () => {
+    it('falls back to town-assistant AI translation when MyMemory returns quota warning', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          responseStatus: 200,
+          responseData: {
+            translatedText: 'MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY',
+          },
+        }),
+      } as Response);
+
+      mockInvoke.mockResolvedValueOnce({
+        data: { translations: ['ताजी टिफिन सेवा'] },
+        error: null,
+      });
+
+      const result = await translateEnToMr('Fresh Tiffin Service');
+
+      expect(mockInvoke).toHaveBeenCalledWith('town-assistant', {
+        body: {
+          mode: 'translate',
+          texts: ['Fresh Tiffin Service'],
+          sourceLang: 'en',
+          targetLang: 'mr',
+        },
+      });
+      expect(result).toBe('ताजी टिफिन सेवा');
+      expect(isQuotaExceeded()).toBe(false);
+    });
+
+    it('falls back to AI translation when MyMemory returns HTTP 429 or echoes raw English', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          responseStatus: 200,
+          responseData: { translatedText: 'Pure Veg Thali' },
+        }),
+      } as Response);
+
+      mockInvoke.mockResolvedValueOnce({
+        data: { translations: ['शुद्ध शाकाहारी थाळी'] },
+        error: null,
+      });
+
+      const echoFallback = await translateEnToMr('Pure Veg Thali');
+      expect(echoFallback).toBe('शुद्ध शाकाहारी थाळी');
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({ responseStatus: 429 }),
+      } as Response);
+
+      mockInvoke.mockResolvedValueOnce({
+        data: { translations: ['ताजे अन्न'] },
+        error: null,
+      });
+
+      const rateLimitFallback = await translateEnToMr('Fresh Food');
+      expect(rateLimitFallback).toBe('ताजे अन्न');
+    });
+
+    it('rejects non-Devanagari or untranslated AI fallback responses for en|mr', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      } as Response);
+
+      mockInvoke.mockResolvedValueOnce({
+        data: { translations: ['Breakfast Counter'] },
+        error: null,
+      });
+
+      const res = await translateEnToMr('Breakfast Counter');
+      expect(res).toBe('');
     });
   });
 });

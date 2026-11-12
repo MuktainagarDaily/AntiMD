@@ -56,7 +56,7 @@ import { logSchoolEngagement } from '@/lib/schoolEngagement';
 import { fetchPGsForCity, fetchMessesForCity } from '@/lib/living/livingService';
 import { normalizeWhatsApp } from '@/components/admin/adminHelpers';
 import { isMissingRelationErr } from '@/lib/entities/claimEntity';
-import { canDialTel } from '@/lib/engagement';
+import { handleTelLinkClick } from '@/lib/engagement';
 import { isSafeHttpUrl, isValidIndianPhone } from '@/lib/utils';
 import {
   SCHOOL_TYPE_CONFIG,
@@ -269,13 +269,13 @@ export default function SchoolDetail() {
     toast.success(isMr ? 'लिंक कॉपी केली!' : 'Link copied to clipboard!');
   };
 
-  const handleCall = () => {
+  const handleCall = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!school.phone) return;
-    void logSchoolEngagement(school.id, 'call');
-    if (canDialTel()) {
+    const openedDialer = handleTelLinkClick(e, school.phone, displayName, () => {
+      void logSchoolEngagement(school.id, 'call');
+    });
+    if (openedDialer) {
       toast.success(isMr ? `${displayName} ला कॉल करत आहे…` : `Calling ${displayName}`);
-    } else {
-      toast.info(school.phone, { duration: 6000 });
     }
   };
 

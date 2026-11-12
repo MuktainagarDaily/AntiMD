@@ -4,10 +4,10 @@
 
 ## Critical Workflows (must not break)
 
-1. **Visitor → ShopDetail → Call/WhatsApp** — the directory's reason to exist. Any regression in shop loading, slug routing, or tap actions is a P0.
+1. **Visitor → ShopDetail → Call/WhatsApp** — the directory's reason to exist. Any regression in shop loading, slug routing, guest RLS visibility (`has_role` / `is_shop_owner` anon EXECUTE grants), or desktop/mobile call actions (`handleTelLinkClick` / `CallNumberDialog`) is a P0.
 2. **Multi-Town Resolution & Routing** (`RootCityRedirect` → `CityRouteGuard` → `useCity` → scoped queries, with `LegacyCityRedirect` preserving flat URLs). Breaking city routing breaks all localized listings.
-3. **Sahayak AI Town Assistant & Voice Search** (`TownAssistantDrawer` → `assistantService` → `town-assistant` Edge Function + local deterministic fallback across 7 entity types). Breaking the fallback leaves citizens stranded when Edge/Gemini keys are unavailable.
-4. **Listing request submission** (`ListShopModalHost` / `open-list-shop-modal` → `RequestListingModal` → `shop_requests` INSERT). Multi-entity public growth pipeline for Shops, Mess, PG, and Schools. Do not add an auth wall or rename `'open-list-shop-modal'`.
+3. **Sahayak AI Town Assistant, Voice Search & AI Marathi Fallback** (`TownAssistantDrawer` → `assistantService` → `town-assistant` Edge Function + local deterministic fallback across 7 entity types + `{ mode: 'translate' }` for `translateApi.ts`). Breaking the fallback leaves citizens stranded when Edge/Gemini keys are unavailable.
+4. **Listing request submission with Guest Intent Preservation** (`ListShopModalHost` / `open-list-shop-modal` → auth-gate redirect `/auth?next=...&list-shop=<entity>` → `RequestListingModal` (`initialEntityType`) → `shop_requests` INSERT). Multi-entity public growth pipeline for Shops, Mess, PG, and Schools. Do not break `'open-list-shop-modal'` event naming or strip `?list-shop=` redirect resume.
 5. **Admin request approval** (`InboxTab` > `RequestsTab` > Approve) — validates phones/duplicates, converts into live `shops`/`mess_profiles`/`pg_profiles`/`schools`, and migrates photos to `shop-images` or `school-images`.
 6. **Owner shop edit with concurrency guard** (`MyShop` → `updateShopWithConcurrency`). Removing `WHERE updated_at=$2` re-introduces silent last-writer-wins data loss between admin and owner.
 7. **Shop & Institute Claim Approval + Owner Hubs** (`ClaimShopModal` / `ClaimSchoolModal` → `approve_shop_claim` / `approve_school_claim` → `MyShop` / `SchoolOwnerHub` / `MessOwnerHub` / `PGOwnerHub`). Bypasses grant unverified users `'shopkeeper'` role + owner write access.
@@ -31,8 +31,9 @@
 - `src/components/TownAssistantDrawer.tsx` + `src/lib/assistant/assistantService.ts` + `supabase/functions/town-assistant/index.ts` — Sahayak AI voice/text assistant & fallback engine.
 - `src/components/ShopCard.tsx` + `src/components/home/*` — primary discovery cards & Home search/category surfaces.
 - `src/components/shared/Footer.tsx` — standardized shared footer (`home.footer` copyright/branding; Vibe Forge hackathon credit to `vibe-forge.in` is currently intentionally commented out here and in `UserMenuDrawer.tsx` About section).
+- `src/components/shared/CallNumberDialog.tsx` + `src/components/shared/DemoBadge.tsx` + `src/lib/engagement.ts` — desktop `tel:` interception modal (`handleTelLinkClick`) and Parandwadi demo indicators.
 - `src/components/shared/MultiImageCropPicker.tsx` + `PhotoSlider.tsx` — multi-image upload, WebP compression, and gallery slider/lightbox.
-- `src/components/RequestListingModal.tsx` + `src/components/ListShopModalHost.tsx` — singleton guest-accessible ingestion path (`'open-list-shop-modal'`).
+- `src/components/RequestListingModal.tsx` + `src/components/ListShopModalHost.tsx` — singleton listing wizard (`'open-list-shop-modal'`, auth-gated with preserved `?next=...&list-shop=` resume and entity autofill).
 - `src/pages/MyShop.tsx` + `src/lib/shopConcurrency.ts` + `src/lib/schoolConcurrency.ts` + `src/components/myshop/{MessOwnerHub,PGOwnerHub,SchoolOwnerHub}.tsx` — concurrency/privilege-guarded owner editors across shops, messes, PGs, and educational institutes.
 - `src/components/admin/layout/{AdminLayout,AdminSidebar,BranchTabs,adminNav}.ts` + `InboxTab.tsx` + `RequestsTab.tsx` — modular admin shell and single moderation path (`adminNav.ts` is the sole route registry).
 - `src/components/admin/{MasterExportModal,MasterImportModal}.tsx` + `src/lib/admin/masterDatasets.ts` + `src/lib/csvUtils.ts` — 20-table disaster recovery, RFC 4180 CSV parser, and formula-injection sanitizer.

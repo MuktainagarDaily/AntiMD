@@ -35,6 +35,8 @@ import { PhotoSlider } from '@/components/shared/PhotoSlider';
 import { DesktopNav } from '@/components/DesktopNav';
 import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { Footer } from '@/components/shared/Footer';
+import { handleTelLinkClick } from '@/lib/engagement';
+import { DemoBadge, isParandwadiDemoListing } from '@/components/shared/DemoBadge';
 
 export default function PG() {
   const { currentCity, currentVillage, currentCitySlug: citySlugFromCtx, townBrand } = useCity();
@@ -301,6 +303,7 @@ export default function PG() {
                               <ShieldCheck className="w-3.5 h-3.5 fill-primary/20" />
                             </span>
                           )}
+                          {isParandwadiDemoListing(pg, currentVillage) && <DemoBadge size="sm" />}
                         </div>
                         {pg.area && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
@@ -423,6 +426,7 @@ export default function PG() {
                     {phone && (
                       <a
                         href={`tel:${phone}`}
+                        onClick={(e) => handleTelLinkClick(e, phone, displayName)}
                         className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all shadow-xs"
                       >
                         <Phone className="w-3.5 h-3.5 shrink-0" />
@@ -475,13 +479,34 @@ export default function PG() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal'))}
+                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'pg' } }))}
                 className="inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:bg-primary/90 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4" />
                 <span>{locale === 'mr' ? '+ आपले पीजी मोफत नोंदवा' : '+ List Your PG Free'}</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {filteredPGs.length > 0 && (
+          <div className="p-4 rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-secondary/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-center sm:text-left">
+              <p className="text-xs sm:text-sm font-bold text-foreground">
+                {locale === 'mr' ? 'वसतिगृह, पीजी किंवा भाड्याच्या खोल्या आहेत का?' : 'Own a PG, hostel, or student rooms?'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {locale === 'mr' ? 'मोफत नोंदणी करा आणि रिक्त बेड्सची संख्या दाखवा.' : 'List your property for free and keep vacant bed counts updated.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'pg' } }))}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:bg-primary/90 active:scale-95 transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>{locale === 'mr' ? 'पीजी / हॉस्टेल नोंदवा' : 'List Your PG'}</span>
+            </button>
           </div>
         )}
 

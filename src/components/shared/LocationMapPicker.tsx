@@ -15,7 +15,7 @@ interface Props {
   onGeocode?: (g: { address: string; area: string }) => void;
 }
 
-const BROWSER_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+const EXPLICIT_GMAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 const TRACKING_ID = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as string | undefined;
 
 type GMaps = typeof google.maps;
@@ -44,7 +44,7 @@ function loadGoogleMaps(): Promise<GMaps> {
     return Promise.resolve((window as unknown as { google: { maps: GMaps } }).google.maps);
   }
   if (mapsPromise) return mapsPromise;
-  if (!BROWSER_KEY) return Promise.reject(new Error('Google Maps key missing'));
+  if (!EXPLICIT_GMAPS_KEY) return Promise.reject(new Error('Google Maps key not configured'));
 
   mapsPromise = new Promise<GMaps>((resolve, reject) => {
     const cbName = `__gmapsInit_${Math.random().toString(36).slice(2)}`;
@@ -55,7 +55,7 @@ function loadGoogleMaps(): Promise<GMaps> {
     };
     const s = document.createElement('script');
     const params = new URLSearchParams({
-      key: BROWSER_KEY,
+      key: EXPLICIT_GMAPS_KEY,
       loading: 'async',
       callback: cbName,
       libraries: 'geocoding',
@@ -155,10 +155,14 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
   onChangeRef.current = onChange;
   onGeocodeRef.current = onGeocode;
 
-  // Active provider: 'google' or 'osm'
-  const [provider, setProvider] = useState<'google' | 'osm'>(gmapsAuthFailed || !BROWSER_KEY ? 'osm' : 'google');
+  // Active provider: default to zero-key OpenStreetMap unless explicit Google Maps key is configured
+  const [provider, setProvider] = useState<'google' | 'osm'>(
+    gmapsAuthFailed || !EXPLICIT_GMAPS_KEY ? 'osm' : 'google',
+  );
   const [mapType, setMapType] = useState<'roadmap' | 'hybrid'>('hybrid');
-  const [showRefererNotice, setShowRefererNotice] = useState(gmapsAuthFailed);
+  const [showRefererNotice, setShowRefererNotice] = useState(
+    gmapsAuthFailed && Boolean(EXPLICIT_GMAPS_KEY),
+  );
 
   // Google Maps refs
   const gMapRef = useRef<google.maps.Map | null>(null);
@@ -408,7 +412,7 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
           <div className="pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-semibold bg-background/90 text-foreground border border-border backdrop-blur-xs shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>OpenStreetMap</span>
-            {showRefererNotice && (
+            {showRefererNotice && Boolean(EXPLICIT_GMAPS_KEY) && (
               <span className="text-[10px] text-muted-foreground opacity-80" title="Google Maps API key is restricted by HTTP Referrer. OpenStreetMap fallback is active.">
                 · Free Fallback
               </span>

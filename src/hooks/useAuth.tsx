@@ -172,12 +172,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const refreshRoles = () => fetchRoles(user?.id);
 
   // Highest-rank role wins for the singular `role` field.
+  // Production examiner account (`admin-test@apnalocal.in`) should receive real
+  // database `'admin'` role via `user_roles`; guard local DEV override strictly.
   const isDevAdmin = Boolean(
-    import.meta.env.DEV && (
-      (typeof window !== 'undefined' && window.localStorage.getItem('dev_admin') === 'true') ||
-      user?.email === 'admin-test@apnalocal.in' ||
-      user?.email?.includes('admin')
-    )
+    import.meta.env.DEV &&
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('dev_admin') === 'true' &&
+      user?.email === 'admin-test@apnalocal.in'
   );
   const effectiveRoles = isDevAdmin && !roles.includes('admin') ? [...roles, 'admin' as AppRole] : roles;
 

@@ -14,8 +14,8 @@ Find local businesses, mess and dining halls, student & worker PG hostels, schoo
 - **Database, Auth & Edge:** External Supabase PostgreSQL (RLS + PostgREST + Storage + Realtime) and 3 Deno Edge Functions (`mcp`, `town-assistant`, `scrape-local-news`)
 - **Multi-Location Engine:** Path-scoped routing (`/:citySlug/...`), dynamic town branding (`<Town> Daily`), and 5-tier geographic hierarchy (`geo_countries` down to `geo_villages`)
 - **Civic, Education & Living Verticals:** Dedicated **Mess & Dining** (`/:citySlug/mess`, `/mess/:id`), **PG & Student Hostels** (`/:citySlug/pg`, `/pg/:id`), **Education & Institutes** (`/:citySlug/schools`, `/schools/:id` with admission notices, claims & `SchoolOwnerHub`), **Local News** (`/:citySlug/news` with RSS/web scraper), **Essential Services & Local Authorities** (`/:citySlug/services`), and **Bus Timetable** (`/:citySlug/bus-timetable`)
-- **Sahayak AI Assistant:** Bilingual (EN / MR / Hinglish) conversational & voice-enabled town assistant across all 7 platform verticals powered by Gemini Gateway + deterministic local fallback
-- **Rich Media & Owner Hubs:** Multi-image WebP uploads with canvas cropping; unified Owner Hubs (`/my-shop`, `/my-institute`) for shops, messes, PGs, and schools
+- **Sahayak AI Assistant:** Bilingual (EN / MR / Hinglish) conversational & voice-enabled town assistant across all 7 platform verticals (with 20s idle nudge pill + AI Marathi translation mode) powered by Gemini Gateway + deterministic local fallback
+- **Rich Media, OpenStreetMap & Owner Hubs:** Zero-config Leaflet/OpenStreetMap `LocationMapPicker` (optional Google Maps fallback), multi-image WebP uploads with canvas cropping, unified Owner Hubs (`/my-shop`, `/my-institute`), and production **Examiner Mode** for evaluators
 - **Community:** 5-star customer reviews and helpfulness votes for both Shops (`shop_reviews`) and Schools/Institutes (`school_reviews`)
 - **Offline / PWA:** Vite PWA + Workbox Service Worker caching + `mobile-web-app-capable` metadata
 - **Admin Backup & Health:** 20-dataset FK-safe Master ZIP/CSV Backup & Restore, per-module RFC 4180 CSV export/import, and 4-panel Storage & System Health Diagnostics
@@ -74,7 +74,7 @@ Configure these in **Vercel Project Settings $\to$ Environment Variables**:
 | `VITE_SUPABASE_URL` | Supabase Project URL | `https://fhlaqgzensagjangkpop.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase Anon Key | `eyJhbGciOiJIUzI1Ni...` |
 | `VITE_SUPABASE_PROJECT_ID` | Supabase Project ID | `fhlaqgzensagjangkpop` |
-| `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` | Google Maps API Key | `AIzaSy...` |
+| `VITE_GOOGLE_MAPS_API_KEY` | Optional Google Maps API Key (defaults to zero-config OpenStreetMap) | `AIzaSy...` |
 | `VITE_SITE_URL` | Canonical Site URL | `https://muktainagardaily.com` |
 
 *(Note: Fallback credentials are built into the source, ensuring test builds succeed even before environment variables are configured).*

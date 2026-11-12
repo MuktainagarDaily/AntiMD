@@ -535,12 +535,12 @@ export function ShopModal({ shop, onClose, onSaved }: ShopModalProps) {
           </div>
 
           <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
-            {/* Dev autofill */}
+            {/* Examiner / Sample autofill */}
             {DEV_AUTOFILL && (
               <button type="button" onClick={handleDevFill}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border border-dashed border-secondary text-secondary bg-secondary/10 hover:bg-secondary/20 transition-colors">
                 <FlaskConical className="w-3.5 h-3.5" />
-                [DEV] Auto-fill Test Data
+                Auto-fill Genuine Sample Data
               </button>
             )}
 

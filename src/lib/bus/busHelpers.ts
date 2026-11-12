@@ -330,3 +330,189 @@ export const PARANDWADI_DEPOT_SEEDS: Omit<ParsedBulkBusRow, 'is_active'>[] = [
   },
 ];
 
+function normalizeForBusMatch(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[()[\].,/\\\-:·|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizePhoneticWord(word: string): string {
+  return word
+    .toLowerCase()
+    .replace(/aa/g, 'a')
+    .replace(/ee/g, 'i')
+    .replace(/oo/g, 'u')
+    .replace(/w/g, 'v')
+    .replace(/sh/g, 's');
+}
+
+/**
+ * Checks whether every character in `needle` appears in `haystack` in order,
+ * returning the span length between first and last matched chars (or -1 if not found).
+ * Enables compact shorthand searches like "ng" -> "Nigdi" or "smtn" -> "Somatane".
+ */
+export function subsequenceSpan(needle: string, haystack: string): number {
+  if (!needle || !haystack || needle.length > haystack.length) return -1;
+  let ni = 0;
+  let firstIdx = -1;
+  for (let hi = 0; hi < haystack.length && ni < needle.length; hi++) {
+    if (haystack[hi] === needle[ni]) {
+      if (firstIdx === -1) firstIdx = hi;
+      ni++;
+      if (ni === needle.length) {
+        return hi - firstIdx + 1;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
+ * Bounded Damerau-Levenshtein (Optimal String Alignment) edit distance check.
+ * Handles adjacent character transpositions (e.g. "nidgi" -> "nigdi") as cost 1.
+ */
+export function isEditDistanceWithin(a: string, b: string, maxDist: number): boolean {
+  if (Math.abs(a.length - b.length) > maxDist) return false;
+  if (a === b) return true;
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      let val = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        val = Math.min(val, dp[i - 2][j - 2] + 1);
+      }
+      dp[i][j] = val;
+    }
+  }
+  return dp[m][n] <= maxDist;
+}
+
+/**
+ * Generic forgiving text match scorer supporting:
+ * 1. Exact/substring/prefix match
+ * 2. Ordered character subsequence inside words ("ng" -> "Nigdi")
+ * 3. Bounded typo/phonetic tolerance ("nidgi" -> "Nigdi", "hinjewadi" -> "Hinjawadi")
+ * Returns score > 0 when all tokens match, else 0.
+ */
+export function scoreForgivingMatch(query: string, fields: Array<string | null | undefined>): number {
+  const cleanQuery = normalizeForBusMatch(query);
+  if (!cleanQuery) return 1;
+  const tokens = cleanQuery.split(' ').filter(Boolean);
+  if (tokens.length === 0) return 1;
+
+  const normalizedFields = fields
+    .map((f) => (f ? normalizeForBusMatch(f) : ''))
+    .filter(Boolean);
+  if (normalizedFields.length === 0) return 0;
+
+  const combined = normalizedFields.join(' ');
+  const combinedWords = combined.split(' ').filter(Boolean);
+
+  let totalScore = 0;
+
+  for (const tok of tokens) {
+    let tokScore = 0;
+    const tokPhonetic = normalizePhoneticWord(tok);
+
+    for (let fi = 0; fi < normalizedFields.length; fi++) {
+      const f = normalizedFields[fi];
+      const fieldBoost = fi === 0 ? 1.4 : fi === 1 ? 1.3 : 1;
+
+      if (f === tok) {
+        tokScore = Math.max(tokScore, Math.round(120 * fieldBoost));
+      } else if (f.startsWith(tok)) {
+        tokScore = Math.max(tokScore, Math.round(100 * fieldBoost));
+      } else if (f.includes(tok)) {
+        tokScore = Math.max(tokScore, Math.round(80 * fieldBoost));
+      }
+    }
+
+    if (tokScore === 0) {
+      for (const word of combinedWords) {
+        if (word.startsWith(tok)) {
+          tokScore = Math.max(tokScore, 75);
+          continue;
+        }
+        const wordPhonetic = normalizePhoneticWord(word);
+        if (wordPhonetic.includes(tokPhonetic)) {
+          tokScore = Math.max(tokScore, 65);
+          continue;
+        }
+        if (tok.length >= 2) {
+          const span = subsequenceSpan(tok, word);
+          if (span > 0) {
+            const startsSame = word[0] === tok[0] ? 15 : 0;
+            const compactness = Math.max(10, 45 - (span - tok.length) * 6);
+            tokScore = Math.max(tokScore, compactness + startsSame);
+          } else {
+            const pSpan = subsequenceSpan(tokPhonetic, wordPhonetic);
+            if (pSpan > 0) {
+              tokScore = Math.max(tokScore, 30);
+            }
+          }
+        }
+        if (tokScore === 0 && tok.length >= 3) {
+          const maxDist = tok.length >= 6 ? 2 : 1;
+          if (
+            isEditDistanceWithin(tok, word, maxDist) ||
+            isEditDistanceWithin(tokPhonetic, wordPhonetic, maxDist)
+          ) {
+            tokScore = Math.max(tokScore, 42);
+          }
+        }
+      }
+    }
+
+    // Last check across collapsed multi-word string for queries typed without spaces ("dehuroad", "pms")
+    if (tokScore === 0 && tok.length >= 3) {
+      const collapsed = combined.replace(/\s+/g, '');
+      if (collapsed.includes(tok)) {
+        tokScore = 50;
+      } else {
+        const span = subsequenceSpan(tok, collapsed);
+        if (span > 0 && span <= tok.length * 2 + 2) {
+          tokScore = 22;
+        }
+      }
+    }
+
+    if (tokScore === 0) return 0;
+    totalScore += tokScore;
+  }
+
+  return totalScore;
+}
+
+/**
+ * Forgiving bus timetable search across English destination, Marathi destination,
+ * parsed via stops, bus type labels, and raw route notes.
+ */
+export function matchesForgivingBusQuery(
+  query: string,
+  row: {
+    destination?: string | null;
+    destination_mr?: string | null;
+    notes?: string | null;
+  },
+): number {
+  const clean = query.trim();
+  if (!clean) return 1;
+  const meta = parseBusNotes(row.notes);
+  const typeCfg = BUS_TYPE_CONFIG[meta.bus_type];
+  return scoreForgivingMatch(clean, [
+    row.destination,
+    row.destination_mr,
+    meta.via.join(' '),
+    `${typeCfg?.label || ''} ${typeCfg?.label_mr || ''}`,
+    row.notes,
+  ]);
+}
+
+

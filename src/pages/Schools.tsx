@@ -48,7 +48,7 @@ import {
 } from '@/lib/schools/schoolHelpers';
 import { useSchoolRatingsMap } from '@/lib/reviewsApi';
 import { logSchoolEngagement } from '@/lib/schoolEngagement';
-import { canDialTel } from '@/lib/engagement';
+import { handleTelLinkClick } from '@/lib/engagement';
 import { normalizeWhatsApp } from '@/components/admin/adminHelpers';
 
 interface TypeFilterOption {
@@ -373,7 +373,7 @@ export default function Schools() {
               )}
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal'))}
+                onClick={() => window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'school' } }))}
                 className="inline-flex items-center justify-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:bg-primary/90 active:scale-95 transition-all"
               >
                 <Plus className="w-4 h-4" />
@@ -468,12 +468,12 @@ function SchoolCardWrap({
       href: `tel:${school.phone}`,
       ariaLabel: `Call ${displayName}`,
       style: { background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' },
-      onClick: () => {
-        void logSchoolEngagement(school.id, 'call');
-        if (canDialTel()) {
+      onClick: (e) => {
+        const openedDialer = handleTelLinkClick(e, school.phone, displayName, () => {
+          void logSchoolEngagement(school.id, 'call');
+        });
+        if (openedDialer) {
           toast.success(isMr ? `${displayName} ला कॉल करत आहे…` : `Calling ${displayName}`);
-        } else {
-          toast.info(school.phone!, { duration: 6000 });
         }
       },
     });

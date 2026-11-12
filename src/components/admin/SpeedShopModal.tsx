@@ -393,7 +393,7 @@ export function SpeedShopModal({ onClose, onDone }: Props) {
             {DEV_AUTOFILL && (
               <button type="button" onClick={handleDevFill}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border border-dashed border-secondary text-secondary bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                <FlaskConical className="w-3.5 h-3.5" />[DEV] Auto-fill Draft {currentIdx + 1}
+                <FlaskConical className="w-3.5 h-3.5" />Auto-fill Sample Draft {currentIdx + 1}
               </button>
             )}
 

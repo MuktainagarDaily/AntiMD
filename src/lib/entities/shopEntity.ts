@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { EntityDef, EntityColumn } from './types';
 import { ShieldCheck, Phone as PhoneIcon } from 'lucide-react';
 import { createElement } from 'react';
+import { handleTelLinkClick } from '@/lib/engagement';
 
 export interface ShopRow {
   id: string;
@@ -57,6 +58,8 @@ const columns: EntityColumn<ShopRow>[] = [
             'a',
             {
               href: `tel:${shop.phone}`,
+              onClick: (e: React.MouseEvent<HTMLAnchorElement>) =>
+                handleTelLinkClick(e, shop.phone, shop.name),
               className:
                 'text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 mt-0.5',
             },

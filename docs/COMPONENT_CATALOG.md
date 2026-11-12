@@ -14,13 +14,13 @@
 | `DesktopNav.tsx` | Desktop horizontal navigation bar highlighting active town route across Home, Shops, Food & Mess, PG & Rooms, Bus Timetable, and Civic Services | `variant?`, `className?` | `Shops`, `ShopDetail`, `Mess`, `MessDetail`, `PG`, `PGDetail`, `SchoolDetail` |
 | `EditProfileDrawer.tsx` | Profile editor (`profiles` mobile, birth date, gender, and one-time `@username` validated via `username_available` RPC + DB lock trigger) | `open`, `onOpenChange` | `UserMenuDrawer` |
 | `LanguageSwitcher.tsx` | EN/MR pill toggle (`variant`, `tone`); on `Home` pinned top-right (`z-20`) cleanly above `UserMenuDrawer` avatar | `variant?`, `tone?`, `className?` | `Home`, `Shops`, `UserMenuDrawer` |
-| `ListShopModalHost.tsx` | App-root singleton host listening for `'open-list-shop-modal'` custom events so any page can open `RequestListingModal` without prop drilling | – | `App.tsx` |
+| `ListShopModalHost.tsx` | App-root singleton host listening for `'open-list-shop-modal'` (`detail?: { entityType }`); gates unauthenticated guests via toast + `/auth?next=...&list-shop=...` and resumes `RequestListingModal` with preselected entity on return | – | `App.tsx` |
 | `NavLink.tsx` | React Router nav link with active styling | React Router `NavLinkProps` | App navigation |
-| `RequestListingModal.tsx` | 4-step public listing wizard (`Basics → Location → Optional → Review`) for Shops, Mess, PG, and Schools with debounced draft persistence, `MultiImageCropPicker`, `LocationMapPicker`, `MarathiMirrorField`, and 3 s submit cooldown | `onClose` | `ListShopModalHost` |
+| `RequestListingModal.tsx` | 4-step public listing wizard (`Basics → Location → Optional → Review`) for Shops, Mess, PG, and Schools with `initialEntityType`, entity-specific `getEntityAutofillSample` autofill, debounced draft persistence, `MultiImageCropPicker`, `LocationMapPicker`, `MarathiMirrorField`, and 3 s submit cooldown | `onClose`, `initialEntityType?` | `ListShopModalHost` |
 | `SafeImage.tsx` | `<img>` wrapper falling back to a neutral `ImageOff` placeholder on empty or failed `src` | `src?`, `alt`, `<img>` props | `admin/ShopsTab`, admin cards |
-| `ShopCard.tsx` | Standard business directory card delegating layout slots to `EntityCard`, displaying rating inline, open/closed status, claim badge, and Call/WhatsApp/Maps actions | `shop` | `Shops`, `SavedShops`, `ShopDetail` (related strip) |
-| `TownAssistantDrawer.tsx` | **Sahayak AI** slide-up conversational assistant drawer supporting EN/MR/Hinglish text + Web Speech voice search, multi-turn history, offline deterministic fallback, clickable recommendations (`shop`, `mess`, `pg`, `bus`, `school`, `news`, `service`), and swipe-down close | `open`, `onOpenChange`, `initialQuery?` | `Home`, quick-assist triggers |
-| `UserMenuDrawer.tsx` | Slide-up user drawer with tier badge (`guest`/`member`/`admin`), city/village picker trigger, owned shop/institute shortcuts (`/my-shop`, `/my-institute`), settings (theme/language/cache clear), and About sheet (with Vibe Forge attribution currently commented out) | (reads `useAuth`, `useCity`) | App page headers (`Home`, `BusTimetable`, etc.) |
+| `ShopCard.tsx` | Standard business directory card delegating layout slots to `EntityCard`, displaying rating inline, Parandwadi `<DemoBadge />`, open/closed status, claim badge, and desktop-safe Call (`handleTelLinkClick`) / WhatsApp / Maps actions | `shop` | `Shops`, `SavedShops`, `ShopDetail` (related strip) |
+| `TownAssistantDrawer.tsx` | **Sahayak AI** slide-up conversational assistant drawer with 20s idle FAB nudge pill, `'open-town-assistant'` event support, EN/MR/Hinglish text + Web Speech voice search, multi-turn history, offline deterministic fallback, clickable recommendations (`shop`, `mess`, `pg`, `bus`, `school`, `news`, `service`), and swipe-down close | `open`, `onOpenChange`, `initialQuery?` | `App.tsx` (`Home`, search fallbacks) |
+| `UserMenuDrawer.tsx` | Slide-up user drawer with tier badge (`guest`/`member`/`admin`), city/village picker trigger, renamed actions (`List New Business`, `My Businesses`, `Saved`; `My Institutes` removed), owned `/my-shop` shortcut, settings (theme/language/animated 5-step Clear Cache progress bar), and refreshed About sheet | (reads `useAuth`, `useCity`) | App page headers (`Home`, `BusTimetable`, etc.) |
 | `theme-provider.tsx` | Wraps `next-themes` `ThemeProvider` | `children`, theme props | `App.tsx` |
 
 ---
@@ -31,7 +31,7 @@
 |---|---|---|---|
 | `CategoryGrid.tsx` | Home "Browse by Category" responsive grid with expand/collapse toggle and loading skeletons | `categories`, `visibleCategories`, `catShopCounts`, `showAllCats`, `onToggleShowAll`, `canExpand`, `loading`, `localizeCat` | `Home` |
 | `CompactShopCard.tsx` | Compact horizontal card for Home "Recently Added" row with LCP `priority` image hint, rating inline, and deduped Call/WA logging | `shop`, `priority?` | `ShopList` |
-| `HomeSearch.tsx` | Hero search bar with EN/MR rotating placeholder examples, Fuse.js autocomplete dropdown, and keyboard/outside-click handling | `search`, `focused`, handlers & suggestions | `Home` |
+| `HomeSearch.tsx` | Hero omni-search bar with EN/MR rotating hints, suggestions across Shops, Messes (+ Today's Menus/specials), PGs, Schools, and Bus Routes, Sahayak AI fallback CTA, and keyboard/outside-click handling | `search`, `focused`, handlers & `suggestions` (`OmniSearchSuggestion[]`) | `Home` |
 | `ShopList.tsx` | Horizontal scrollable "Recently Added" shop strip with smooth arrow controls | `shops` | `Home` |
 
 ---
@@ -79,7 +79,7 @@
 | `CategoryModal.tsx` | Category create/edit modal | `category`, `onClose`, `onSaved` | `DirectoryCategories` |
 | `ClaimReviewModal.tsx` | Side-by-side moderation dialog supporting **both** `shop_claims` and `school_claims` with proof image signed URL viewer + Approve / Reject / Request More Info actions | `claim`, `onClose`, `onChanged` | `InboxTab` |
 | `InboxTab.tsx` | Moderation hub with 4 persisted sub-tabs: Requests, Claims (Shops + Schools), Owners (Shops + Schools), and Assign | `pendingRequests`, `pendingClaims`, `onShopCreated` | `DirectoryInbox` |
-| `MessModal.tsx` | Admin Mess & Hotel create/edit modal syncing both `shops` + `mess_profiles` with EN/MR mirrors, multi-photo upload, and geo scoping | `mess`, `onClose`, `onSaved` | `DirectoryMess` |
+| `MessModal.tsx` | Admin Mess & Hotel create/edit modal syncing both `shops` + `mess_profiles` with EN/MR mirrors, `getMessModalAutofillSample` Examiner autofill, multi-photo upload, and geo scoping | `mess`, `onClose`, `onSaved` | `DirectoryMess` |
 | `PGModal.tsx` | Admin PG & Hostel create/edit modal syncing `shops` + `pg_profiles`, sharing rates, amenities, and multi-photo upload | `pg`, `onClose`, `onSaved` | `DirectoryPG` |
 | `RequestsTab.tsx` | Listing request queue converting pending multi-entity submissions (`shop`, `mess`, `pg`, `school`) into live tables + moving storage images | `onShopCreated` | `InboxTab` |
 | `ShopModal.tsx` | Full admin shop create/edit dialog with categories, hours, amenities, geo pickers, and multi-photo gallery | `shop`, `onClose`, `onSaved` | `DirectoryShops`, `DirectoryQuality` |
@@ -155,16 +155,18 @@
 | File | Purpose | Key props | Used by |
 |---|---|---|---|
 | `AmenitiesPicker.tsx` | Preset amenity toggles + custom free-text tags | `value`, `onChange` | `RequestListingModal`, `ShopModal`, `SpeedShopModal` |
+| `CallNumberDialog.tsx` | Global desktop calling modal listening to `'open-call-dialog'` with phone number display, 1-tap clipboard Copy, and conditional WhatsApp quick link (`wa.me` on 10-digit mobiles); avoids desktop `tel:` console errors | – | `App.tsx` (triggered by `handleTelLinkClick`) |
 | `CategoryIcon.tsx` | Maps category names/icons to Lucide icons | `name?`, `className?` | `Home`, `Shops`, `ShopCard`, `ShopDetail` |
 | `CityPickerModal.tsx` | Multi-town & satellite village selector dialog with search, district chips, and geolocation matching | `open`, `onClose` | `Home`, `LocationPill`, `UserMenuDrawer`, `Mess`, `PG`, `MessDetail`, `PGDetail`, `SchoolDetail` |
 | `ClaimedBadge.tsx` | "Verified / Claimed" pill badge for claimed shops and schools | `size?` | `ShopCard`, `CompactShopCard`, `MyShop`, `SchoolDetail` |
+| `DemoBadge.tsx` | Bilingual `Demo / डेमो` amber indicator pill + `isParandwadiDemoListing()` helper flagging Parandwadi sample listings | `size?`, `className?` | `ShopCard`, `CompactShopCard`, `Shops`, `Mess`, `MessDetail`, `PG`, `PGDetail`, `Schools`, `SchoolDetail`, `ShopDetail` |
 | `EntityCard.tsx` | Slot-based shared card primitive used by `ShopCard` and directory vertical cards | `image?`, `title`, `titleIcon?`, `meta?`, `chips?`, `actions?` | `ShopCard`, `Schools` |
 | `ErrorPage.tsx` | Shared layout for HTTP error pages (`400`/`401`/`403`/`404`/`500`/`502`/`503`) | `code`, `title`, `message`, `actions?` | Error route pages |
 | `Footer.tsx` | Responsive localized footer displaying copyright/brand (`t('home.footer')`). *(Note: "Built for Vibe Forge Hackathon" attribution link to `vibe-forge.in` is currently commented out.)* | `className?`, `hideBorder?` | `Home`, `Shops`, `BusTimetable`, `Schools`, `SchoolDetail`, `Mess`, `MessDetail`, `PG`, `PGDetail`, `LocalNews`, `EssentialServices` |
 | `HighlightedText.tsx` | Highlights matching search substrings | `text`, `query` | `HomeSearch`, `Shops` |
 | `ImageCropPicker.tsx` | Single-image interactive cropper (`react-easy-crop`), WebP encoder, zoom/rotate, and `"Edit current photo"` reload | `onCropComplete`, `onClear`, `previewUrl?`, `uploading?`, `maxMB?`, `defaultAspect?` | `BannerModal`, `CategoryModal`, `DirectoryMess`, `MyShop` |
 | `ImageLightbox.tsx` | Fullscreen zoomable photo gallery viewer | `images`, `alt`, `onClose` | `ShopDetail`, `PhotoSlider` |
-| `LocationMapPicker.tsx` | Interactive Google Maps pin-drop + reverse geocoding | `value`, `onChange`, `initialCenter?`, `height?`, `onGeocode?` | `RequestListingModal`, `ShopModal`, `SchoolModal`, `MyShop` |
+| `LocationMapPicker.tsx` | Zero-config Leaflet/OpenStreetMap pin-drop + Nominatim reverse geocoding (supports optional Google Maps when `VITE_GOOGLE_MAPS_API_KEY` configured, auto-falling back to OSM on `gm_authFailure`) | `value`, `onChange`, `initialCenter?`, `height?`, `onGeocode?` | `RequestListingModal`, `ShopModal`, `SchoolModal`, `MyShop` |
 | `LocationPill.tsx` | Header town/village chip opening `CityPickerModal` | `className?` | `Home`, public headers |
 | `MarathiMirrorField.tsx` | Labeled Devanagari input/textarea (`lang="mr"`) | `label`, `source?`, `value`, `onChange`, `textarea?`, `rows?` | Admin & request forms |
 | `MultiImageCropPicker.tsx` | Multi-photo reorderable WebP cropper/uploader with cover-photo priority | `photos`, `onChange`, `entityType?` | `RequestListingModal`, `ShopModal`, `MessModal`, `PGModal`, `SchoolModal`, `MyShop` |
@@ -189,7 +191,7 @@
 
 ### Admin Pages (`src/pages/admin/`)
 - `Overview.tsx` — town vs global dashboard + fast modal shortcuts
-- `DirectoryShops.tsx`, `DirectoryMess.tsx`, `DirectoryPG.tsx`, `DirectoryCategories.tsx`, `DirectoryInbox.tsx`
+- `DirectoryShops`, `DirectoryMess` (includes dual-tab `MessMenuQuickModal` + `generateSampleMessMenu` dietary autofill), `DirectoryPG`, `DirectoryCategories`, `DirectoryInbox`
 - `SectionsHub.tsx`, `SectionDetail.tsx` (mounts `BusTimetableTab`, `SchoolsTab`, `GovernmentServicesTab`, `LocalNewsTab` or Coming Soon)
 - `MarketingAds.tsx`, `InsightsAnalytics.tsx`
 - `SystemData.tsx`, `DirectoryQuality.tsx` (mounted at `/admin/system/quality` for 4-panel Storage & Health), `SystemMarathi.tsx`, `SystemMcp.tsx`
@@ -235,9 +237,11 @@
 - `assistant/assistantService.ts` — Sahayak AI client orchestrating `town-assistant` Edge Function calls + multi-entity local deterministic fallback
 - `news/{newsService.ts, newsParser.ts, newsTypes.ts}` — local news queries, RSS/Atom/HTML parsing via `scrape-local-news` or `/api/news-proxy`, and IST calendar grouping
 - `schools/{schoolHelpers.ts, schoolNoticesRepo.ts}` + `schoolConcurrency.ts` + `schoolEngagement.ts` — structured institute helpers, CSV headers/importers, optimistic/role-guarded owner updates, pinned notices, and engagement logging
-- `living/{livingService.ts, livingTypes.ts}` — Mess & PG queries, serving status, Sunday specials, room bed math, and WhatsApp vacancy broadcasts
+- `living/{livingService.ts, livingTypes.ts, sampleMenuGenerator.ts}` — Mess & PG queries, serving status, Sunday specials, room bed math, WhatsApp vacancy broadcasts, and dietary-aligned (`pure_veg`/`veg_nonveg`/`jain_available`) genuine menu generator (`generateSampleMessMenu`, `inferDietaryTagFromMess`)
 - `services/{authorityService.ts, authorityTypes.ts}` — civic departments, offices, helplines, and outage announcements
-- `bus/busHelpers.ts` — timetable seeds, next-departure computation, and CSV bulk parser
+- `bus/busHelpers.ts` — timetable seeds, next-departure computation, forgiving search (`matchesForgivingBusQuery`, `scoreForgivingMatch`, Damerau-Levenshtein), and CSV bulk parser
+- `devHelpers.ts` — production-enabled Examiner Mode flags (`EXAMINER_MODE_ENABLED`) and entity-specific autofill (`getEntityAutofillSample`, `getMessModalAutofillSample`)
+- `engagement.ts` & `schoolEngagement.ts` — rate-limited/deduped interaction telemetry + desktop `tel:` click interception (`handleTelLinkClick`, `canDialTel`)
 - `images/imageService.ts` + `storageNaming.ts` — unified crop → WebP → bucket upload/cleanup across 4 storage buckets (`shop-images`, `school-images`, `request-images`, `banner-images`)
 - `csvUtils.ts` — RFC 4180 multiline CSV parser, formula-injection escaping, pagination helper (`fetchAllPaged`), and town-scoped filename formatter
 - `reviewsApi.ts` — TanStack Query hooks unifying `shop_reviews` + `school_reviews` (`get_shop_rating`, `get_school_rating`, `get_schools_rating_summary`, helpful vote sync)

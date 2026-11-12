@@ -20,6 +20,7 @@ import { TranslateAllButton } from '@/components/shared/TranslateAllButton';
 import { translateEnToMr } from '@/lib/translateApi';
 import { saveMessProfile } from '@/lib/living/livingService';
 import type { MessType, MessWithDetails } from '@/lib/living/livingTypes';
+import { DEV_AUTOFILL, getMessModalAutofillSample } from '@/lib/devHelpers';
 
 const MESS_AMENITY_OPTIONS = [
   'Pure Veg',
@@ -212,6 +213,36 @@ export function MessModal({ mess, onClose, onSaved }: MessModalProps) {
     setAmenities((prev) =>
       prev.includes(item) ? prev.filter((a) => a !== item) : [...prev, item]
     );
+  };
+
+  const handleAutofillSample = () => {
+    const sample = getMessModalAutofillSample(establishmentType, messType, townName);
+    setForm((f) => ({
+      ...f,
+      name: sample.name,
+      phone: sample.phone,
+      whatsapp: sample.whatsapp,
+      area: sample.area,
+      sub_area: sample.sub_area,
+      address: sample.address,
+      description: sample.description,
+    }));
+    setMonthlyRate(sample.monthlyRate);
+    setSingleThaliRate(sample.singleThaliRate);
+    setTiffinDelivery(sample.tiffinDelivery);
+    setSundayFeast(sample.sundayFeast);
+    setLunchTiming(sample.lunchTiming);
+    setDinnerTiming(sample.dinnerTiming);
+    setAmenities(sample.amenities);
+    setMr({
+      name: sample.mr.name,
+      area: sample.mr.area,
+      sub_area: sample.mr.sub_area,
+      address: sample.mr.address,
+      description: sample.mr.description,
+    });
+    setErrors({});
+    toast.success('Sample establishment details filled');
   };
 
   const validate = (): boolean => {
@@ -442,6 +473,17 @@ export function MessModal({ mess, onClose, onSaved }: MessModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-6">
+          {DEV_AUTOFILL && (
+            <button
+              type="button"
+              onClick={handleAutofillSample}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border border-dashed border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/15 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Auto-fill Genuine Establishment Sample
+            </button>
+          )}
+
           {/* SECTION 1: BASIC INFORMATION */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-border pb-2">

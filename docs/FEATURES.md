@@ -6,9 +6,9 @@
 ## User Features (visitor + signed-in user)
 
 ### Home discovery (`src/pages/Home.tsx`)
-- **Purpose:** Single-page town entry surfacing sections hub, dynamic shop categories, search, critical civic alert banner, recently-added strip, and "List a Shop / Business" CTA.
-- **Workflow:** Load `shops` + `categories` + active `criticalAlerts` for `currentCity` → render category grid (8/row on desktop) + search + recent strip → tap category/shop → `/:citySlug/shops` or `/:citySlug/shop/<slug>`.
-- **Dependencies:** `fuzzySearch.ts`, `useTranslationsCache`, `BannerSlot`, `BannerPopup`, `RequestListingModal`, `CategoryIcon`, `SectionIcon`.
+- **Purpose:** Single-page town entry surfacing sections hub, dynamic shop categories, omni-search across all town verticals, critical civic alert banner, recently-added strip (with Parandwadi `<DemoBadge />` markers), and "List New Business" CTA.
+- **Workflow:** Load active `shops`, `mess_profiles`/`mess_daily_menus`, `pg_profiles`, `schools`, `bus_timetable`, `categories`, and `criticalAlerts` for `currentCity` → render category grid (8/row on desktop) + `HomeSearch` omni-search (Fuse.js + Damerau-Levenshtein forgiving match across Shops, Messes & Today's Dishes, PGs, Schools, and Bus Routes + **"Ask Sahayak AI"** fallback) → recent strip → tap category/entity/route → navigate directly.
+- **Dependencies:** `HomeSearch.tsx`, `fuzzySearch.ts`, `busHelpers.ts`, `useTranslationsCache`, `BannerSlot`, `BannerPopup`, `DemoBadge`, `CategoryIcon`, `SectionIcon`.
 - **Status:** Active.
 
 ### Shop listing (`src/pages/Shops.tsx`)
@@ -18,15 +18,15 @@
 - **Status:** Active.
 
 ### Shop detail (`src/pages/ShopDetail.tsx`)
-- **Purpose:** Conversion surface — Call, WhatsApp, Maps, Share, Bookmark, Claim, and Reviews.
-- **Workflow:** Load shop + categories + multi-photo gallery + claim status + ratings/reviews → engagement-logged actions → **Strict Geographic & Hyper-Local Related Shops** strip (same `city_id` boundary, `village_id` prioritized, max 12 items, DOM-hidden if empty).
-- **Dependencies:** `PhotoSlider`, `ImageLightbox`, `BookmarkButton`, `ClaimShopModal`, `ReviewsSection`, `BannerSlot`, `PageSeo` (JSON-LD `LocalBusiness`).
+- **Purpose:** Conversion surface — Call (desktop `<CallNumberDialog />` + mobile `tel:`), WhatsApp, Maps, Share, Bookmark, Claim, and Reviews.
+- **Workflow:** Load shop + categories + multi-photo gallery + claim status (`get_claimed_shop_ids` RPC) + ratings/reviews (`get_public_reviewer_names` RPC) → engagement-logged actions (via `handleTelLinkClick()`) → **Strict Geographic & Hyper-Local Related Shops** strip (same `city_id` boundary, `village_id` prioritized, max 12 items, DOM-hidden if empty).
+- **Dependencies:** `PhotoSlider`, `ImageLightbox`, `CallNumberDialog`, `DemoBadge`, `BookmarkButton`, `ClaimShopModal`, `ReviewsSection`, `BannerSlot`, `PageSeo` (JSON-LD `LocalBusiness`).
 - **Status:** Active.
 
 ### Sahayak AI Town Assistant (`src/components/TownAssistantDrawer.tsx`)
-- **Purpose:** Always-available floating bilingual AI assistant (English / Marathi / Hinglish) with voice search.
-- **Workflow:** Mounted globally in `App.tsx`; opens drawer over any public route → accepts typed or **Web Speech API voice** queries (`en-IN` / `mr-IN`) → invokes `town-assistant` Edge Function (Gemini Gateway) or falls back to deterministic local search (`src/lib/assistant/assistantService.ts`) across all **7 verticals** (`mess`, `pg`, `shop`, `bus`, `school`, `news`, `service`) → renders tappable entity cards + one-tap Call/route actions.
-- **Dependencies:** `town-assistant` Edge Function, `assistantService.ts`, `useCity`, Web Speech API.
+- **Purpose:** Always-available floating bilingual AI assistant (English / Marathi / Hinglish) with voice search and a gentle 20-second idle nudge pill.
+- **Workflow:** Mounted globally in `App.tsx`; displays a dismissible nudge bubble after 20 s of page load (`"Not finding what you want? Let our AI assist you"`), accepts `open-town-assistant` events from Home / Bus / Mess fallback CTAs, accepts typed or **Web Speech API voice** queries (`en-IN` / `mr-IN`) → invokes `town-assistant` Edge Function (with non-truncated `mess_profiles` / `pg_profiles` + Today's Menu cook/special context) or falls back to deterministic local search (`src/lib/assistant/assistantService.ts`) across all **7 verticals** (`mess`, `pg`, `shop`, `bus`, `school`, `news`, `service`) → renders tappable entity cards + desktop-safe Call/route actions. Also exposes `{ mode: 'translate' }` batch EN⇄MR translation used as Layer 5 AI fallback in `translateApi.ts`.
+- **Dependencies:** `town-assistant` Edge Function, `assistantService.ts`, `useCity`, Web Speech API, `CallNumberDialog`.
 - **Status:** Active.
 
 ### Education & Institutes Portal (`/:citySlug/schools`, `/:citySlug/schools/:id`)
@@ -50,26 +50,26 @@
 - **Status:** Active.
 
 ### Mess & Dining Directory (`/:citySlug/mess`, `/:citySlug/mess/:id`)
-- **Purpose:** Local mess halls, tiffin centers, and budget dining discovery with live daily menus.
-- **Workflow:** Browse list (`Mess.tsx`) with dietary filters (`pure_veg`, `veg_nonveg`, `jain_available`), Sunday Feast badges, and live serving status → tap into `MessDetail.tsx` (`/:citySlug/mess/:id`) for multi-photo slider, today's lunch/dinner menu board, fixed-price menu card items, thali rates, and `ReviewsSection`.
-- **Dependencies:** `mess_profiles`, `mess_daily_menus`, `livingService.ts`, Realtime `mess_daily_menus`.
+- **Purpose:** Local mess halls, hotels, tiffin centers, and budget dining discovery with live daily menus and Parandwadi demo indicators.
+- **Workflow:** Browse list (`Mess.tsx`) with dietary filters (`pure_veg`, `veg_nonveg`, `jain_available`), Sunday Feast badges, live serving status, and two-tier search (direct + forgiving fallback across `today_menu` lunch/dinner/special tags, `latest_menu`, and Regular Menu items + Sahayak AI fallback) → tap into `MessDetail.tsx` (`/:citySlug/mess/:id`) for multi-photo slider, today's lunch/dinner menu board, fixed-price menu card items, thali rates, desktop-safe dialing, and `ReviewsSection`.
+- **Dependencies:** `mess_profiles`, `mess_daily_menus`, `livingService.ts`, `busHelpers.ts` (`scoreForgivingMatch`), `DemoBadge`, Realtime `mess_daily_menus`.
 - **Status:** Active.
 
 ### PG & Hostels Directory (`/:citySlug/pg`, `/:citySlug/pg/:id`)
-- **Purpose:** Student and working-professional hostel finder with live bed vacancies.
-- **Workflow:** Filter list (`PG.tsx`) by gender (`boys`/`girls`/`both`), occupancy target, and available beds → tap into `PGDetail.tsx` (`/:citySlug/pg/:id`) for 1/2/3/4-sharing or per-room rates, deposit/notice period, gate curfew, amenities checklist, photos, and `ReviewsSection`.
-- **Dependencies:** `pg_profiles`, `livingService.ts`.
+- **Purpose:** Student and working-professional hostel finder with live bed vacancies and Parandwadi demo indicators.
+- **Workflow:** Filter list (`PG.tsx`) by gender (`boys`/`girls`/`both`), occupancy target, and available beds → tap into `PGDetail.tsx` (`/:citySlug/pg/:id`) for 1/2/3/4-sharing or per-room rates, deposit/notice period, gate curfew, amenities checklist, photos, desktop-safe dialing, and `ReviewsSection`.
+- **Dependencies:** `pg_profiles`, `livingService.ts`, `DemoBadge`.
 - **Status:** Active.
 
 ### Offline MSRTC / PMPML Bus Timetable (`/:citySlug/bus-timetable`, `src/pages/BusTimetable.tsx`)
 - **Purpose:** Town bus departures and stand helpline accessible even offline.
-- **Workflow:** Filter by outgoing/incoming direction, operator type (`MSRTC Ordinary`, `MSRTC Express`, `PMPML`, `Local Shuttle`), or destination search → highlights next IST departure. Hydrates from `localStorage` snapshot (`md.bus.v1.*`) + Workbox `NetworkFirst` runtime cache when offline. Includes Parandwadi/Maval PMPML Route 342 & Talegaon seeds.
-- **Dependencies:** `busCache.ts`, `busHelpers.ts`, `bus_timetable`, `bus_stand_info`.
+- **Workflow:** Filter by outgoing/incoming direction, operator type (`MSRTC Ordinary`, `MSRTC Express`, `PMPML`, `Local Shuttle`), or forgiving search (`matchesForgivingBusQuery`: prefix + ordered subsequence e.g. `"ng"` → `"Nigdi"` + phonetic + Damerau-Levenshtein swap tolerance e.g. `"nidgi"` → `"Nigdi"`, plus **"Ask Sahayak AI"** no-match fallback) → highlights next IST departure. Hydrates from `localStorage` snapshot (`md.bus.v1.*`) + Workbox `NetworkFirst` runtime cache when offline. Includes Parandwadi/Maval PMPML Route 342 & Talegaon seeds and desktop `<CallNumberDialog />` helpline dialing.
+- **Dependencies:** `busCache.ts`, `busHelpers.ts`, `bus_timetable`, `bus_stand_info`, `CallNumberDialog`.
 - **Status:** Active.
 
 ### Listing request — 4-step multi-entity wizard (`src/components/RequestListingModal.tsx`, `ListShopModalHost.tsx`)
-- **Purpose:** Guest-friendly 4-step wizard for submitting a Shop, Mess, PG, or School with gallery photos and `localStorage` draft recovery.
-- **Workflow:** Opened via global `open-list-shop-modal` event → uploads WebP images to `request-images/` → inserts `shop_requests` (`entity_type`, `photos[]`, `meta jsonb`).
+- **Purpose:** Auth-gated 4-step wizard for submitting a Shop, Mess, PG, or School with gallery photos, OpenStreetMap/Leaflet pin-drop picker (`LocationMapPicker`), entity-specific Examiner Autofill (`getEntityAutofillSample`), and `localStorage` draft recovery.
+- **Workflow:** Opened via global `'open-list-shop-modal'` event (`detail?: { entityType }`). Unauthenticated guests see a toast notice and redirect to `/auth?next=<path>&list-shop=<entityType>`; after completing Sign In or Sign Up, `ListShopModalHost` restores the route and opens `RequestListingModal` with `initialEntityType` auto-selected (Mess/PG/School/Shop) → uploads WebP images to `request-images/` → inserts `shop_requests` (`entity_type`, `photos[]`, `meta jsonb`).
 - **Status:** Active.
 
 ### Claims & Ownership Verification (`ClaimShopModal.tsx`, `ClaimSchoolModal.tsx`, `ClaimReviewModal.tsx`)
@@ -83,7 +83,9 @@
 - **Dependencies:** `reviewsApi.ts`, `RatingBreakdown`, `RatingStars`, `RatingInput`.
 - **Status:** Active.
 
-### Bookmarks (`BookmarkButton.tsx`, `SavedShops.tsx`), Auth (`Auth.tsx`, `ResetPassword.tsx`), Edit Profile (`EditProfileDrawer.tsx`), Language Switcher (`LanguageSwitcher.tsx`), Offline Overlay & Error Pages
+### Bookmarks (`BookmarkButton.tsx`, `SavedShops.tsx`), Auth & Examiner Mode (`Auth.tsx`, `ResetPassword.tsx`), User Menu & Clear Cache (`UserMenuDrawer.tsx`), Language Switcher (`LanguageSwitcher.tsx`), Offline Overlay & Error Pages
+- **`Auth.tsx`:** Includes **Examiner Mode (1-Tap Admin)** (`EXAMINER_MODE_ENABLED`) active in production on both Sign In and Sign Up tabs for external reviewers (`admin-test@apnalocal.in`), plus `?next=...&list-shop=...` intent preservation.
+- **`UserMenuDrawer.tsx`:** Displays renamed buttons (`List New Business`, `My Businesses`, `Saved`), removes redundant `My Institutes` shortcut (unified in `/my-shop`), includes a 5-stage animated Clear Cache progress bar (`0% → 100%` + Reload action), and surfaces an up-to-date About drawer covering Mess/PG/Bus/Schools/Services/News/Sahayak AI.
 - **Status:** Active.
 
 ### Shared Footer (`src/components/shared/Footer.tsx`)
@@ -109,7 +111,7 @@
 |---|---|---|
 | **Overview** | `/admin/overview` | City vs All-Town KPI cards (incl. Shop + School claims), quick ZIP export/import, Marathi backfill, Speed Add, section shortcuts |
 | **Directory › Shops** | `/admin/directory/shops` | Paginated table, broken-image scan, two-tap active/verified toggles, Speed Add, CSV Export + `CsvImportModal` |
-| **Directory › Mess** | `/admin/directory/mess` | Mess/Hotel/Tiffin profiles, daily menus, 21-col CSV Export + `MessCsvImportModal` |
+| **Directory › Mess** | `/admin/directory/mess` | Mess/Hotel/Tiffin profiles, `MessMenuQuickModal` (Today's Menu + General Menu Card tabs + dietary `Auto-fill Genuine Menu`), `MessModal` sample autofill, 21-col CSV Export + `MessCsvImportModal` |
 | **Directory › PG** | `/admin/directory/pg` | Hostel vacancy controls, sharing rates, 22-col CSV Export + `PGCsvImportModal` |
 | **Directory › Categories** | `/admin/directory/categories` | `EntityTab` shell, pre-flight delete check, `CategoryMergeModal`, CSV Export + `CategoryCsvImportModal` |
 | **Directory › Inbox** | `/admin/directory/inbox` | Multi-entity Requests queue, Shop & School Claims (`ClaimReviewModal`), Owners CSV export, Direct Assign (`assign_shop_owner` / `assign_school_owner`) |

@@ -6,7 +6,7 @@
 
 | Role | Source | Grants |
 |---|---|---|
-| `admin` | `claim_first_admin` RPC (bootstrap) or `user_roles` seed | Full `/admin` console across all towns; bypass owner column guards on `shops` & `schools`; execute all admin RPCs (`assign_shop_owner`, `revoke_shop_owner`, `approve_shop_claim`, `reject_shop_claim`, `assign_school_owner`, `revoke_school_owner`, `approve_school_claim`, `reject_school_claim`, `get_system_health_snapshot`, `refresh_category_shop_counts`, `refresh_engagement_stats`, `reorder_banners`) |
+| `admin` | `claim_first_admin` RPC (bootstrap) or `user_roles` seed (incl. Examiner Mode `admin-test@apnalocal.in` via `20261115000000`) | Full `/admin` console across all towns (including full `'admin'` write RLS parity on `category_translations`, `shop_translations`, `amenity_translations`, `shops`, and core admin tables); bypass owner column guards on `shops` & `schools`; execute all admin RPCs (`assign_shop_owner`, `revoke_shop_owner`, `approve_shop_claim`, `reject_shop_claim`, `assign_school_owner`, `revoke_school_owner`, `approve_school_claim`, `reject_school_claim`, `get_system_health_snapshot`, `refresh_category_shop_counts`, `refresh_engagement_stats`, `reorder_banners`) |
 | `shopkeeper` | Granted via `approve_shop_claim`, `assign_shop_owner`, `approve_school_claim`, or `assign_school_owner` | `/my-shop` & `/my-institute` Owner Hubs (`Shop`, `MessOwnerHub`, `PGOwnerHub`, `SchoolOwnerHub`) with restricted field sets |
 | `user` | Default on signup | Bookmark listings, claim shops or schools, write reviews (`shop_reviews` / `school_reviews`), track own requests |
 
@@ -47,7 +47,7 @@ Built around a **Hub & Leaf** shell (`AdminLayout`, `AdminSidebar`, `BranchTabs`
 | Feature | Where | Description |
 |---|---|---|
 | Toggle `is_active` / `is_verified` | `DirectoryShops` (`ShopsTab`) | Two-tap `ConfirmTapButton` + infinite paging + village filter + CSV export/import |
-| Manage Mess & Hotels | `DirectoryMess` | Edit thali rates, mess types, daily menus; 21-col CSV export & `MessCsvImportModal` |
+| Manage Mess & Hotels | `DirectoryMess` | Edit thali rates, mess types (`pure_veg` / `veg_nonveg` / `jain_available`), sample autofill (`getMessModalAutofillSample`), dual-tab `MessMenuQuickModal` (`Today's Menu` + `General Menu Card`) with dietary **`Auto-fill Genuine Menu`** (`generateSampleMessMenu`), 21-col CSV export & `MessCsvImportModal` |
 | Manage PG & Hostels | `DirectoryPG` | Edit bed vacancies, gender rules, sharing rates; 22-col CSV export & `PGCsvImportModal` |
 | Education & Institutes | `SectionDetail` (`schools`) | Full 45-column `SCHOOL_CSV_EXPORT_HEADERS` export, `SchoolBulkImportModal`, official town seeds (Muktainagar / Maval), UDISE/AISHE, admissions, fees & scholarships |
 | Essential Services & Authorities | `SectionDetail` (`gov`) | Manage civic departments, helplines, emergency numbers, scheduled outages + `AuthorityCsvImportModal` |
@@ -58,7 +58,7 @@ Built around a **Hub & Leaf** shell (`AdminLayout`, `AdminSidebar`, `BranchTabs`
 | Banner CRUD & Ads Metrics CSV | `MarketingAds` (`AdvertisementsTab` + `BannerModal`) | 8 placements, All-Towns/District/City targeting, bulk pause/resume, 14-column Banner CTR CSV export, runtime hide toggle |
 | Unified Moderation Inbox | `DirectoryInbox` (`InboxTab`) | Multi-entity Requests approval (`shop`/`mess`/`pg`/`school`), dual **Shop & School Claims** review (signed proof URLs, `approve_shop_claim` / `approve_school_claim`), Owners CSV export, Direct Assign (`assign_shop_owner` / `assign_school_owner`) |
 | Shop + School Engagement Analytics | `InsightsAnalytics` (`AnalyticsTab`) | Paginated past 1,000 rows (`fetchAllPaged`), town scope filter, Shop + School lead counters (`call`, `whatsapp`, `website`, `maps`, `prospectus`), CSV export & `AnalyticsCsvImportModal` |
-| Marathi Translation Backfill | `SystemMarathi` (`MarathiBackfillModal`) | Zero-overwrite batch backfill across Categories, Shops, and Schools (50k char/day quota, 2 concurrent workers) |
+| Marathi Translation Backfill | `SystemMarathi` (`MarathiBackfillModal`) | Zero-overwrite batch backfill across Categories, Shops, and Schools via 5-layer pipeline (memory/local/DB cache + 50k/day MyMemory + Gemini AI `town-assistant` `{ mode: 'translate' }` fallback, 2 concurrent workers) |
 
 ## Moderation & Guardrails
 

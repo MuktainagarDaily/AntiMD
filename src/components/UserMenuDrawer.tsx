@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import {
   User, Bookmark, MapPin, Bell, Settings, HelpCircle, LogOut, LogIn, UserPlus,
   ChevronRight, Sparkles, ShieldCheck, Store, PlusCircle, Languages, ChevronLeft,
-  Moon, Info, Trash2, Heart, Briefcase, Wrench, Phone, Newspaper, School, GraduationCap,
+  Moon, Info, Trash2, Heart, Briefcase, Wrench, Phone, School,
   Building2, Landmark, Stethoscope, Truck, Search, Users, Award, Coins,
-  ClipboardCheck, Zap, MapPinned, Megaphone, Pencil, UserCog /*, ExternalLink */
+  ClipboardCheck, Zap, MapPinned, Megaphone, Pencil, UserCog,
+  UtensilsCrossed, BedDouble, Bus, Globe, Bot, CheckCircle2, RefreshCw, Loader2,
 } from 'lucide-react';
-import { schoolsRepo } from '@/lib/repos/schoolsRepo';
 import { EditProfileDrawer } from '@/components/EditProfileDrawer';
 import { CityPickerModal } from '@/components/shared/CityPickerModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,7 +26,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from 'next-themes';
 import { useT } from '@/i18n';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 
 
 /* ─── Access tier badge ──────────────────────────────────────────────── */
@@ -128,6 +128,10 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
 
 
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [clearingProgress, setClearingProgress] = useState(0);
+  const [clearingStep, setClearingStep] = useState<string | null>(null);
+  const [cacheClearDone, setCacheClearDone] = useState(false);
 
   // Swipe-down to close handlers for mobile touch users
   const { ref: menuSwipeRef } = useSwipeDownToClose({
@@ -170,13 +174,6 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
   const initials     = displayName.slice(0, 2).toUpperCase();
   const tier: 'guest' | 'member' | 'admin' = !user ? 'guest' : isAdmin ? 'admin' : 'member';
 
-  const { data: ownedSchools = [] } = useQuery({
-    queryKey: ['my-schools-owned', user?.id],
-    enabled: !!user && open,
-    queryFn: () => schoolsRepo.listByOwner(user!.id),
-    staleTime: 60_000,
-  });
-
   const handleSignOut = async () => {
     setSettingsOpen(false);
     setOpen(false);
@@ -190,77 +187,125 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
   };
 
   const handleClearCache = async () => {
+    if (isClearingCache) return;
+    setIsClearingCache(true);
+    setCacheClearDone(false);
+    setClearingProgress(5);
+    setClearingStep(locale === 'mr' ? 'स्थानिक कॅश तपासत आहे…' : 'Scanning cached data…');
+
+    const pause = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
     const failures: string[] = [];
-    const runStep = async (label: string, fn: () => void | Promise<void>) => {
+    const runStep = async (label: string, stepLabel: string, progress: number, fn: () => void | Promise<void>) => {
+      setClearingStep(stepLabel);
+      setClearingProgress(progress);
       try {
         await fn();
       } catch (err) {
         console.error(`[clear-cache] ${label} failed`, err);
         failures.push(label);
       }
+      await pause(130);
     };
 
     // 1. Wipe non-auth localStorage (keep Supabase sign-in tokens intact).
-    await runStep('localStorage', () => {
-      Object.keys(localStorage).forEach((k) => {
-        if (k.startsWith('sb-') || k === 'supabase.auth.token') return;
-        localStorage.removeItem(k);
-      });
-    });
+    await runStep(
+      'localStorage',
+      locale === 'mr' ? 'जुना स्थानीय डेटा साफ करत आहे…' : 'Clearing browser cache & drafts…',
+      22,
+      () => {
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith('sb-') || k === 'supabase.auth.token') return;
+          localStorage.removeItem(k);
+        });
+      },
+    );
 
     // 2. Wipe sessionStorage (translation snapshots, draft form state, etc.).
-    await runStep('sessionStorage', () => {
-      sessionStorage.clear();
-    });
+    await runStep(
+      'sessionStorage',
+      locale === 'mr' ? 'सेशन स्नॅपशॉट साफ करत आहे…' : 'Clearing session cache…',
+      45,
+      () => {
+        sessionStorage.clear();
+      },
+    );
 
     // 3. Drop the in-memory React Query cache so next render refetches.
-    await runStep('query cache', () => {
-      queryClient.cancelQueries();
-      queryClient.clear();
-    });
+    await runStep(
+      'query cache',
+      locale === 'mr' ? 'मेमरी क्वेरी कॅश रीसेट करत आहे…' : 'Resetting in-memory query cache…',
+      68,
+      () => {
+        queryClient.cancelQueries();
+        queryClient.clear();
+      },
+    );
 
     // 4. Purge Cache Storage (PWA runtime + workbox caches).
     if ('caches' in window) {
-      await runStep('offline cache', async () => {
-        const names = await caches.keys();
-        const results = await Promise.allSettled(names.map((n) => caches.delete(n)));
-        const rejected = results.find((r) => r.status === 'rejected');
-        if (rejected) throw (rejected as PromiseRejectedResult).reason;
-      });
+      await runStep(
+        'offline cache',
+        locale === 'mr' ? 'ऑफलाइन PWA कॅश साफ करत आहे…' : 'Purging offline PWA storage…',
+        85,
+        async () => {
+          const names = await caches.keys();
+          const results = await Promise.allSettled(names.map((n) => caches.delete(n)));
+          const rejected = results.find((r) => r.status === 'rejected');
+          if (rejected) throw (rejected as PromiseRejectedResult).reason;
+        },
+      );
     }
 
     // 5. Best-effort: drop IndexedDB databases (Supabase auth lives in
-    //    localStorage, so this only wipes app-side stores).
-    await runStep('IndexedDB', async () => {
-      const anyIDB = indexedDB as unknown as {
-        databases?: () => Promise<{ name?: string }[]>;
-      };
-      if (typeof anyIDB.databases !== 'function') return;
-      const dbs = await anyIDB.databases();
-      const names = dbs.map((d) => d.name).filter((n): n is string => !!n && !n.startsWith('supabase'));
-      const results = await Promise.all(
-        names.map(
-          (name) =>
-            new Promise<'ok' | 'fail'>((resolve) => {
-              const req = indexedDB.deleteDatabase(name);
-              req.onsuccess = () => resolve('ok');
-              req.onblocked = () => resolve('fail');
-              req.onerror = () => resolve('fail');
-            }),
-        ),
-      );
-      if (results.some((r) => r === 'fail')) {
-        throw new Error('one or more IndexedDB databases could not be deleted');
-      }
-    });
+    //    localStorage, so this only wipes app-side stores). Race with 1.5s timeout.
+    await runStep(
+      'IndexedDB',
+      locale === 'mr' ? 'ऑफलाइन डेटाबेस साफ करत आहे…' : 'Cleaning local IndexedDB stores…',
+      95,
+      async () => {
+        if (typeof indexedDB === 'undefined') return;
+        const anyIDB = indexedDB as unknown as {
+          databases?: () => Promise<{ name?: string }[]>;
+        };
+        if (typeof anyIDB.databases !== 'function') return;
+        const dbs = await Promise.race([
+          anyIDB.databases(),
+          new Promise<{ name?: string }[]>((resolve) => window.setTimeout(() => resolve([]), 1200)),
+        ]);
+        const names = dbs.map((d) => d.name).filter((n): n is string => !!n && !n.startsWith('supabase'));
+        await Promise.all(
+          names.map(
+            (name) =>
+              new Promise<'ok'>((resolve) => {
+                const timer = window.setTimeout(() => resolve('ok'), 1200);
+                try {
+                  const req = indexedDB.deleteDatabase(name);
+                  req.onsuccess = () => { window.clearTimeout(timer); resolve('ok'); };
+                  req.onblocked = () => { window.clearTimeout(timer); resolve('ok'); };
+                  req.onerror = () => { window.clearTimeout(timer); resolve('ok'); };
+                } catch {
+                  window.clearTimeout(timer);
+                  resolve('ok');
+                }
+              }),
+          ),
+        );
+      },
+    );
+
+    setClearingProgress(100);
+    setIsClearingCache(false);
 
     if (failures.length === 0) {
+      setCacheClearDone(true);
+      setClearingStep(locale === 'mr' ? 'कॅश पूर्णपणे साफ झाली!' : 'All app caches cleared!');
       toast.success(t('user.settings.cacheCleared'), {
         description: t('user.settings.cacheClearedDesc'),
         action: { label: t('user.settings.reload'), onClick: () => window.location.reload() },
         duration: 8000,
       });
     } else {
+      setClearingStep(locale === 'mr' ? 'काही भाग साफ करता आला नाही.' : 'Partially cleared — retry recommended.');
       toast.error(t('user.settings.cacheClearFailed'), {
         description: `${failures.join(', ')}`,
         duration: 10000,
@@ -392,11 +437,8 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
               desc={t('user.menu.listShopDesc')}
               onClick={() => {
                 setOpen(false);
-                // Anon submissions are supported by the form itself, and the
-                // modal is hosted at the app root, so it opens in-place on
-                // any route without an auth wall or navigation.
                 window.setTimeout(() => {
-                  window.dispatchEvent(new CustomEvent('open-list-shop-modal'));
+                  window.dispatchEvent(new CustomEvent('open-list-shop-modal', { detail: { entityType: 'shop' } }));
                 }, 320);
               }}
             />
@@ -457,22 +499,6 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
                 label={t('user.menu.myShop')}
                 desc={isShopkeeper || isAdmin ? t('user.menu.myShopDesc.manage') : t('user.menu.myShopDesc.track')}
                 onClick={() => { setOpen(false); navigate('/my-shop'); }}
-              />
-            )}
-            {user && (ownedSchools.length > 0 || isAdmin) && (
-              <MenuRow
-                icon={<GraduationCap className="w-4 h-4" />}
-                label={t('myInstitute.title')}
-                desc={
-                  ownedSchools.length > 0
-                    ? locale === 'mr'
-                      ? `${ownedSchools.length} शिक्षण संस्था — प्रवेश व सूचना हब`
-                      : `${ownedSchools.length} institute(s) — Admissions & Notices`
-                    : locale === 'mr'
-                      ? 'शिक्षण संस्था पोर्टल उघडा'
-                      : 'Manage Educational Institutes'
-                }
-                onClick={() => { setOpen(false); navigate('/my-institute'); }}
               />
             )}
             {user && isAdmin && (
@@ -624,11 +650,47 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
           </div>
           <div className="py-1">
             <MenuRow
-              icon={<Trash2 className="w-4 h-4" />}
+              icon={isClearingCache ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : cacheClearDone ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Trash2 className="w-4 h-4" />}
               label={t('user.settings.clearCache')}
               desc={t('user.settings.clearCacheDesc')}
               onClick={handleClearCache}
+              right={
+                (isClearingCache || cacheClearDone) ? (
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${cacheClearDone ? 'bg-emerald-500/15 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+                    {clearingProgress}%
+                  </span>
+                ) : undefined
+              }
             />
+            {(isClearingCache || cacheClearDone) && (
+              <div className="mx-4 mb-2 px-3 py-2.5 rounded-xl bg-muted/60 border border-border space-y-1.5">
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="font-medium text-foreground truncate">{clearingStep}</span>
+                  <span className="font-bold text-primary shrink-0">{clearingProgress}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-200 ${cacheClearDone ? 'bg-emerald-500' : 'bg-primary'}`}
+                    style={{ width: `${clearingProgress}%` }}
+                  />
+                </div>
+                {cacheClearDone && (
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-[10.5px] text-emerald-700 dark:text-emerald-400 font-medium">
+                      {locale === 'mr' ? 'नवीन माहितीसाठी अ‍ॅप रिफ्रेश करा.' : 'Ready — reload for a clean fetch.'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      {t('user.settings.reload')}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             <MenuRow
               icon={<Info className="w-4 h-4" />}
               label={t('user.menu.about')}
@@ -710,6 +772,12 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
               <ul className="space-y-1.5">
                 {[
                   { icon: <Search className="w-3.5 h-3.5" />, text: t('about.feature.search') },
+                  { icon: <UtensilsCrossed className="w-3.5 h-3.5" />, text: t('about.feature.living') },
+                  { icon: <BedDouble className="w-3.5 h-3.5" />, text: t('about.feature.pg') },
+                  { icon: <Bus className="w-3.5 h-3.5" />, text: t('about.feature.bus') },
+                  { icon: <School className="w-3.5 h-3.5" />, text: t('about.feature.schools') },
+                  { icon: <Building2 className="w-3.5 h-3.5" />, text: t('about.feature.servicesNews') },
+                  { icon: <Bot className="w-3.5 h-3.5" />, text: t('about.feature.aiBilingual') },
                   { icon: <Phone className="w-3.5 h-3.5" />, text: t('about.feature.call') },
                   { icon: <MapPin className="w-3.5 h-3.5" />, text: t('about.feature.maps') },
                   { icon: <Bookmark className="w-3.5 h-3.5" />, text: t('about.feature.bookmarks') },
@@ -734,14 +802,10 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
                   { icon: <Briefcase className="w-3.5 h-3.5" />, text: t('about.coming.jobs') },
                   { icon: <Wrench className="w-3.5 h-3.5" />, text: t('about.coming.quickNumbers') },
                   { icon: <Truck className="w-3.5 h-3.5" />, text: t('about.coming.erickshaw') },
-                  { icon: <MapPin className="w-3.5 h-3.5" />, text: t('about.coming.garbage') },
-                  { icon: <Megaphone className="w-3.5 h-3.5" />, text: t('about.coming.announcements') },
+                  { icon: <Globe className="w-3.5 h-3.5" />, text: t('about.coming.garbage') },
                   { icon: <Search className="w-3.5 h-3.5" />, text: t('about.coming.lostFound') },
-                  { icon: <Newspaper className="w-3.5 h-3.5" />, text: t('about.coming.news') },
                   { icon: <Landmark className="w-3.5 h-3.5" />, text: t('about.coming.banks') },
                   { icon: <Stethoscope className="w-3.5 h-3.5" />, text: t('about.coming.hospitals') },
-                  { icon: <School className="w-3.5 h-3.5" />, text: t('about.coming.schools') },
-                  { icon: <Building2 className="w-3.5 h-3.5" />, text: t('about.coming.hostels') },
                   { icon: <Heart className="w-3.5 h-3.5" />, text: t('about.coming.promote') },
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-2 text-[12px] text-muted-foreground">

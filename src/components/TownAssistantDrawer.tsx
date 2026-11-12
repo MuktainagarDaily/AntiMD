@@ -32,6 +32,7 @@ import { Button } from '@/components/ui/button';
 import { useCity } from '@/hooks/useCity';
 import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { useT } from '@/i18n';
+import { handleTelLinkClick } from '@/lib/engagement';
 import {
   askTownAssistant,
   resolveRecommendationEntityType,
@@ -101,10 +102,12 @@ export function TownAssistantDrawer() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [showNudge, setShowNudge] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const msgCounterRef = useRef(0);
+  const sendQueryRef = useRef<(rawText: string) => Promise<void>>(async () => {});
 
   const { ref: swipeRef } = useSwipeDownToClose({
     isOpen,
@@ -212,6 +215,57 @@ export function TownAssistantDrawer() {
     };
   }, []);
 
+  const dismissNudge = () => {
+    setShowNudge(false);
+    try {
+      sessionStorage.setItem('apnatown:sahayak-nudge-dismissed', '1');
+    } catch {
+      // ignore storage errors
+    }
+  };
+
+  // Show gentle 20s nudge bubble near Sahayak FAB when user hasn't opened/dismissed it in this session
+  useEffect(() => {
+    if (hiddenRoute || isOpen) {
+      if (isOpen && showNudge) dismissNudge();
+      return;
+    }
+
+    let alreadyDismissed = false;
+    try {
+      alreadyDismissed = sessionStorage.getItem('apnatown:sahayak-nudge-dismissed') === '1';
+    } catch {
+      alreadyDismissed = false;
+    }
+    if (alreadyDismissed) return;
+
+    const timerId = window.setTimeout(() => {
+      setShowNudge(true);
+    }, 20_000);
+
+    return () => window.clearTimeout(timerId);
+  }, [hiddenRoute, isOpen, showNudge]);
+
+  // Listen for `open-town-assistant` events dispatched by HomeSearch, BusTimetable, Mess, etc.
+  useEffect(() => {
+    const onOpenAssistant = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ query?: string; autoSend?: boolean }>).detail;
+      dismissNudge();
+      setIsOpen(true);
+      const q = detail?.query?.trim();
+      if (q) {
+        if (detail?.autoSend !== false) {
+          void sendQueryRef.current(q);
+        } else {
+          setInput(q);
+        }
+      }
+    };
+
+    window.addEventListener('open-town-assistant', onOpenAssistant);
+    return () => window.removeEventListener('open-town-assistant', onOpenAssistant);
+  }, []);
+
   if (hiddenRoute) {
     return null;
   }
@@ -267,6 +321,7 @@ export function TownAssistantDrawer() {
       setIsLoading(false);
     }
   };
+  sendQueryRef.current = handleSendQuery;
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -357,11 +412,55 @@ export function TownAssistantDrawer() {
       ? lastAssistantMessage.payload.followUpSuggestions
       : defaultQuickPrompts;
 
+  const nudgeBottomClass = isDetailRoute
+    ? 'bottom-36 right-4'
+    : isShopsRoute
+      ? 'bottom-36 right-4 sm:right-6 lg:right-10'
+      : 'bottom-20 right-4';
+
   return (
     <>
+      {showNudge && !isOpen && (
+        <div
+          data-testid="town-assistant-nudge"
+          role="status"
+          className={`fixed ${nudgeBottomClass} z-40 max-w-[260px] rounded-2xl border border-primary/25 bg-card/95 backdrop-blur-md p-2.5 pr-7 shadow-xl text-xs text-foreground animate-in fade-in slide-in-from-bottom-2 duration-300`}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissNudge();
+            }}
+            aria-label={isMr ? 'सूचना बंद करा' : 'Dismiss assistant hint'}
+            className="absolute right-1.5 top-1.5 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              dismissNudge();
+              setIsOpen(true);
+            }}
+            className="text-left leading-snug font-medium hover:text-primary transition-colors flex items-start gap-1.5"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+            <span>
+              {isMr
+                ? 'हवी असलेली माहिती सापडत नाही का? आमच्या AI मदतनीसाला नक्की विचारा.'
+                : 'Not finding what you are looking for? Let our AI assist you.'}
+            </span>
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          dismissNudge();
+          setIsOpen(true);
+        }}
         aria-label={isMr ? 'आपला स्थानिक सहाय्यक उघडा' : 'Open ApnaTown Sahayak'}
         data-testid="town-assistant-fab"
         className={`fixed ${fabPositionClass} z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-primary-foreground shadow-lg ring-2 ring-background/80 transition-transform hover:scale-105 active:scale-95`}
@@ -555,6 +654,7 @@ export function TownAssistantDrawer() {
                                   <a
                                     href={`tel:${safePhone}`}
                                     aria-label={isMr ? `${rec.title} ला कॉल करा` : `Call ${rec.title}`}
+                                    onClick={(e) => handleTelLinkClick(e, safePhone, rec.title)}
                                     className="flex shrink-0 items-center justify-center border-l px-2.5 text-primary transition-colors hover:bg-primary/10"
                                   >
                                     <Phone className="h-4 w-4" />
