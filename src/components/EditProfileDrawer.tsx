@@ -49,9 +49,11 @@ function ageFromDob(dob: string | null): number | null {
 export function EditProfileDrawer({
   open,
   onOpenChange,
+  onBack,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onBack?: () => void;
 }) {
   const { user } = useAuth();
   const { allCities, currentCity, setCity } = useCity();
@@ -68,6 +70,7 @@ export function EditProfileDrawer({
   const [cityId, setCityId] = useState<string>('');
   const [villageId, setVillageId] = useState<string>('');
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const returnToMenuRef = useRef(false);
 
   // Username is locked once full_name_changed_at is set.
   const usernameLocked = !!profile?.full_name_changed_at;
@@ -92,13 +95,18 @@ export function EditProfileDrawer({
     );
   }, [profile, username, phone, birthDate, gender, cityId, villageId, currentCity.id]);
 
-  const requestClose = useCallback(() => {
+  const requestClose = useCallback((fromBackButton = false) => {
+    if (showDiscardConfirm) return;
+    returnToMenuRef.current = fromBackButton;
     if (hasUnsavedChanges) {
       setShowDiscardConfirm(true);
     } else {
       onOpenChange(false);
+      if (fromBackButton) {
+        onBack?.();
+      }
     }
-  }, [hasUnsavedChanges, onOpenChange]);
+  }, [hasUnsavedChanges, showDiscardConfirm, onOpenChange, onBack]);
 
   const handleDiscardAndClose = () => {
     if (profile) {
@@ -109,8 +117,13 @@ export function EditProfileDrawer({
       setCityId(profile.city_id || currentCity.id);
       setVillageId(profile.village_id || '');
     }
+    const shouldReturn = returnToMenuRef.current;
+    returnToMenuRef.current = false;
     setShowDiscardConfirm(false);
     onOpenChange(false);
+    if (shouldReturn) {
+      onBack?.();
+    }
   };
 
   // Enable mobile swipe-down gesture anywhere on drawer surface
@@ -118,6 +131,7 @@ export function EditProfileDrawer({
     isOpen: open,
     onClose: () => onOpenChange(false),
     beforeClose: () => {
+      returnToMenuRef.current = false;
       if (hasUnsavedChanges) {
         setShowDiscardConfirm(true);
         return false;
@@ -162,9 +176,10 @@ export function EditProfileDrawer({
   };
   useEffect(() => {
     if (!open || !user) return;
+    returnToMenuRef.current = false;
     return loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, user]);
+  }, [open, user?.id]);
 
   // ─── Username availability check ────────────────────────────────────
   const trimmedUser = username.trim().toLowerCase();
@@ -239,7 +254,7 @@ export function EditProfileDrawer({
 
   return (
     <>
-      <Drawer open={open} onOpenChange={(v) => { if (!v) requestClose(); else onOpenChange(true); }}>
+      <Drawer open={open} onOpenChange={(v) => { if (showDiscardConfirm) return; if (!v) requestClose(false); else onOpenChange(true); }}>
       <DrawerContent ref={swipeRef} className="max-w-lg mx-auto rounded-t-2xl overflow-hidden pb-safe">
         <div
           className="h-2 w-full"
@@ -257,7 +272,7 @@ export function EditProfileDrawer({
         {/* Header */}
         <div className="px-4 pt-4 pb-2 flex items-center gap-2">
           <button
-            onClick={requestClose}
+            onClick={() => requestClose(true)}
             className="flex items-center justify-center w-9 h-9 rounded-xl bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors active:scale-95"
             aria-label="Back"
           >

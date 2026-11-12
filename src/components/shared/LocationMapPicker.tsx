@@ -164,6 +164,23 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
     gmapsAuthFailed && Boolean(EXPLICIT_GMAPS_KEY),
   );
 
+  // Key marker/geocode effects on primitive numbers so inline `{ lat, lng }`
+  // objects passed by parent forms don't trigger redundant effects or update loops.
+  const valueLat = value && Number.isFinite(value.lat) ? value.lat : null;
+  const valueLng = value && Number.isFinite(value.lng) ? value.lng : null;
+  const centerLat =
+    initialCenter && Number.isFinite(initialCenter.lat) ? initialCenter.lat : MUKTAINAGAR_CENTER.lat;
+  const centerLng =
+    initialCenter && Number.isFinite(initialCenter.lng) ? initialCenter.lng : MUKTAINAGAR_CENTER.lng;
+  const latestCoordsRef = useRef<Coords | null>(
+    valueLat !== null && valueLng !== null ? { lat: valueLat, lng: valueLng } : null,
+  );
+  latestCoordsRef.current =
+    valueLat !== null && valueLng !== null ? { lat: valueLat, lng: valueLng } : null;
+  const latestCenterRef = useRef<Coords>({ lat: centerLat, lng: centerLng });
+  latestCenterRef.current = { lat: centerLat, lng: centerLng };
+  const lastGeocodedKeyRef = useRef<string | null>(null);
+
   // Google Maps refs
   const gMapRef = useRef<google.maps.Map | null>(null);
   const gMarkerRef = useRef<google.maps.Marker | null>(null);
@@ -194,10 +211,11 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
           if (gmapsAuthFailed) setProvider('osm');
           return;
         }
-        const start = value ?? initialCenter ?? MUKTAINAGAR_CENTER;
+        const initialCoords = latestCoordsRef.current;
+        const start = initialCoords ?? latestCenterRef.current ?? MUKTAINAGAR_CENTER;
         const map = new maps.Map(containerRef.current, {
           center: start,
-          zoom: value ? 17 : 15,
+          zoom: initialCoords ? 17 : 15,
           mapTypeId: mapType,
           mapTypeControl: false,
           streetViewControl: false,
@@ -235,14 +253,17 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
   useEffect(() => {
     if (provider !== 'google') return;
     const map = gMapRef.current;
-    if (!map || !value) {
-      if (gMarkerRef.current && !value) {
+    if (!map || valueLat === null || valueLng === null) {
+      if (gMarkerRef.current && (valueLat === null || valueLng === null)) {
         gMarkerRef.current.setMap(null);
         gMarkerRef.current = null;
       }
+      if (valueLat === null || valueLng === null) {
+        lastGeocodedKeyRef.current = null;
+      }
       return;
     }
-    const pos = { lat: value.lat, lng: value.lng };
+    const pos = { lat: valueLat, lng: valueLng };
     if (!gMarkerRef.current) {
       const marker = new google.maps.Marker({
         map,
@@ -268,9 +289,11 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
     map.panTo(pos);
     if ((map.getZoom() ?? 0) < 15) map.setZoom(17);
 
-    // Reverse geocode via Google Geocoder
+    // Reverse geocode via Google Geocoder (deduped per rounded coordinate key)
     if (onGeocodeRef.current && geocoderRef.current) {
       const cacheK = geocodeKey(pos.lat, pos.lng);
+      if (lastGeocodedKeyRef.current === cacheK) return;
+      lastGeocodedKeyRef.current = cacheK;
       const cached = cacheGet(cacheK);
       if (cached) {
         onGeocodeRef.current(cached);
@@ -302,7 +325,7 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
           .catch(() => { /* silent */ });
       }
     }
-  }, [provider, value]);
+  }, [provider, valueLat, valueLng]);
 
   // ── 2. OPENSTREETMAP (LEAFLET) LIFECYCLE ───────────────────────────
   useEffect(() => {
@@ -317,7 +340,8 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
     loadLeaflet()
       .then((L) => {
         if (cancelled || !containerRef.current) return;
-        const start = value ?? initialCenter ?? MUKTAINAGAR_CENTER;
+        const initialCoords = latestCoordsRef.current;
+        const start = initialCoords ?? latestCenterRef.current ?? MUKTAINAGAR_CENTER;
 
         // Custom clean SVG pin icon
         const pinIcon = L.divIcon({
@@ -328,7 +352,7 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
 
         const map = L.map(containerRef.current, {
           center: [start.lat, start.lng],
-          zoom: value ? 17 : 15,
+          zoom: initialCoords ? 17 : 15,
           zoomControl: false,
           attributionControl: false,
         });
@@ -375,24 +399,31 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
         try { leafletMapRef.current.remove(); } catch { /* ignore */ }
         leafletMapRef.current = null;
       }
+      leafletMarkerRef.current = null;
     };
   }, [provider]);
 
-  // Sync Leaflet marker when value changes
+  // Sync Leaflet marker when coordinates change
   useEffect(() => {
     if (provider !== 'osm' || !leafletMapRef.current) return;
-    if (value && leafletMarkerRef.current) {
-      leafletMarkerRef.current.setLatLng([value.lat, value.lng]);
-      leafletMapRef.current.panTo([value.lat, value.lng]);
+    if (valueLat === null || valueLng === null) {
+      lastGeocodedKeyRef.current = null;
+      return;
+    }
+    if (leafletMarkerRef.current) {
+      leafletMarkerRef.current.setLatLng([valueLat, valueLng]);
+      leafletMapRef.current.panTo([valueLat, valueLng]);
 
-      // Reverse geocode via Nominatim
+      // Reverse geocode via Nominatim (deduped per rounded coordinate key)
       if (onGeocodeRef.current) {
-        const cacheK = geocodeKey(value.lat, value.lng);
+        const cacheK = geocodeKey(valueLat, valueLng);
+        if (lastGeocodedKeyRef.current === cacheK) return;
+        lastGeocodedKeyRef.current = cacheK;
         const cached = cacheGet(cacheK);
         if (cached) {
           onGeocodeRef.current(cached);
         } else {
-          reverseGeocodeOsm(value.lat, value.lng).then((res) => {
+          reverseGeocodeOsm(valueLat, valueLng).then((res) => {
             if (res) {
               cacheSet(cacheK, res);
               onGeocodeRef.current?.(res);
@@ -401,7 +432,7 @@ export function LocationMapPicker({ value, onChange, initialCenter, height = 220
         }
       }
     }
-  }, [provider, value]);
+  }, [provider, valueLat, valueLng]);
 
   return (
     <div className="relative isolate z-0 rounded-xl overflow-hidden border border-border shadow-xs" style={{ height }}>

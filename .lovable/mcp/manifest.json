@@ -19,13 +19,14 @@
       {
         "name": "search_shops",
         "title": "Search shops",
-        "description": "Search the Muktainagar Daily shop directory by name or description. Returns active shops with basic details.",
+        "description": "Search the local business directory by name or description. Returns active shops with basic details.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "query": {
@@ -33,18 +34,20 @@
               "minLength": 1,
               "description": "Text to match against shop name or description."
             },
+            "city": {
+              "description": "Optional city/taluka slug (e.g. 'muktainagar', 'bhusawal').",
+              "type": "string"
+            },
             "limit": {
+              "description": "Max results (default 10).",
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "description": "Max results (default 10)."
+              "maximum": 50
             }
           },
           "required": [
             "query"
-          ],
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          ]
         },
         "outputSchema": null
       },
@@ -58,6 +61,7 @@
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "slug": {
@@ -68,9 +72,7 @@
           },
           "required": [
             "slug"
-          ],
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          ]
         },
         "outputSchema": null
       },
@@ -93,23 +95,137 @@
       {
         "name": "get_bus_timetable",
         "title": "Get bus timetable",
-        "description": "Fetch the Muktainagar bus timetable, optionally filtered by destination.",
+        "description": "Fetch the bus timetable for the specified or default town, optionally filtered by destination.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
+            "city": {
+              "description": "Optional city/taluka slug (e.g. 'muktainagar', 'bhusawal', 'varangaon').",
+              "type": "string"
+            },
             "destination": {
+              "description": "Optional destination filter (case-insensitive substring).",
               "type": "string",
-              "minLength": 1,
-              "description": "Optional destination filter (case-insensitive substring)."
+              "minLength": 1
             }
-          },
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_local_news",
+        "title": "Get local news",
+        "description": "Fetch latest active local news headlines and civic/agriculture/market updates for a town or taluka.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "city": {
+              "description": "Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal').",
+              "type": "string"
+            },
+            "category": {
+              "description": "Optional news category filter.",
+              "type": "string",
+              "enum": [
+                "local",
+                "civic",
+                "education",
+                "agriculture",
+                "markets",
+                "sports",
+                "alerts"
+              ]
+            },
+            "limit": {
+              "description": "Max articles to return (default 10).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_schools",
+        "title": "Search schools & colleges",
+        "description": "Search schools, junior/degree colleges, engineering/ITI institutes, coaching classes, admissions status, and live notices.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Optional name, board, stream, village, or keyword filter.",
+              "type": "string"
+            },
+            "city": {
+              "description": "Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal').",
+              "type": "string"
+            },
+            "admission_status": {
+              "description": "Optional admission status filter.",
+              "type": "string",
+              "enum": [
+                "open",
+                "ongoing",
+                "upcoming",
+                "closed"
+              ]
+            },
+            "limit": {
+              "description": "Max institutes (default 10).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_civic_services",
+        "title": "Get civic alerts & helplines",
+        "description": "Fetch active/scheduled water, electricity (MSEDCL), and municipal civic announcements plus official department helplines.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "city": {
+              "description": "Optional city/taluka slug (e.g. 'maval', 'muktainagar', 'bhusawal').",
+              "type": "string"
+            },
+            "department": {
+              "description": "Optional civic department filter.",
+              "type": "string",
+              "enum": [
+                "water",
+                "electricity",
+                "municipal"
+              ]
+            }
+          }
         },
         "outputSchema": null
       }

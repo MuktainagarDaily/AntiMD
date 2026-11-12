@@ -10,7 +10,13 @@ import PG from '@/pages/PG';
 import Mess from '@/pages/Mess';
 import EssentialServices from '@/pages/EssentialServices';
 import SectionComingSoon from '@/pages/SectionComingSoon';
+import SavedShops from '@/pages/SavedShops';
+import MyShop from '@/pages/MyShop';
 import AdminOverview from '@/pages/admin/Overview';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
+import { LocationMapPicker } from '@/components/shared/LocationMapPicker';
+import { supabase } from '@/integrations/supabase/client';
+import { getGuestBookmarks } from '@/lib/guestBookmarks';
 import { CompactShopCard } from '@/components/home/CompactShopCard';
 import { PGOwnerHub } from '@/components/myshop/PGOwnerHub';
 import { AdminFab } from '@/components/admin/_shared/AdminFab';
@@ -21,9 +27,17 @@ import { Plus } from 'lucide-react';
 
 const {
   mockOfflineState,
+  mockAuthState,
   mockCityContext,
 } = vi.hoisted(() => ({
   mockOfflineState: { online: true },
+  mockAuthState: {
+    user: null as { id: string; email?: string } | null,
+    isAdmin: false,
+    isShopkeeper: false,
+    loading: false,
+    signOut: vi.fn(),
+  },
   mockCityContext: {
     currentCity: {
       id: '644b68eb-472c-40d3-9f83-c7d26e121498',
@@ -56,15 +70,16 @@ const {
   },
 }));
 
-function makeSupabaseChain(data: any[] = [], count = 0) {
+function makeSupabaseChain(data: any[] = [], count = 0): any {
   const result = { data, count, error: null };
-  const chain: Record<string, any> = {
+  const chain: any = {
     select: vi.fn(() => chain),
     eq: vi.fn(() => chain),
     neq: vi.fn(() => chain),
     in: vi.fn(() => chain),
     or: vi.fn(() => chain),
     order: vi.fn(() => chain),
+    gte: vi.fn(() => chain),
     limit: vi.fn(() => chain),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     single: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -81,8 +96,32 @@ vi.mock('@/integrations/supabase/client', () => ({
       onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
     },
     from: vi.fn(() => makeSupabaseChain([])),
+    channel: vi.fn(() => ({
+      on: vi.fn().mockReturnThis(),
+      subscribe: vi.fn().mockReturnThis(),
+      unsubscribe: vi.fn(),
+    })),
+    removeChannel: vi.fn(),
   },
 }));
+
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => mockAuthState,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+vi.mock('@/hooks/useRealtime', () => ({
+  useRealtimeChannel: vi.fn(),
+  useRealtimeRow: vi.fn(),
+}));
+
+vi.mock('@/lib/guestBookmarks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/guestBookmarks')>();
+  return {
+    ...actual,
+    getGuestBookmarks: vi.fn(() => []),
+  };
+});
 
 vi.mock('@/hooks/useCity', () => ({
   useCity: () => mockCityContext,
@@ -156,6 +195,12 @@ describe('Responsive UI & Wiring Regressions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOfflineState.online = true;
+    mockAuthState.user = null;
+    mockAuthState.isAdmin = false;
+    mockAuthState.isShopkeeper = false;
+    mockAuthState.loading = false;
+    vi.mocked(getGuestBookmarks).mockReturnValue([]);
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation(() => makeSupabaseChain([]));
   });
 
   it('keeps BusTimetable header back chevron and bus title in non-overlapping flex slots', async () => {
@@ -345,6 +390,207 @@ describe('Responsive UI & Wiring Regressions', () => {
       }
 
       unmount();
+    }
+  });
+
+  it('SavedShops renders header title "Saved Business" and desktop-responsive grid & nav', async () => {
+    vi.mocked(getGuestBookmarks).mockReturnValue(['shop-1', 'shop-2']);
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'shops') {
+        return makeSupabaseChain([
+          {
+            id: 'shop-1',
+            slug: 'patil-kirana',
+            name: 'Patil Kirana',
+            area: 'Main Road',
+            phone: '9876543210',
+            is_active: true,
+            is_open: true,
+          },
+          {
+            id: 'shop-2',
+            slug: 'sai-mess',
+            name: 'Sai Mess',
+            area: 'College Road',
+            phone: '9876543211',
+            is_active: true,
+            is_open: true,
+            mess_profiles: [{ shop_id: 'shop-2' }],
+          },
+        ]);
+      }
+      return makeSupabaseChain([]);
+    });
+
+    const { container } = renderWithAppProviders(<SavedShops />, ['/saved-shops']);
+
+    const heading = await screen.findByRole('heading', { name: 'Saved Business' });
+    expect(heading).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Saved Shops' })).not.toBeInTheDocument();
+
+    expect(screen.getByRole('navigation', { name: 'Desktop Navigation' })).toBeInTheDocument();
+
+    await screen.findByText('Patil Kirana');
+    const grid = container.querySelector('.md\\:grid-cols-2.lg\\:grid-cols-3');
+    expect(grid).not.toBeNull();
+    expect(container.querySelector('main')?.className).toContain('xl:max-w-7xl');
+  });
+
+  it('MyShop renders desktop-responsive header, DesktopNav, and 12-column workspace layout', async () => {
+    mockAuthState.user = { id: 'owner-1', email: 'owner@test.com' };
+    mockAuthState.isShopkeeper = true;
+
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'shop_owners') {
+        return makeSupabaseChain([
+          {
+            shop_id: 'shop-1',
+            shops: {
+              id: 'shop-1',
+              slug: 'patil-kirana',
+              name: 'Patil Kirana',
+              description: 'Fresh groceries',
+              area: 'Main Road',
+              phone: '9876543210',
+              whatsapp: '9876543210',
+              is_open: true,
+              is_active: true,
+              shop_categories: [],
+              mess_profiles: [],
+              pg_profiles: [],
+            },
+          },
+        ]);
+      }
+      return makeSupabaseChain([]);
+    });
+
+    const { container } = renderWithAppProviders(<MyShop />, ['/my-shop']);
+
+    await screen.findByDisplayValue('Patil Kirana');
+    const header = container.querySelector('header');
+    expect(header?.querySelector('.xl\\:max-w-7xl')).not.toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Desktop Navigation' })).toBeInTheDocument();
+    expect(container.querySelector('.lg\\:grid.lg\\:grid-cols-12')).not.toBeNull();
+    expect(container.querySelector('.lg\\:col-span-8')).not.toBeNull();
+    expect(container.querySelector('aside.lg\\:col-span-4')).not.toBeNull();
+  });
+
+  it('UserMenuDrawer Settings renders Switch controls without nested <button> elements', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      renderWithAppProviders(<UserMenuDrawer />);
+
+      fireEvent.click(screen.getByRole('button', { name: /open user menu/i }));
+      const settingsBtn = await screen.findByRole('button', { name: /settings|सेटिंग्ज/i });
+      fireEvent.click(settingsBtn);
+
+      await screen.findByRole('switch', { checked: false });
+      const switches = screen.getAllByRole('switch');
+      expect(switches.length).toBeGreaterThanOrEqual(2);
+      expect(document.querySelector('button button')).toBeNull();
+
+      const domNestingWarnings = errorSpy.mock.calls.filter((args) =>
+        args.some((a) => typeof a === 'string' && a.includes('validateDOMNesting')),
+      );
+      expect(domNestingWarnings).toHaveLength(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('MyShop + LocationMapPicker do not hit Maximum update depth when coordinates already exist', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const originalL = (window as any).L;
+    const originalFetch = globalThis.fetch;
+
+    const mockMarker = {
+      addTo: vi.fn(),
+      on: vi.fn(),
+      setLatLng: vi.fn(),
+      getLatLng: vi.fn(() => ({ lat: 21.0758, lng: 75.9817 })),
+    };
+    mockMarker.addTo.mockReturnValue(mockMarker);
+
+    (window as any).L = {
+      divIcon: vi.fn(() => ({})),
+      map: vi.fn(() => ({ panTo: vi.fn(), on: vi.fn(), remove: vi.fn() })),
+      tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
+      control: { zoom: vi.fn(() => ({ addTo: vi.fn() })) },
+      marker: vi.fn(() => mockMarker),
+    };
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ address: { road: 'Station Road', suburb: 'Main Road' } }),
+    }) as any;
+
+    try {
+      mockAuthState.user = { id: 'owner-1', email: 'owner@test.com' };
+      mockAuthState.isShopkeeper = true;
+
+      (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+        if (table === 'shop_owners') {
+          return makeSupabaseChain([
+            {
+              shop_id: 'shop-coord-1',
+              shops: {
+                id: 'shop-coord-1',
+                slug: 'coord-shop',
+                name: 'Coord Shop',
+                description: 'Shop with coordinates',
+                address: 'Station Road',
+                area: 'Main Road',
+                phone: '9876543210',
+                whatsapp: '9876543210',
+                latitude: 21.0758,
+                longitude: 75.9817,
+                is_open: true,
+                is_active: true,
+                shop_categories: [],
+                mess_profiles: [],
+                pg_profiles: [],
+              },
+            },
+          ]);
+        }
+        return makeSupabaseChain([]);
+      });
+
+      renderWithAppProviders(<MyShop />, ['/my-shop']);
+      const nameInput = await screen.findByDisplayValue('Coord Shop');
+      fireEvent.change(nameInput, { target: { value: 'Coord Shop Updated' } });
+
+      // Also verify LocationMapPicker directly with fresh inline { lat, lng } objects on every parent state update
+      const geocodeSpy = vi.fn();
+      function ParentHarness() {
+        const [tick, setTick] = React.useState(0);
+        return (
+          <div>
+            <span data-testid="tick">{tick}</span>
+            <LocationMapPicker
+              value={{ lat: 21.0758, lng: 75.9817 }}
+              onChange={vi.fn()}
+              onGeocode={() => {
+                geocodeSpy();
+                setTick((t) => t + 1);
+              }}
+            />
+          </div>
+        );
+      }
+
+      render(<ParentHarness />);
+      await waitFor(() => expect(geocodeSpy.mock.calls.length).toBeLessThanOrEqual(1));
+
+      const maxDepthErrors = errorSpy.mock.calls.filter((args) =>
+        args.some((a) => typeof a === 'string' && a.includes('Maximum update depth exceeded')),
+      );
+      expect(maxDepthErrors).toHaveLength(0);
+    } finally {
+      (window as any).L = originalL;
+      globalThis.fetch = originalFetch;
+      errorSpy.mockRestore();
     }
   });
 });

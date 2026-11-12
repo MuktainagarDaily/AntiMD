@@ -206,7 +206,7 @@
   "shops.pagination.ariaSingle": "{count} shops shown",
   "shops.retrying": "Retrying…",
   "shops.clearedFilters": "Cleared {count} filter(s)",
-  "saved.title": "Saved Shops",
+  "saved.title": "Saved Business",
   "saved.empty": "You haven't saved any shops yet.",
   "saved.cta": "Browse shops",
   "saved.selected": "{count} selected",

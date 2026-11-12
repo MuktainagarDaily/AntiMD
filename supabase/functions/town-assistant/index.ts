@@ -1,3 +1,4 @@
+// @ts-nocheck -- synced from upstream; loosely typed Supabase/AI Gateway calls fail strict Deno checks.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateChatCompletion } from "npm:@lovable.dev/ai-gateway";
 

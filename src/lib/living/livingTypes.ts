@@ -41,6 +41,7 @@ export interface MessWithDetails {
   id: string;
   name: string;
   name_mr?: string | null;
+  description?: string | null;
   slug?: string | null;
   phone?: string | null;
   whatsapp?: string | null;

@@ -61,17 +61,17 @@ interface MenuRowProps {
 }
 function MenuRow({ icon, label, desc, soon, danger, onClick, right }: MenuRowProps) {
   const { t } = useT();
-  return (
-    <button
-      onClick={onClick}
-      disabled={soon}
-      className={`w-full flex items-center gap-3 px-4 py-3 transition-colors rounded-xl group
-        ${danger
-          ? 'hover:bg-destructive/8 active:bg-destructive/12'
-          : 'hover:bg-muted active:bg-muted/80'}
-        ${soon ? 'opacity-60 cursor-default' : 'cursor-pointer'}
-      `}
-    >
+  const isInteractive = Boolean(onClick) && !soon;
+  const rowClassName = `w-full flex items-center gap-3 px-4 py-3 transition-colors rounded-xl group
+    ${danger
+      ? 'hover:bg-destructive/8 active:bg-destructive/12'
+      : isInteractive
+        ? 'hover:bg-muted active:bg-muted/80'
+        : ''}
+    ${soon ? 'opacity-60 cursor-default' : isInteractive ? 'cursor-pointer' : ''}
+  `;
+  const rowContent = (
+    <>
       <span
         className={`flex items-center justify-center w-9 h-9 rounded-xl shrink-0 transition-colors
           ${danger
@@ -88,7 +88,12 @@ function MenuRow({ icon, label, desc, soon, danger, onClick, right }: MenuRowPro
         {desc && <p className="text-[11px] text-muted-foreground mt-0.5 leading-tight">{desc}</p>}
       </div>
       {right ? (
-        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>{right}</div>
+        <div
+          className="shrink-0"
+          onClick={isInteractive ? (e) => e.stopPropagation() : undefined}
+        >
+          {right}
+        </div>
       ) : soon ? (
         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border tracking-wider uppercase"
           style={{ background: 'hsl(38 95% 52% / 0.12)', color: 'hsl(30 80% 38%)', borderColor: 'hsl(38 95% 52% / 0.3)' }}>
@@ -97,6 +102,16 @@ function MenuRow({ icon, label, desc, soon, danger, onClick, right }: MenuRowPro
       ) : (
         !danger && <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0 group-hover:text-primary/50 transition-colors" />
       )}
+    </>
+  );
+
+  if (!isInteractive) {
+    return <div className={rowClassName}>{rowContent}</div>;
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={rowClassName}>
+      {rowContent}
     </button>
   );
 }
@@ -903,7 +918,11 @@ export function UserMenuDrawer({ tone = 'onPrimary' }: UserMenuDrawerProps = {})
       </Drawer>
 
       {/* ── Edit Profile Drawer ── */}
-      <EditProfileDrawer open={editOpen} onOpenChange={setEditOpen} />
+      <EditProfileDrawer
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onBack={() => setOpen(true)}
+      />
 
       {/* ── City / Location Picker Modal ── */}
       <CityPickerModal open={cityPickerOpen} onClose={() => setCityPickerOpen(false)} />

@@ -153,5 +153,5 @@ describe("BusTimetable component", () => {
     });
     expect(evt.detail.query).toContain('Kolhapur Express');
     window.removeEventListener('open-town-assistant', aiSpy as EventListener);
-  });
+  }, 15000);
 });

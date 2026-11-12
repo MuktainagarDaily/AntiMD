@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { useSwipeDownToClose } from '@/hooks/useSwipeDownToClose';
 import { EditProfileDrawer } from '@/components/EditProfileDrawer';
+import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -355,6 +356,144 @@ describe('Swipe-Down to Close Mobile Gesture', () => {
       fireEvent.click(discardBtn);
 
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('invokes onBack when Back is clicked cleanly or after confirming Discard & close', async () => {
+      const onOpenChange = vi.fn();
+      const onBack = vi.fn();
+
+      const { rerender } = render(
+        <HelmetProvider>
+          <QueryClientProvider client={createQueryClient()}>
+            <MemoryRouter initialEntries={['/muktainagar']}>
+              <AuthProvider>
+                <CityProvider>
+                  <I18nProvider>
+                    <EditProfileDrawer open={true} onOpenChange={onOpenChange} onBack={onBack} />
+                  </I18nProvider>
+                </CityProvider>
+              </AuthProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('9876543210')).toBeInTheDocument();
+      });
+
+      // Clean back triggers onBack
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onBack).toHaveBeenCalledTimes(1);
+
+      // Re-open with dirty edits -> Keep editing should NOT invoke onBack, Discard & close SHOULD invoke onBack
+      onOpenChange.mockClear();
+      onBack.mockClear();
+
+      rerender(
+        <HelmetProvider>
+          <QueryClientProvider client={createQueryClient()}>
+            <MemoryRouter initialEntries={['/muktainagar']}>
+              <AuthProvider>
+                <CityProvider>
+                  <I18nProvider>
+                    <EditProfileDrawer open={false} onOpenChange={onOpenChange} onBack={onBack} />
+                  </I18nProvider>
+                </CityProvider>
+              </AuthProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+      rerender(
+        <HelmetProvider>
+          <QueryClientProvider client={createQueryClient()}>
+            <MemoryRouter initialEntries={['/muktainagar']}>
+              <AuthProvider>
+                <CityProvider>
+                  <I18nProvider>
+                    <EditProfileDrawer open={true} onOpenChange={onOpenChange} onBack={onBack} />
+                  </I18nProvider>
+                </CityProvider>
+              </AuthProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('9876543210')).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByDisplayValue('9876543210'), { target: { value: '9123456789' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument();
+      });
+      expect(onBack).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Discard & close' }));
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns to the main UserMenuDrawer profile menu when clicking Back in EditProfileDrawer', async () => {
+      render(
+        <HelmetProvider>
+          <QueryClientProvider client={createQueryClient()}>
+            <MemoryRouter initialEntries={['/muktainagar']}>
+              <AuthProvider>
+                <CityProvider>
+                  <I18nProvider>
+                    <UserMenuDrawer />
+                  </I18nProvider>
+                </CityProvider>
+              </AuthProvider>
+            </MemoryRouter>
+          </QueryClientProvider>
+        </HelmetProvider>
+      );
+
+      const flushClosingDrawers = () => {
+        act(() => {
+          document.querySelectorAll('[data-vaul-drawer][data-state="closed"]').forEach((el) => {
+            const ev = new Event('animationend', { bubbles: true });
+            Object.defineProperty(ev, 'animationName', { value: 'slideToBottom' });
+            el.dispatchEvent(ev);
+          });
+          document.querySelectorAll('[data-vaul-overlay][data-state="closed"]').forEach((el) => {
+            const ev = new Event('animationend', { bubbles: true });
+            Object.defineProperty(ev, 'animationName', { value: 'fadeOut' });
+            el.dispatchEvent(ev);
+          });
+        });
+      };
+
+      // Open main Profile drawer
+      fireEvent.click(screen.getByRole('button', { name: /menu/i }));
+      const editBtn = await screen.findByRole('button', { name: 'Edit profile' });
+      fireEvent.click(editBtn);
+      flushClosingDrawers();
+
+      // EditProfileDrawer opens and loads initial profile
+      await waitFor(() => {
+        expect(screen.getByDisplayValue('9876543210')).toBeInTheDocument();
+      });
+
+      // Clicking Back in EditProfileDrawer returns to main Profile drawer
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+      flushClosingDrawers();
+
+      await waitFor(() => {
+        expect(screen.queryByText('Account details — visible to you')).not.toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Edit profile' })).toBeInTheDocument();
+        expect(screen.getByText('My Businesses')).toBeInTheDocument();
+      });
     });
   });
 });

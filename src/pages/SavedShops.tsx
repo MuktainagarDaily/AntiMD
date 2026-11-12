@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { ShopCard } from '@/components/ShopCard';
 import { BannerSlot } from '@/components/banners/BannerSlot';
+import { DesktopNav } from '@/components/DesktopNav';
 import { UserMenuDrawer } from '@/components/UserMenuDrawer';
 import { PageSeo } from '@/components/seo/PageSeo';
 import { isShopOpen } from '@/lib/shopUtils';
@@ -48,7 +49,7 @@ export default function SavedShops() {
       if (ids.length === 0) return [];
       const { data: shopRows, error: e2 } = await supabase
         .from('shops')
-        .select('*, shop_categories(categories(name, icon, is_active))')
+        .select('*, shop_categories(categories(name, icon, is_active)), mess_profiles(shop_id), pg_profiles(shop_id)')
         .in('id', ids)
         .eq('is_active', true);
       if (e2) throw e2;
@@ -140,38 +141,45 @@ export default function SavedShops() {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageSeo title={`Saved Shops — ${townBrand}`} path="/saved-shops" noindex />
+      <PageSeo title={`${t('saved.title')} — ${townBrand}`} path="/saved-shops" noindex />
 
-      <header className="bg-primary text-primary-foreground px-4 py-3 sticky top-0 z-40 shadow-md">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button
-            onClick={() => (selectMode ? exitSelect() : navigate(`/${currentCity.slug}`))}
-            className="p-1 hover:bg-primary-foreground/10 rounded-lg transition-colors shrink-0"
-            aria-label={selectMode ? t('saved.cancelSelection') : t('common.back')}
-          >
-            {selectMode ? <X className="w-6 h-6" /> : <ArrowLeft className="w-6 h-6" />}
-          </button>
-          <h1 className="font-bold text-lg leading-tight truncate flex-1 flex items-center gap-2">
-            <Bookmark className="w-5 h-5" />
-            {selectMode ? t('saved.selected', { count: selected.size }) : t('saved.title')}
-          </h1>
-          {!selectMode && shops && shops.length > 0 && (
+      <header className="bg-primary text-primary-foreground px-3 sm:px-4 md:px-6 py-3 sticky top-0 z-40 shadow-md">
+        <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 lg:flex-initial">
             <button
-              onClick={() => setSelectMode(true)}
-              className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 shrink-0"
+              onClick={() => (selectMode ? exitSelect() : navigate(`/${currentCity.slug}`))}
+              className="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 hover:bg-primary-foreground/10 rounded-lg transition-colors shrink-0"
+              aria-label={selectMode ? t('saved.cancelSelection') : t('common.back')}
             >
-              {t('saved.select')}
+              {selectMode ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />}
             </button>
-          )}
-          {!selectMode && <UserMenuDrawer />}
+            <h1 className="font-bold text-base sm:text-lg leading-tight truncate flex items-center gap-2">
+              <Bookmark className="w-5 h-5 shrink-0" />
+              <span className="truncate">{selectMode ? t('saved.selected', { count: selected.size }) : t('saved.title')}</span>
+            </h1>
+          </div>
+
+          <DesktopNav variant="primary" />
+
+          <div className="flex items-center gap-2 shrink-0">
+            {!selectMode && shops && shops.length > 0 && (
+              <button
+                onClick={() => setSelectMode(true)}
+                className="text-xs font-bold px-2.5 py-1.5 rounded-lg bg-primary-foreground/10 hover:bg-primary-foreground/15 shrink-0"
+              >
+                {t('saved.select')}
+              </button>
+            )}
+            {!selectMode && <UserMenuDrawer />}
+          </div>
         </div>
       </header>
 
       {/* Search + sort toolbar */}
       {!isLoading && shops && shops.length > 0 && (
-        <div className="sticky top-[56px] z-[5] bg-background/95 backdrop-blur border-b border-border">
-          <div className="max-w-lg mx-auto px-4 py-2.5 flex items-center gap-2">
-            <div className="relative flex-1 min-w-0">
+        <div className="sticky top-[56px] sm:top-[60px] z-[5] bg-background/95 backdrop-blur border-b border-border">
+          <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-2.5 flex items-center gap-2.5">
+            <div className="relative flex-1 min-w-0 md:max-w-md">
               <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={query}
@@ -193,7 +201,7 @@ export default function SavedShops() {
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
-                className="appearance-none max-w-[115px] sm:max-w-none pl-2.5 sm:pl-3 pr-6 sm:pr-7 py-2 rounded-lg border border-input bg-background text-xs font-semibold truncate focus:outline-none focus:ring-2 focus:ring-ring"
+                className="appearance-none max-w-[130px] sm:max-w-none pl-2.5 sm:pl-3 pr-6 sm:pr-7 py-2 rounded-lg border border-input bg-background text-xs sm:text-sm font-semibold truncate focus:outline-none focus:ring-2 focus:ring-ring"
                 aria-label={t('saved.searchAria')}
               >
                 <option value="recent">{t('saved.sort.recent')}</option>
@@ -202,9 +210,14 @@ export default function SavedShops() {
               </select>
               <ChevronDown className="w-3.5 h-3.5 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
             </div>
+            {!selectMode && (
+              <span className="hidden md:inline-block ml-auto text-xs font-medium text-muted-foreground">
+                {t('saved.shown', { count: filtered.length })}
+              </span>
+            )}
           </div>
           {selectMode && (
-            <div className="max-w-lg mx-auto px-4 pb-2 flex items-center justify-between text-xs">
+            <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 pb-2 flex items-center justify-between text-xs">
               <button
                 onClick={toggleAll}
                 className="inline-flex items-center gap-1.5 font-semibold text-foreground hover:text-primary"
@@ -218,15 +231,15 @@ export default function SavedShops() {
         </div>
       )}
 
-      <main className="max-w-lg mx-auto px-4 py-4 pb-32 space-y-3">
+      <main className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-4 md:py-6 pb-32 space-y-4">
         {!user && (
-          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 sm:px-5 sm:py-4 flex items-center justify-between gap-3 shadow-2xs">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 text-primary font-bold text-xs">
+              <div className="flex items-center gap-1.5 text-primary font-bold text-xs sm:text-sm">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                <span>{locale === 'mr' ? 'या डिव्हाइसवर सेव्ह केलेली दुकाने' : 'Saved on this device'}</span>
+                <span>{locale === 'mr' ? 'या डिव्हाइसवर सेव्ह केलेले व्यवसाय' : 'Saved on this device'}</span>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
                 {locale === 'mr'
                   ? 'सर्व डिव्हाइसवर सिंक करण्यासाठी व कधीही न गमावण्यासाठी साइन इन करा.'
                   : 'Sign in to sync your bookmarks across all your devices.'}
@@ -234,7 +247,7 @@ export default function SavedShops() {
             </div>
             <button
               onClick={() => navigate('/auth?next=/saved-shops')}
-              className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
+              className="shrink-0 text-xs sm:text-sm font-bold px-3.5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-xs"
             >
               {locale === 'mr' ? 'साइन इन' : 'Sign in'}
             </button>
@@ -244,7 +257,7 @@ export default function SavedShops() {
         {isLoading || loading ? (
           <p className="text-sm text-muted-foreground text-center py-8">{t('common.loading')}</p>
         ) : !shops || shops.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 md:py-16 max-w-md mx-auto">
             <Bookmark className="w-12 h-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="font-semibold text-foreground">{t('saved.empty.title')}</p>
             <p className="text-sm text-muted-foreground mt-1">
@@ -252,7 +265,7 @@ export default function SavedShops() {
             </p>
             <button
               onClick={() => navigate(`/${currentCity.slug}/shops`)}
-              className="mt-5 inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground"
+              className="mt-5 inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               {t('saved.browseShops')}
             </button>
@@ -266,30 +279,32 @@ export default function SavedShops() {
             {filtered.length >= 3 && (
               <BannerSlot placement="saved_inline" fallback="homepage_inline" className="mb-1" />
             )}
-            {filtered.map((s: any) => (
-            <div key={s.id} className="relative">
-              {selectMode && (
-                <button
-                  onClick={() => toggleOne(s.id)}
-                  className="absolute top-2 left-2 z-10 bg-card/95 backdrop-blur rounded-full p-1 shadow-md border border-border"
-                  aria-label={selected.has(s.id) ? t('saved.unselect') : t('saved.select')}
-                >
-                  {selected.has(s.id) ? (
-                    <CheckSquare className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Square className="w-5 h-5 text-muted-foreground" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              {filtered.map((s: any) => (
+                <div key={s.id} className="relative h-full">
+                  {selectMode && (
+                    <button
+                      onClick={() => toggleOne(s.id)}
+                      className="absolute top-2 left-2 z-10 bg-card/95 backdrop-blur rounded-full p-1 shadow-md border border-border"
+                      aria-label={selected.has(s.id) ? t('saved.unselect') : t('saved.select')}
+                    >
+                      {selected.has(s.id) ? (
+                        <CheckSquare className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Square className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </button>
                   )}
-                </button>
-              )}
-              <div
-                className={selectMode ? 'pointer-events-none opacity-95' : ''}
-                onClickCapture={selectMode ? (e) => { e.preventDefault(); e.stopPropagation(); toggleOne(s.id); } : undefined}
-                style={selectMode ? { pointerEvents: 'auto' } : undefined}
-              >
-                <ShopCard shop={s} />
-              </div>
+                  <div
+                    className={selectMode ? 'pointer-events-none opacity-95 h-full' : 'h-full'}
+                    onClickCapture={selectMode ? (e) => { e.preventDefault(); e.stopPropagation(); toggleOne(s.id); } : undefined}
+                    style={selectMode ? { pointerEvents: 'auto' } : undefined}
+                  >
+                    <ShopCard shop={s} />
+                  </div>
+                </div>
+              ))}
             </div>
-            ))}
           </>
         )}
       </main>
@@ -300,21 +315,26 @@ export default function SavedShops() {
           className="fixed bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur shadow-[0_-4px_12px_-4px_hsl(var(--foreground)/0.15)]"
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
-          <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-2">
-            <button
-              onClick={exitSelect}
-              className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
-            >
-              {t('saved.cancel')}
-            </button>
-            <button
-              onClick={removeSelected}
-              disabled={removing}
-              className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              {t('saved.removeCount', { count: selected.size })}
-            </button>
+          <div className="max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between gap-3">
+            <span className="hidden sm:inline text-sm font-semibold text-muted-foreground">
+              {t('saved.selected', { count: selected.size })}
+            </span>
+            <div className="flex flex-1 sm:flex-initial items-center gap-2 sm:min-w-[300px]">
+              <button
+                onClick={exitSelect}
+                className="flex-1 py-2.5 px-4 rounded-xl border border-border text-sm font-semibold hover:bg-muted"
+              >
+                {t('saved.cancel')}
+              </button>
+              <button
+                onClick={removeSelected}
+                disabled={removing}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {removing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {t('saved.removeCount', { count: selected.size })}
+              </button>
+            </div>
           </div>
         </div>
       )}

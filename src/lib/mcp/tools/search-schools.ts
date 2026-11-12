@@ -42,7 +42,7 @@ export default defineTool({
       "id, slug, name, name_mr, school_type, medium, management_type, area, address, phone, board, admission_status, admission_deadline, fee_tier, annual_fee_min, annual_fee_max, streams, scholarships, transport_villages, available_seats, is_verified";
     const legacyCols = "id, name, name_mr, school_type, medium, area, address, phone";
 
-    const runQuery = (cols: string, useBoardFilter: boolean) => {
+    const runQuery = (cols = "", useBoardFilter = false) => {
       let q = supabase.from("schools").select(cols).eq("is_active", true).limit(limit ?? 10);
       if (cityId) {
         q = citySlug === "muktainagar" ? q.or(`city_id.eq.${cityId},city_id.is.null`) : q.eq("city_id", cityId);
