@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useT } from '@/i18n';
-import { isSafeHttpUrl } from '@/lib/utils';
+import { isSafeHttpUrl, getInternalNavPath } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import { useBannersForPlacement } from '@/hooks/useBanners';
 import { optimizedImage, optimizedSrcSet } from '@/lib/uxUtils';
 import {
@@ -29,6 +30,7 @@ const SCROLL_PX = 600;       // 600px scrolled, whichever first
  * below 20s). X is disabled until `close_enable_seconds` countdown reaches 0.
  */
 export function BannerPopup() {
+  const navigate = useNavigate();
   const { t } = useT();
   const banners = useBannersForPlacement('popup');
   const banner = banners[0];
@@ -120,7 +122,10 @@ export function BannerPopup() {
     markPopupSeen(banner.id);
     // Defence-in-depth: never open non-http(s) URLs — blocks stored
     // `javascript:` / `data:` XSS if a bad row ever reaches the client.
-    if (isSafeHttpUrl(banner.target_url)) {
+    const internalPath = getInternalNavPath(banner.target_url);
+    if (internalPath) {
+      navigate(internalPath);
+    } else if (isSafeHttpUrl(banner.target_url)) {
       window.open(banner.target_url, '_blank', 'noopener,noreferrer');
     }
     setOpen(false);

@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Banner } from '@/lib/banners/types';
 import { trackView, trackClick } from '@/lib/banners/store';
 import { useT } from '@/i18n';
-import { isSafeHttpUrl } from '@/lib/utils';
+import { isSafeHttpUrl, getInternalNavPath } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import { optimizedImage, optimizedSrcSet } from '@/lib/uxUtils';
 
 interface Props { banner: Banner; }
@@ -14,6 +15,7 @@ interface Props { banner: Banner; }
 export function InlineBanner({ banner }: Props) {
   const ref = useRef<HTMLAnchorElement>(null);
   const { t } = useT();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const el = ref.current;
@@ -39,6 +41,7 @@ export function InlineBanner({ banner }: Props) {
   // that isn't safely http/https so a compromised admin row cannot ship
   // `javascript:` / `data:` XSS to every public visitor.
   const safeHref = isSafeHttpUrl(banner.target_url) ? banner.target_url : '#';
+  const internalPath = getInternalNavPath(banner.target_url);
   const sized = optimizedImage(banner.image_url, { width: 800 }) || banner.image_url;
   const srcSet = optimizedSrcSet(banner.image_url, 800);
 
@@ -46,10 +49,14 @@ export function InlineBanner({ banner }: Props) {
     <a
       ref={ref}
       href={safeHref}
-      target="_blank"
-      rel="noopener noreferrer sponsored"
+      target={internalPath ? undefined : '_blank'}
+      rel={internalPath ? 'sponsored' : 'noopener noreferrer sponsored'}
       aria-label={`${t('banner.sponsored')}: ${banner.title}`}
-      onClick={(e) => { if (safeHref === '#') e.preventDefault(); trackClick(banner.id); }}
+      onClick={(e) => {
+        trackClick(banner.id);
+        if (safeHref === '#') { e.preventDefault(); return; }
+        if (internalPath) { e.preventDefault(); navigate(internalPath); }
+      }}
       className="block relative w-full overflow-hidden rounded-2xl border border-dashed border-border/80 shadow-sm hover:shadow-md transition-shadow group aspect-[16/9] sm:aspect-[3/1]"
     >
       <img

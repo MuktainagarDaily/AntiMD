@@ -71,3 +71,19 @@ export function isValidIndianPhone(raw: string): boolean {
 /** Shared text-input Tailwind class used across admin + request forms. */
 export const inputCls =
   'w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring text-sm';
+
+/** Hosts treated as "this app" — ad links to them stay in the same tab/PWA window. */
+const INTERNAL_HOSTS = ['apnatownn.lovable.app'];
+
+/** Returns a same-origin relative path (`/x?y#z`) if `raw` points into this app, else null. */
+export function getInternalNavPath(raw: unknown): string | null {
+  if (!isSafeHttpUrl(raw)) return null;
+  try {
+    const u = new URL(raw.trim());
+    const here = typeof window !== 'undefined' ? window.location.host : '';
+    const internal = (u.protocol === 'https:' && INTERNAL_HOSTS.includes(u.host)) || (here && u.host === here);
+    return internal ? (u.pathname || '/') + u.search + u.hash : null;
+  } catch {
+    return null;
+  }
+}
