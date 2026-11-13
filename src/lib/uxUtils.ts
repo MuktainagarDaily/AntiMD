@@ -23,10 +23,10 @@ const VIBRATION_OK =
  *  - 'press'  → 10ms  (Call/WhatsApp/Maps tap)
  *  - 'success'→ [10,40,10] (after a confirm action — e.g. submit succeeded)
  */
-export function haptic(kind: 'tap' | 'press' | 'success' = 'tap'): void {
+export function haptic(kind: 'tap' | 'press' | 'success' | 'light' = 'tap'): void {
   if (!VIBRATION_OK) return;
   try {
-    if (kind === 'tap') navigator.vibrate(6);
+    if (kind === 'tap' || kind === 'light') navigator.vibrate(6);
     else if (kind === 'press') navigator.vibrate(10);
     else navigator.vibrate([10, 40, 10]);
   } catch {

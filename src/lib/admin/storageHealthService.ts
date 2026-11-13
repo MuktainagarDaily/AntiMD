@@ -1013,7 +1013,9 @@ export async function probeEdgeFunction(name: string, label: string): Promise<Ed
   try {
     const res = await fetch(endpoint, {
       method: 'OPTIONS',
-      headers: anonKey ? { apikey: anonKey } : {},
+      // No custom headers: a bare OPTIONS is a "simple" probe that every
+      // function (incl. the auto-generated MCP server) answers without a
+      // CORS preflight conflict on any origin.
       signal: controller.signal,
     });
     const latencyMs = Math.round(performance.now() - t0);

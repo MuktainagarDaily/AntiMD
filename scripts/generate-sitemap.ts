@@ -9,7 +9,7 @@
 import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
-const BASE_URL = process.env.VITE_SITE_URL || 'https://muktainagar-daily.lovable.app';
+const BASE_URL = process.env.VITE_SITE_URL || 'https://apnatownn.lovable.app';
 
 // --- Load .env without a dotenv dependency -------------------------------
 function loadEnv() {

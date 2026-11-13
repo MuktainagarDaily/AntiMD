@@ -352,9 +352,9 @@ export default function ShopDetail() {
   const localBusinessLd: any = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
-    '@id': `https://muktainagar-daily.lovable.app/${currentCity.slug}/shop/${slugSeg}`,
+    '@id': `https://apnatownn.lovable.app/${currentCity.slug}/shop/${slugSeg}`,
     name: shop.name,
-    url: `https://muktainagar-daily.lovable.app/${currentCity.slug}/shop/${slugSeg}`,
+    url: `https://apnatownn.lovable.app/${currentCity.slug}/shop/${slugSeg}`,
   };
   if (shop.image_url) localBusinessLd.image = shop.image_url;
   if (shop.phone) localBusinessLd.telephone = shop.phone;

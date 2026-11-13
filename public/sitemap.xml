@@ -1,208 +1,1035 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://muktainagar-daily.lovable.app/</loc>
+    <loc>https://apnatownn.lovable.app/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/ss-mobile</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/shalimar-kirana</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bhusawal</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bhusawal/shops</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bhusawal/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/santosh-electronics-and-sound-system</loc>
-    <lastmod>2026-08-10</lastmod>
+    <loc>https://apnatownn.lovable.app/bhusawal/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/varangaon</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/varangaon/shops</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/varangaon/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/samarth-digital-photo-studio</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/varangaon/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bodwad</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bodwad/shops</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/bodwad/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/khushi-fancy-readymade</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/bodwad/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/maval</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/maval/shops</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/maval/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/yash-paints</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/maval/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/pune</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/pune/shops</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/pune/bus-timetable</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/jai-bhavani-general-store</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/pune/schools</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/ss-mobile</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/new-fashion-tailor</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shalimar-kirana</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/puja-super-shoppee</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/monginis-cake-shop</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/new-muktai-electricals-furniture-showroom</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shri-sai-krupa-optical</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/monginis-cake-shop</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shri-laxmi-narayan-traders</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/shri-ganesh-electrical</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/padmavati-cold-drinks</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/shri-sai-krupa-optical</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/mahajan-offset-and-zerox-general-store</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/padmavati-cold-drinks</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/jai-bhavani-general-store</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/aashirwad-electronics</loc>
-    <lastmod>2026-06-29</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/aashirwad-electronics</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/jay-fashion</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/khushi-fancy-readymade</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/sai-electrical-and-motor-rewinding</loc>
-    <lastmod>2026-04-26</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/jay-fashion</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/mahajan-offset-and-zerox-general-store</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shri-ganesh-electrical</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/shri-laxmi-narayan-traders</loc>
-    <lastmod>2026-05-03</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/sai-electrical-and-motor-rewinding</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/sb-tailor</loc>
-    <lastmod>2026-06-05</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/yash-paints</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shop/gurudatta-furniture</loc>
-    <lastmod>2026-06-27</lastmod>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/new-fashion-tailor</loc>
+    <lastmod>2026-10-24</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Medical</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/mauli-kirana-general-stores-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/santosh-electronics-and-sound-system</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/samarth-digital-photo-studio</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/dev-test-shop</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-ganesh-super-market-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/khandoba-kirana-bhandar-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/balaji-provisions-dry-fruits-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/swastik-daily-needs-mart-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/annapurna-tiffin-service</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-sai-boys-hostel</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/matoshree-girls-pg</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gurukrupa-executive-pg</loc>
+    <lastmod>2026-11-04</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-swami-samarth-bhojanalay</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gurukrupa-kirana-stores-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/ambika-traders-general-store-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/parandwadi-mart-provisions-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kolhapuri-ruchira-mess</loc>
+    <lastmod>2026-11-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/puja-super-shoppee</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/new-muktai-electricals-furniture-showroom</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/sb-tailor</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gurudatta-furniture</loc>
+    <lastmod>2026-10-24</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-sai-medical-chemist-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/sanjivani-pharmacy-health-store-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/dhanvantari-chemist-druggist-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/apollo-lifecare-medicals-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/wellness-forever-generic-chemist-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-medico-surgicals-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/om-sai-medical-clinic-support-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/careplus-pharmacy-parandwadi-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-visawa-family-restaurant-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-nisarga-garden-dining-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-swad-maharashtrian-thali-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kokan-katta-seafood-veg-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-rajwada-pure-veg-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-sai-prasad-executive-dining-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/dhaba-99-highway-express-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-annapurna-bhojanalay-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/katraj-dairy-parlour-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/chitale-bandhu-dairy-products-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gokul-pure-milk-sweets-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-cow-milk-center-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/amul-authorized-ice-cream-milk-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/govind-milk-bar-sweets-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/warana-dairy-bakery-counter-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-ram-hardware-electricals-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/asian-paints-building-materials-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kisan-hardware-agro-tools-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-plywood-hardware-store-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/supreme-pipes-sanitary-mart-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/balaji-tools-machinery-spares-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/om-electrical-hardware-works-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/parandwadi-cement-steel-depot-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/om-sai-mobile-electronics-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/vijay-sales-home-appliances-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/digital-world-laptop-mobile-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-ganesh-electronics-mart-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/city-mobile-gallery-recharge-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-solar-inverter-solutions-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/apex-computer-cctv-security-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/smart-choice-gadgets-accessories-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kalyani-saree-center-matching-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/royal-mens-wear-suiting-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/pari-kids-wear-toys-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/trends-fashion-hub-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/sahyadri-hosiery-undergarments-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/durga-collection-ladies-tailors-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/mahalaxmi-cloth-stores-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/iyengar-bakery-sweets-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/monginis-cake-shop-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kwality-bakes-cookies-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/live-cake-factory-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/new-poona-bakery-outlet-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/seven-hills-bakers-cafe-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/golden-oven-daily-breads-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/vidyarthi-book-depot-xerox-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/om-graphics-jumbo-xerox-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/chaitanya-stationery-novelty-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-digital-print-cyber-cafe-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/student-point-art-supplies-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/saraswati-stationery-gift-articles-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/fast-print-xerox-scanning-hub-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/natural-beauty-salon-spa-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/men-choice-hair-saloon-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/cool-care-ac-fridge-repair-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-krishna-dry-cleaners-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/express-plumber-electrician-works-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/om-sai-ro-purifier-service-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/speedy-bike-car-wash-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/pest-control-solutions-parandwadi-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/royal-auto-spares-two-wheeler-works-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/omkar-tyres-puncture-service-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-car-care-multi-brand-garage-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/jay-hind-auto-electric-battery-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-ganesh-bike-service-center-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/mauli-ruchira-mess-parandwadi</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/annapurna-pure-veg-mess-parandwadi</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/highway-heavy-auto-parts-grease-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/speed-moto-spares-accessories-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/classic-car-ac-gas-charging-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shetkari-fresh-veggies-fruits-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kisan-fresh-organic-vegetable-mart-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/ganesh-fruit-market-juice-corner-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-krushi-daily-greens-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hinjewadi-green-cart-produce-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gurukrupa-boys-hostel-parandwadi</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/saikrupa-girls-pg-parandwadi</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/daily-fresh-fruit-depot-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/gramin-bhaji-market-parandwadi-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/yewale-amruttulya-chaha-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/sai-sagar-juice-fast-food-center-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/kaka-halwai-sweets-farsan-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/cafe-coffee-break-burgers-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/hotel-kolhapuri-misal-house-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/chaat-chaska-pani-puri-center-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/havmor-vadilal-ice-cream-parlour-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/chai-tapri-evening-snacks-hub-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/mahalaxmi-furniture-mattress-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/shree-krishna-utensils-crockery-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/maval-plastic-household-mart-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/siddhi-home-decor-curtains-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/comfort-foam-pillow-house-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/steel-world-almirah-racks-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shop/home-care-appliances-gift-gallery-parandwadi</loc>
+    <lastmod>2026-11-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Medical</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Restaurant</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Restaurant</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Clothing</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Clothing</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Hardware</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Hardware</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Bakery</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Bakery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Dairy</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Dairy</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Stationery</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Stationery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Grocery</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Grocery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Electronics</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Electronics</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Vegetable%20Shops</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Vegetable%20Shops</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Snacks%20%26%20Beverages</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Snacks%20%26%20Beverages</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Services</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Services</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Home%20and%20Living</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Home%20and%20Living</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://muktainagar-daily.lovable.app/shops?category=Auto%20Parts</loc>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Auto%20Parts</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=Mess%20%26%20Dining</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://apnatownn.lovable.app/muktainagar/shops?category=PG%20%26%20Hostels</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>

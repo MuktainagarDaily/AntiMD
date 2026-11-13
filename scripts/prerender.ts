@@ -16,7 +16,7 @@
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 
-const BASE_URL = process.env.VITE_SITE_URL || 'https://muktainagar-daily.lovable.app';
+const BASE_URL = process.env.VITE_SITE_URL || 'https://apnatownn.lovable.app';
 const SITE_NAME = 'Muktainagar Daily';
 const DEFAULT_DESCRIPTION =
   'Find local shops and services in Muktainagar. Your hyperlocal business directory — grocery, medical, restaurants and more.';

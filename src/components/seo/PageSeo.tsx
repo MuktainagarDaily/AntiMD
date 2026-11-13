@@ -1,7 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { useOptionalCity } from '@/hooks/useCity';
 
-export const SITE_URL = 'https://muktainagar-daily.lovable.app';
+export const SITE_URL = 'https://apnatownn.lovable.app';
 export const SITE_NAME = 'ApnaTown';
 
 type PageSeoProps = {

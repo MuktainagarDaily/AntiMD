@@ -20,7 +20,6 @@ import { useCity } from '@/hooks/useCity';
 import { LocationPill } from '@/components/shared/LocationPill';
 import { DesktopNav } from '@/components/DesktopNav';
 import { Footer } from '@/components/shared/Footer';
-import logoIcon from '@/assets/logo-icon.png';
 import { fetchActiveCriticalAlerts } from '@/lib/services/authorityService';
 import { fetchMessesForCity, fetchPGsForCity } from '@/lib/living/livingService';
 import { schoolsRepo } from '@/lib/repos/schoolsRepo';
@@ -788,10 +787,10 @@ export default function Home() {
             '@context': 'https://schema.org',
             '@type': 'WebSite',
             name: townBrand,
-            url: `https://muktainagar-daily.lovable.app/${currentCity.slug}`,
+            url: `https://apnatownn.lovable.app/${currentCity.slug}`,
             potentialAction: {
               '@type': 'SearchAction',
-              target: `https://muktainagar-daily.lovable.app/${currentCity.slug}/shops?search={search_term_string}`,
+              target: `https://apnatownn.lovable.app/${currentCity.slug}/shops?search={search_term_string}`,
               'query-input': 'required name=search_term_string',
             },
           },
@@ -799,8 +798,8 @@ export default function Home() {
             '@context': 'https://schema.org',
             '@type': 'Organization',
             name: townBrand,
-            url: `https://muktainagar-daily.lovable.app/${currentCity.slug}`,
-            logo: 'https://muktainagar-daily.lovable.app/icons/icon-512.png',
+            url: `https://apnatownn.lovable.app/${currentCity.slug}`,
+            logo: 'https://apnatownn.lovable.app/icons/icon-512.png',
             areaServed: {
               '@type': 'City',
               name: currentCity.name,
@@ -849,8 +848,9 @@ export default function Home() {
         {/* Desktop Header Topbar (>= lg screens, aligned with DesktopNav) */}
         <div className="hidden lg:flex items-center justify-between gap-3 max-w-6xl xl:max-w-7xl mx-auto px-4 lg:px-6 mb-5 pb-3 border-b border-primary-foreground/15 relative z-20">
           <div className="flex items-center gap-2.5 shrink-0">
+            <img src="/icons/icon-192.png" alt="" width={36} height={36} className="w-9 h-9 rounded-xl shadow-md" />
             <span className="font-extrabold text-lg text-primary-foreground tracking-tight">
-              {locale === 'mr' ? 'अपनाTown' : 'ApnaTown'}
+              {locale === 'mr' ? 'अपना टाउन' : 'ApnaTown'}
             </span>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/20">
               {townName}
@@ -868,30 +868,18 @@ export default function Home() {
         <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto relative z-10">
           {/* Brand Row — master brand ApnaTown + dynamic town badge + canonical tagline */}
           <div className="relative flex flex-wrap items-center justify-center gap-2.5 sm:gap-3.5 mb-1">
-            <div className="shrink-0 drop-shadow-md animate-[logo-enter_0.6s_cubic-bezier(0.34,1.56,0.64,1)_both]">
-              <img
-                src={logoIcon}
-                alt="ApnaTown Logo"
-                width={80}
-                height={80}
-                loading="eager"
-                decoding="async"
-                // @ts-ignore
-                fetchpriority="high"
-                className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl border-2 border-primary-foreground/20 shadow-lg"
-              />
-            </div>
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
+                <img src="/icons/icon-192.png" alt="" width={44} height={44} loading="eager" className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl shadow-md shrink-0" />
                 <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight leading-tight text-primary-foreground">
-                  {locale === 'mr' ? 'अपनाTown' : 'ApnaTown'}
+                  {locale === 'mr' ? 'अपना टाउन' : 'ApnaTown'}
                 </h1>
                 <span className="text-xs sm:text-sm font-semibold px-2.5 py-0.5 rounded-full bg-primary-foreground/15 text-primary-foreground border border-primary-foreground/20 backdrop-blur-xs">
                   {townName}
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs font-medium text-primary-foreground/90 mt-0.5 tracking-wide">
-                {branding.tagline}
+                {locale === 'mr' ? branding.tagline_mr : branding.tagline}
               </p>
             </div>
           </div>

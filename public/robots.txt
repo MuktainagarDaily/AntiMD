@@ -18,4 +18,4 @@ Disallow: /reset-password
 Disallow: /my-shop
 Disallow: /saved-shops
 
-Sitemap: https://muktainagar-daily.lovable.app/sitemap.xml
+Sitemap: https://apnatownn.lovable.app/sitemap.xml
